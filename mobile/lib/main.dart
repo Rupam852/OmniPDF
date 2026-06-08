@@ -264,6 +264,7 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
   late final TextEditingController _protectPasswordController;
   String _targetUnit = 'KB';
   String _targetLanguage = 'Spanish';
+  double _compressionPercent = 50.0;
   final List<String> _languages = [
     'Spanish',
     'French',
@@ -406,8 +407,11 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
       }
 
       if (widget.tool['id'] == 'compress') {
-        request.fields['targetSize'] = _targetSizeController.text.trim();
-        request.fields['targetUnit'] = _targetUnit;
+        final double originalSize = _pickedFiles.isNotEmpty ? _pickedFiles[0].size.toDouble() : 0.0;
+        final double targetBytes = originalSize * (_compressionPercent / 100.0);
+        final double targetKB = targetBytes / 1024.0;
+        request.fields['targetSize'] = targetKB.toStringAsFixed(1);
+        request.fields['targetUnit'] = 'KB';
       }
 
       if (widget.tool['id'] == 'protect') {
@@ -949,55 +953,51 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Compression Options',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF60A5FA),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
                         Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Expanded(
-                              flex: 2,
-                              child: TextField(
-                                controller: _targetSizeController,
-                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                decoration: const InputDecoration(
-                                  labelText: 'Target Size',
-                                  labelStyle: TextStyle(fontSize: 13, color: Colors.grey),
-                                  border: OutlineInputBorder(),
-                                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                ),
+                            const Text(
+                              'Compression Level',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF60A5FA),
                               ),
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: DropdownButtonFormField<String>(
-                                initialValue: _targetUnit,
-                                dropdownColor: const Color(0xFF0B1329),
-                                decoration: const InputDecoration(
-                                  labelText: 'Unit',
-                                  labelStyle: TextStyle(fontSize: 13, color: Colors.grey),
-                                  border: OutlineInputBorder(),
-                                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                ),
-                                items: const [
-                                  DropdownMenuItem(value: 'KB', child: Text('KB')),
-                                  DropdownMenuItem(value: 'MB', child: Text('MB')),
-                                ],
-                                onChanged: (String? newVal) {
-                                  if (newVal != null) {
-                                    setState(() {
-                                      _targetUnit = newVal;
-                                    });
-                                  }
-                                },
+                            Text(
+                              '${_compressionPercent.toInt()}% (${((_pickedFiles.isNotEmpty ? _pickedFiles[0].size : 0) * (_compressionPercent / 100) / 1024).toStringAsFixed(0)} KB)',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF60A5FA),
                               ),
                             ),
                           ],
+                        ),
+                        const SizedBox(height: 12),
+                        Slider(
+                          min: 10.0,
+                          max: 90.0,
+                          divisions: 8,
+                          value: _compressionPercent,
+                          activeColor: Colors.blueAccent,
+                          inactiveColor: const Color(0xFF0F172A),
+                          onChanged: (double val) {
+                            setState(() {
+                              _compressionPercent = val;
+                            });
+                          },
+                        ),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 8.0),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('High (10%)', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                              Text('Medium (50%)', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                              Text('Low (90%)', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                            ],
+                          ),
                         ),
                       ],
                     ),

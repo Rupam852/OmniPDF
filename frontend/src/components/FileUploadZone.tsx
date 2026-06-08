@@ -1,4 +1,4 @@
-import React, { useState, useRef, DragEvent } from 'react';
+import React, { useState, useRef, DragEvent, useEffect } from 'react';
 
 interface FileUploadZoneProps {
   toolName: string;
@@ -26,6 +26,7 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
   // ─── Tool-specific option states ─────────────────────────────────────────
   const [targetSize, setTargetSize] = useState<number>(500);
   const [targetUnit, setTargetUnit] = useState<'KB' | 'MB'>('KB');
+  const [compressionPercent, setCompressionPercent] = useState<number>(50);
   const [watermarkText, setWatermarkText] = useState('OmniPDF');
   const [watermarkFontSize, setWatermarkFontSize] = useState<number>(40);
   const [opacity, setOpacity] = useState<number>(0.15);
@@ -52,6 +53,14 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
   const [protectPassword, setProtectPassword] = useState('');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (files.length > 0 && toolId === 'compress') {
+      const targetBytes = files[0].size * (compressionPercent / 100);
+      setTargetSize(parseFloat((targetBytes / 1024).toFixed(1)));
+      setTargetUnit('KB');
+    }
+  }, [files, compressionPercent, toolId]);
 
   const handleDrag = (e: DragEvent) => {
     e.preventDefault();
@@ -290,24 +299,35 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
 
             {/* COMPRESS options */}
             {toolId === 'compress' && (
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end' }}>
-                <div style={{ ...styles.settingGroup, flex: 1 }}>
-                  <label style={styles.label}>Target Size:</label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={targetSize}
-                    onChange={(e) => setTargetSize(parseFloat(e.target.value) || 0)}
-                    style={styles.input}
-                    id="target-size-input"
-                  />
+              <div style={styles.settingGroup}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <label style={styles.label}>Target Size (Compression Level):</label>
+                  <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#60a5fa' }}>
+                    {compressionPercent}% of original ({((files[0]?.size || 0) * (compressionPercent / 100) / 1024).toFixed(0)} KB)
+                  </span>
                 </div>
-                <div style={{ ...styles.settingGroup, width: '90px' }}>
-                  <label style={styles.label}>Unit:</label>
-                  <select value={targetUnit} onChange={(e) => setTargetUnit(e.target.value as any)} style={styles.select} id="target-unit-select">
-                    <option value="KB">KB</option>
-                    <option value="MB">MB</option>
-                  </select>
+                <input
+                  type="range"
+                  min="10"
+                  max="90"
+                  value={compressionPercent}
+                  onChange={(e) => setCompressionPercent(parseInt(e.target.value, 10))}
+                  style={{
+                    width: '100%',
+                    accentColor: '#3b82f6',
+                    cursor: 'pointer',
+                    marginTop: '8px',
+                    height: '6px',
+                    borderRadius: '3px',
+                    background: '#1e293b',
+                    outline: 'none',
+                  }}
+                  id="compression-slider"
+                />
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#64748b', marginTop: '4px' }}>
+                  <span>High Compression (10% size)</span>
+                  <span>Medium (50%)</span>
+                  <span>Low Compression (90% size)</span>
                 </div>
               </div>
             )}
