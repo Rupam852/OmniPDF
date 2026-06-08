@@ -4,7 +4,7 @@ import { requireAuth, AuthenticatedRequest } from '../middleware/auth';
 import { processingLimiter } from '../middleware/rateLimiter';
 import { decryptKey } from '../utils/crypto';
 import prisma from '../services/prisma';
-import { GoogleGenAI } from '@google/generative-ai'; // Official Google Gemini SDK
+import { GoogleGenerativeAI } from '@google/generative-ai'; // Official Google Gemini SDK
 
 const router = Router();
 

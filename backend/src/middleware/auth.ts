@@ -10,6 +10,8 @@ export interface AuthenticatedRequest extends Request {
     name?: string;
     picture?: string;
   };
+  file?: any;
+  files?: any;
 }
 
 /**
