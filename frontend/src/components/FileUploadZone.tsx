@@ -49,8 +49,8 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
   const [pageNumPosition, setPageNumPosition] = useState('bottom-center');
   const [pageNumStart, setPageNumStart] = useState<number>(1);
   const [pageNumPrefix, setPageNumPrefix] = useState('');
-  // Protect
-  const [protectPassword, setProtectPassword] = useState('');
+  // Protect / Unlock
+  const [pdfPassword, setPdfPassword] = useState('');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -175,8 +175,8 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
         // Page numbers
         position: pageNumPosition, startNumber: String(pageNumStart), prefix: pageNumPrefix,
         pgNumFontSize: '10',
-        // Protect
-        password: protectPassword,
+        // Protect / Unlock
+        password: pdfPassword,
       };
 
       // For extract-pages, we forward extractPageRanges as pageRanges
@@ -455,9 +455,32 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
             {/* PROTECT options */}
             {toolId === 'protect' && (
               <div className="setting-group">
-                <label className="setting-label">Security Note (optional visual label):</label>
-                <input type="text" placeholder="CONFIDENTIAL" value={protectPassword} onChange={(e) => setProtectPassword(e.target.value)} className="setting-input" />
-                <small className="setting-hint">⚠️ Note: Full AES password encryption requires a server binary. This tool applies a visible security stamp.</small>
+                <label className="setting-label">Password to Encrypt PDF:</label>
+                <input
+                  type="password"
+                  placeholder="Enter encryption password..."
+                  value={pdfPassword}
+                  onChange={(e) => setPdfPassword(e.target.value)}
+                  className="setting-input"
+                  id="protect-password-input"
+                />
+                <small className="setting-hint">⚠️ Note: Make sure to remember this password; it will be required to open the PDF. Uses strong AES-256 encryption.</small>
+              </div>
+            )}
+
+            {/* UNLOCK options */}
+            {toolId === 'unlock' && (
+              <div className="setting-group">
+                <label className="setting-label">PDF Password to Unlock:</label>
+                <input
+                  type="password"
+                  placeholder="Enter password to unlock PDF..."
+                  value={pdfPassword}
+                  onChange={(e) => setPdfPassword(e.target.value)}
+                  className="setting-input"
+                  id="unlock-password-input"
+                />
+                <small className="setting-hint">⚠️ Note: Enter the password that was used to protect this PDF document.</small>
               </div>
             )}
 
@@ -512,7 +535,7 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
             {/* No-op message for tools with no options */}
             {!isIntelligence &&
               !['compress', 'watermark', 'split', 'rotate', 'remove-pages', 'extract-pages',
-                'organize-pdf', 'page-numbers', 'protect', 'ai-summarizer', 'translate'].includes(toolId) && (
+                'organize-pdf', 'page-numbers', 'protect', 'unlock', 'ai-summarizer', 'translate'].includes(toolId) && (
               <p style={{ color: '#64748b', fontSize: '13px', margin: '0' }}>No additional options required for this tool.</p>
             )}
           </div>

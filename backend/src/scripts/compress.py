@@ -18,6 +18,9 @@ def compress_pdf(input_path, output_path, target_kb, target_unit):
     if target_bytes <= 0 or simple_size <= target_bytes:
         # Simple compression was enough or no target specified
         doc.close()
+        if simple_size >= original_size:
+            import shutil
+            shutil.copyfile(input_path, output_path)
         return
         
     # If target is still not met, perform rasterization compression
@@ -137,6 +140,13 @@ def compress_pdf(input_path, output_path, target_kb, target_unit):
             build_raster_pdf(conf["quality"], conf["scale"])
 
         doc.close()
+
+        # Final safety check: if the final compressed file is larger than the original, use original
+        final_size = os.path.getsize(output_path)
+        if final_size >= original_size:
+            import shutil
+            shutil.copyfile(input_path, output_path)
+            print(f"[Compress] Preserved original size because compressed size ({final_size/1024:.1f} KB) was larger than original ({original_size/1024:.1f} KB).")
 
 if __name__ == '__main__':
     if len(sys.argv) < 5:

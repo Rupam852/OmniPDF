@@ -727,7 +727,9 @@ export default function App() {
 
       // ── UNLOCK ───────────────────────────────────────────────────────────────
       else if (selectedTool.id === 'unlock') {
-        const result = await OmniPdfApi.runPdfTool('unlock', token || '', files[0]);
+        const result = await OmniPdfApi.runPdfTool('unlock', token || '', files[0], {
+          password: options.password || '',
+        });
         if (result.fileData) {
           setProcessedResult({
             toolName: selectedTool.name,

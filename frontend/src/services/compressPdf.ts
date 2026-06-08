@@ -210,6 +210,17 @@ export async function compressPdfInBrowser(
   }
 
   compressedSize = compressedBytes.length;
+
+  if (compressedSize >= originalSize) {
+    const originalBytes = new Uint8Array(originalArrayBuffer);
+    return {
+      bytes: originalBytes,
+      originalSize,
+      compressedSize: originalSize,
+      message: `This PDF is already highly optimized. Original size of ${(originalSize / 1024).toFixed(1)} KB was preserved.`,
+    };
+  }
+
   const reductionPct = (((originalSize - compressedSize) / originalSize) * 100).toFixed(1);
   const origKB = (originalSize / 1024).toFixed(1);
   const compKB = (compressedSize / 1024).toFixed(1);
