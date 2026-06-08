@@ -6,7 +6,7 @@ interface Tool {
   id: string;
   name: string;
   description: string;
-  category: 'organize' | 'optimize' | 'convert' | 'edit' | 'security' | 'intelligence' | 'workflow';
+  category: 'organize' | 'optimize' | 'convert_to' | 'convert_from' | 'edit' | 'security' | 'intelligence' | 'workflow';
   iconColor: string;
   iconPath: JSX.Element;
 }
