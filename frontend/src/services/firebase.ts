@@ -15,6 +15,12 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID || "YOUR_APP_ID"
 };
 
+console.log("[OmniPDF Firebase Debug] Loaded Config:", {
+  apiKeyStatus: firebaseConfig.apiKey === "YOUR_API_KEY" ? "FALLBACK (Not loaded from env)" : "LOADED SUCCESSFULLY",
+  projectId: firebaseConfig.projectId,
+  appIdStatus: firebaseConfig.appId === "YOUR_APP_ID" ? "FALLBACK" : "LOADED"
+});
+
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
