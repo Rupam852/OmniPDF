@@ -124,29 +124,56 @@ export async function compressPdfInBrowser(
     return resultPdf.save();
   };
 
-  // ── Step 5: First compression pass ───────────────────────────────────────
-  let quality = estimateQuality();
-  // Scale: higher = better quality/larger file. 1.5 gives ~144 DPI which is good for most uses.
+  // ── Step 5: Initial scale and quality estimation ──────────────────────────
+  const ratio = targetBytes > 0 ? targetBytes / originalSize : 0.75;
   let scale = 1.5;
+  if (ratio >= 0.9) scale = 2.0;
+  else if (ratio >= 0.7) scale = 1.8;
+  else if (ratio >= 0.5) scale = 1.5;
+  else if (ratio >= 0.3) scale = 1.25;
+  else scale = 1.0;
 
+  let quality = estimateQuality();
+
+  console.log(`[Compress] Initial pass: scale=${scale.toFixed(2)}, quality=${quality.toFixed(2)}`);
   let compressedBytes = await buildPdf(quality, scale);
+  let compressedSize = compressedBytes.length;
 
-  // ── Step 6: If still too big, lower quality and retry ────────────────────
-  if (targetBytes > 0 && compressedBytes.length > targetBytes && quality > 0.3) {
-    // Reduce quality by ~30% more
-    const newQuality = Math.max(0.25, quality * 0.65);
-    const newScale = Math.max(1.0, scale * 0.8);
-    console.log(
-      `[Compress] First pass ${(compressedBytes.length / 1024).toFixed(0)} KB > target ${(targetBytes / 1024).toFixed(0)} KB. ` +
-      `Retrying quality=${newQuality.toFixed(2)}, scale=${newScale.toFixed(2)}`
-    );
-    const attempt2 = await buildPdf(newQuality, newScale);
-    if (attempt2.length < compressedBytes.length) {
-      compressedBytes = attempt2;
+  // ── Step 6: Refinement Pass ────────────────────────────────────────────────
+  if (targetBytes > 0) {
+    const marginMin = targetBytes * 0.75;
+    const marginMax = targetBytes;
+
+    if (compressedSize < marginMin && (quality < 0.92 || scale < 2.0)) {
+      // Too small! Let's increase quality and scale for a better result
+      const newQuality = Math.min(0.92, quality + 0.15);
+      const newScale = Math.min(2.0, scale * 1.25);
+      console.log(
+        `[Compress] Result ${(compressedSize / 1024).toFixed(0)} KB is way below target ${(targetBytes / 1024).toFixed(0)} KB. ` +
+        `Retrying with higher quality=${newQuality.toFixed(2)}, scale=${newScale.toFixed(2)}`
+      );
+      const retryBytes = await buildPdf(newQuality, newScale);
+      if (retryBytes.length <= targetBytes) {
+        compressedBytes = retryBytes;
+        compressedSize = retryBytes.length;
+      }
+    } else if (compressedSize > marginMax && quality > 0.3) {
+      // Too big! Let's reduce quality and scale to fit
+      const newQuality = Math.max(0.25, quality * 0.65);
+      const newScale = Math.max(0.8, scale * 0.75);
+      console.log(
+        `[Compress] Result ${(compressedSize / 1024).toFixed(0)} KB exceeds target ${(targetBytes / 1024).toFixed(0)} KB. ` +
+        `Retrying with lower quality=${newQuality.toFixed(2)}, scale=${newScale.toFixed(2)}`
+      );
+      const retryBytes = await buildPdf(newQuality, newScale);
+      if (retryBytes.length < compressedBytes.length) {
+        compressedBytes = retryBytes;
+        compressedSize = retryBytes.length;
+      }
     }
   }
 
-  const compressedSize = compressedBytes.length;
+  compressedSize = compressedBytes.length;
   const reductionPct = (((originalSize - compressedSize) / originalSize) * 100).toFixed(1);
   const origKB = (originalSize / 1024).toFixed(1);
   const compKB = (compressedSize / 1024).toFixed(1);
