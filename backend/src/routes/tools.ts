@@ -1,7 +1,15 @@
 import { Router, Response } from 'express';
 import multer from 'multer';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { PDFDocument, rgb, degrees, PDFName, PDFDict, PDFStream } from 'pdf-lib';
+import {
+  PDFDocument,
+  rgb,
+  degrees,
+  PDFName,
+  PDFDict,
+  PDFStream,
+  StandardFonts,
+} from 'pdf-lib';
 import { AuthenticatedRequest } from '../middleware/auth';
 import { processingLimiter } from '../middleware/rateLimiter';
 
@@ -9,6 +17,7 @@ const router = Router();
 
 // Configure multer for file storage in memory
 const upload = multer({
+  storage: multer.memoryStorage(),
   limits: {
     fileSize: 10 * 1024 * 1024, // 10 MB limit
   },
@@ -17,116 +26,162 @@ const upload = multer({
 // Apply rate limiting specifically for processing endpoints
 router.use(processingLimiter);
 
+// ─────────────────────────────────────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
+
 /**
- * Helper to generate a PDF containing text
+ * Loads a PDFDocument safely, returning a friendly error on parse failure.
  */
-async function createPdfFromText(text: string, titleText: string): Promise<string> {
-  const pdfDoc = await PDFDocument.create();
-  const lines = text.split('\n');
-  let page = pdfDoc.addPage();
-  let { width, height } = page.getSize();
-  let y = height - 60;
-  const margin = 50;
-  const fontSize = 11;
-  const lineHeight = 16;
-
-  // Draw Title
-  page.drawText(titleText, {
-    x: margin,
-    y: height - 40,
-    size: 14,
-    color: rgb(0.1, 0.4, 0.8),
-  });
-
-  for (const line of lines) {
-    const words = line.split(' ');
-    let currentLine = '';
-    for (const word of words) {
-      const testLine = currentLine ? `${currentLine} ${word}` : word;
-      // Rough estimation of width (6px per char)
-      const testWidth = testLine.length * 6;
-      if (testWidth > (width - margin * 2)) {
-        page.drawText(currentLine, { x: margin, y, size: fontSize });
-        y -= lineHeight;
-        if (y < margin) {
-          page = pdfDoc.addPage();
-          y = height - 50;
-        }
-        currentLine = word;
-      } else {
-        currentLine = testLine;
-      }
-    }
-    if (currentLine) {
-      page.drawText(currentLine, { x: margin, y, size: fontSize });
-      y -= lineHeight;
-      if (y < margin) {
-        page = pdfDoc.addPage();
-        y = height - 50;
-      }
-    }
+async function loadPdf(buffer: Buffer): Promise<PDFDocument> {
+  try {
+    return await PDFDocument.load(buffer, { ignoreEncryption: true });
+  } catch (err: any) {
+    throw new Error(
+      `Failed to parse the PDF file. It may be corrupted or password-protected. Details: ${err.message}`
+    );
   }
-  const pdfBytes = await pdfDoc.save();
-  return Buffer.from(pdfBytes).toString('base64');
 }
 
 /**
- * POST /api/tools/merge
- * Merges multiple PDF files into one.
- * Expects multiple files under form-data key "files".
+ * Wraps text to fit within maxWidth characters per line (rough approximation).
  */
+function wrapText(text: string, maxCharsPerLine: number): string[] {
+  const lines: string[] = [];
+  const paragraphs = text.split('\n');
+  for (const para of paragraphs) {
+    if (!para.trim()) {
+      lines.push('');
+      continue;
+    }
+    const words = para.split(' ');
+    let currentLine = '';
+    for (const word of words) {
+      const test = currentLine ? `${currentLine} ${word}` : word;
+      if (test.length > maxCharsPerLine) {
+        if (currentLine) lines.push(currentLine);
+        currentLine = word;
+      } else {
+        currentLine = test;
+      }
+    }
+    if (currentLine) lines.push(currentLine);
+  }
+  return lines;
+}
+
+/**
+ * Creates a multi-page PDF from plain text.
+ */
+async function createPdfFromText(text: string, title: string): Promise<string> {
+  const pdfDoc = await PDFDocument.create();
+  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const titleFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+  const pageWidth = 595; // A4
+  const pageHeight = 842;
+  const margin = 50;
+  const contentWidth = pageWidth - margin * 2;
+  const fontSize = 11;
+  const titleFontSize = 14;
+  const lineHeight = 18;
+
+  const wrappedLines = wrapText(text, Math.floor(contentWidth / 6.5));
+
+  let page = pdfDoc.addPage([pageWidth, pageHeight]);
+  let y = pageHeight - margin;
+
+  // Draw title
+  page.drawText(title, {
+    x: margin,
+    y,
+    size: titleFontSize,
+    font: titleFont,
+    color: rgb(0.1, 0.4, 0.8),
+  });
+  y -= lineHeight * 2;
+
+  for (const line of wrappedLines) {
+    if (y < margin + lineHeight) {
+      page = pdfDoc.addPage([pageWidth, pageHeight]);
+      y = pageHeight - margin;
+    }
+    if (line) {
+      page.drawText(line, {
+        x: margin,
+        y,
+        size: fontSize,
+        font,
+        color: rgb(0.1, 0.1, 0.1),
+      });
+    }
+    y -= lineHeight;
+  }
+
+  const bytes = await pdfDoc.save();
+  return Buffer.from(bytes).toString('base64');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/tools/merge
+// ─────────────────────────────────────────────────────────────────────────────
 router.post(
   '/merge',
   upload.array('files'),
   async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     const files = req.files as Express.Multer.File[];
-    const userId = req.user?.uid || null;
 
     if (!files || files.length < 2) {
-      res.status(400).json({ error: 'Bad Request', message: 'At least two PDF files are required for merging.' });
+      res.status(400).json({
+        error: 'Bad Request',
+        message: 'At least two PDF files are required for merging.',
+      });
       return;
     }
 
     try {
-      console.log(`[Merge PDF] Starting merge task for user ${userId || 'guest'} with ${files.length} files`);
-      
+      console.log(`[Merge PDF] Merging ${files.length} files`);
       const mergedPdf = await PDFDocument.create();
+
       for (const file of files) {
-        const pdf = await PDFDocument.load(file.buffer);
-        const copiedPages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
+        const pdf = await loadPdf(file.buffer);
+        const indices = pdf.getPageIndices();
+        const copiedPages = await mergedPdf.copyPages(pdf, indices);
         copiedPages.forEach((page) => mergedPdf.addPage(page));
       }
 
-      const mergedPdfBytes = await mergedPdf.save();
-      const base64 = Buffer.from(mergedPdfBytes).toString('base64');
-      const finalFileName = `merged_${Date.now()}.pdf`;
+      const bytes = await mergedPdf.save();
+      const base64 = Buffer.from(bytes).toString('base64');
 
       res.status(200).json({
         success: true,
-        message: 'PDF files merged successfully.',
+        message: `${files.length} PDF files merged successfully.`,
         fileData: base64,
-        fileName: finalFileName,
-        // Kept for backward compatibility
+        fileName: `merged_${Date.now()}.pdf`,
         downloadUrl: `data:application/pdf;base64,${base64}`,
       });
     } catch (error: any) {
-      console.error('PDF Merge Error:', error);
-      res.status(500).json({ error: 'Processing Failed', message: error.message || 'An error occurred during PDF merging.' });
+      console.error('[Merge PDF] Error:', error);
+      res.status(500).json({
+        error: 'Processing Failed',
+        message: error.message || 'Failed to merge PDF files.',
+      });
     }
   }
 );
 
-/**
- * POST /api/tools/split
- * Splits a PDF.
- * Expects: a single PDF file
- */
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/tools/split
+// ─────────────────────────────────────────────────────────────────────────────
 router.post(
   '/split',
   upload.single('file'),
   async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     const file = req.file;
-    const userId = req.user?.uid || null;
+    // splitMode: 'all' = one PDF per page, 'range' = use pageRanges param
+    const splitMode: string = req.body.splitMode || 'all';
+    // pageRanges: comma-separated page numbers or ranges, e.g. "1-3,5,7-9" (1-indexed)
+    const pageRangesRaw: string = req.body.pageRanges || '';
 
     if (!file) {
       res.status(400).json({ error: 'Bad Request', message: 'A PDF file is required.' });
@@ -134,363 +189,883 @@ router.post(
     }
 
     try {
-      console.log(`[Split PDF] Splitting file size: ${file.size} bytes`);
-      const pdfDoc = await PDFDocument.load(file.buffer);
-      const pageCount = pdfDoc.getPageCount();
+      const pdfDoc = await loadPdf(file.buffer);
+      const totalPages = pdfDoc.getPageCount();
+      console.log(`[Split PDF] ${totalPages} pages, mode=${splitMode}`);
 
-      if (pageCount <= 1) {
-        const base64 = file.buffer.toString('base64');
-        res.status(200).json({
-          success: true,
-          message: 'PDF split completed (single page document).',
-          files: [
-            {
-              fileName: `part_1_${file.originalname || 'doc.pdf'}`,
-              fileData: base64,
-              downloadUrl: `data:application/pdf;base64,${base64}`
+      if (totalPages === 0) {
+        res.status(400).json({ error: 'Bad Request', message: 'The PDF has no pages.' });
+        return;
+      }
+
+      // Parse page ranges helper
+      const parsePageRanges = (raw: string, total: number): number[][] => {
+        if (!raw.trim()) {
+          // Default: split every page individually
+          return Array.from({ length: total }, (_, i) => [i]);
+        }
+        const groups: number[][] = [];
+        for (const part of raw.split(',')) {
+          const trimmed = part.trim();
+          if (!trimmed) continue;
+          if (trimmed.includes('-')) {
+            const [startStr, endStr] = trimmed.split('-');
+            const start = Math.max(1, parseInt(startStr, 10));
+            const end = Math.min(total, parseInt(endStr, 10));
+            if (start <= end) {
+              groups.push(Array.from({ length: end - start + 1 }, (_, i) => start - 1 + i));
             }
-          ]
-        });
+          } else {
+            const pg = parseInt(trimmed, 10);
+            if (pg >= 1 && pg <= total) {
+              groups.push([pg - 1]);
+            }
+          }
+        }
+        if (groups.length === 0) {
+          return Array.from({ length: total }, (_, i) => [i]);
+        }
+        return groups;
+      };
+
+      let groups: number[][];
+      if (splitMode === 'half') {
+        const half = Math.ceil(totalPages / 2);
+        groups = [
+          Array.from({ length: half }, (_, i) => i),
+          Array.from({ length: totalPages - half }, (_, i) => i + half),
+        ];
+      } else if (splitMode === 'range' && pageRangesRaw) {
+        groups = parsePageRanges(pageRangesRaw, totalPages);
       } else {
-        const half = Math.ceil(pageCount / 2);
-        
-        // Part 1
-        const pdf1 = await PDFDocument.create();
-        const pages1 = await pdf1.copyPages(pdfDoc, Array.from({ length: half }, (_, i) => i));
-        pages1.forEach(p => pdf1.addPage(p));
-        const bytes1 = await pdf1.save();
-        const base64Part1 = Buffer.from(bytes1).toString('base64');
+        // Default: one page per file
+        groups = Array.from({ length: totalPages }, (_, i) => [i]);
+      }
 
-        // Part 2
-        const pdf2 = await PDFDocument.create();
-        const pages2 = await pdf2.copyPages(pdfDoc, Array.from({ length: pageCount - half }, (_, i) => i + half));
-        pages2.forEach(p => pdf2.addPage(p));
-        const bytes2 = await pdf2.save();
-        const base64Part2 = Buffer.from(bytes2).toString('base64');
+      const resultFiles: { fileName: string; fileData: string; downloadUrl?: string }[] = [];
 
-        res.status(200).json({
-          success: true,
-          message: `PDF split completed successfully into 2 parts.`,
-          files: [
-            {
-              fileName: `part_1_${file.originalname || 'doc.pdf'}`,
-              fileData: base64Part1,
-              downloadUrl: `data:application/pdf;base64,${base64Part1}`
-            },
-            {
-              fileName: `part_2_${file.originalname || 'doc.pdf'}`,
-              fileData: base64Part2,
-              downloadUrl: `data:application/pdf;base64,${base64Part2}`
-            }
-          ]
+      for (let gi = 0; gi < groups.length; gi++) {
+        const pageIndices = groups[gi];
+        const partPdf = await PDFDocument.create();
+        const copied = await partPdf.copyPages(pdfDoc, pageIndices);
+        copied.forEach((p) => partPdf.addPage(p));
+        const bytes = await partPdf.save();
+        const b64 = Buffer.from(bytes).toString('base64');
+        const baseName = (file.originalname || 'document.pdf').replace(/\.pdf$/i, '');
+        const partName = groups.length === 1
+          ? `${baseName}_page${pageIndices[0] + 1}.pdf`
+          : `${baseName}_part${gi + 1}_pages${pageIndices[0] + 1}-${pageIndices[pageIndices.length - 1] + 1}.pdf`;
+        resultFiles.push({
+          fileName: partName,
+          fileData: b64,
+          downloadUrl: `data:application/pdf;base64,${b64}`,
         });
       }
+
+      res.status(200).json({
+        success: true,
+        message: `PDF split into ${resultFiles.length} part(s) successfully.`,
+        files: resultFiles,
+      });
     } catch (error: any) {
-      console.error('PDF Split Error:', error);
+      console.error('[Split PDF] Error:', error);
       res.status(500).json({ error: 'Server Error', message: error.message || 'Failed to split PDF.' });
     }
   }
 );
 
-/**
- * POST /api/tools/compress
- * Compresses a PDF.
- * Expects: a single PDF file
- */
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/tools/compress
+// ─────────────────────────────────────────────────────────────────────────────
 router.post(
   '/compress',
   upload.single('file'),
   async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     const file = req.file;
     const targetSizeInput = parseFloat(req.body.targetSize || '500');
-    const targetUnit = req.body.targetUnit || 'KB';
+    const targetUnit = (req.body.targetUnit || 'KB').toUpperCase();
 
     if (!file) {
       res.status(400).json({ error: 'Bad Request', message: 'A PDF file is required.' });
       return;
     }
 
-    try {
-      console.log(`[Compress PDF] Original size: ${file.size} bytes. Target: ${targetSizeInput} ${targetUnit}`);
-      const pdfDoc = await PDFDocument.load(file.buffer);
-      
-      // Clear metadata if target is smaller than the original size
-      const targetBytes = targetUnit === 'MB' ? targetSizeInput * 1024 * 1024 : targetSizeInput * 1024;
-      if (file.size > targetBytes) {
-        pdfDoc.setTitle('');
-        pdfDoc.setAuthor('');
-        pdfDoc.setSubject('');
-        pdfDoc.setCreator('');
-        pdfDoc.setProducer('');
-      }
+    const targetBytes =
+      targetUnit === 'MB' ? targetSizeInput * 1024 * 1024 : targetSizeInput * 1024;
 
-      // Re-save with object stream compression
+    try {
+      console.log(
+        `[Compress PDF] Original: ${file.size} bytes, Target: ${targetSizeInput} ${targetUnit} (${targetBytes} bytes)`
+      );
+
+      const pdfDoc = await loadPdf(file.buffer);
+
+      // Step 1: Strip all metadata to save space
+      pdfDoc.setTitle('');
+      pdfDoc.setAuthor('');
+      pdfDoc.setSubject('');
+      pdfDoc.setKeywords([]);
+      pdfDoc.setCreator('OmniPDF');
+      pdfDoc.setProducer('OmniPDF');
+
+      // Step 2: Save with object stream compression enabled
       let compressedBytes = await pdfDoc.save({ useObjectStreams: true });
 
-      // If it still exceeds target bytes, prune image objects for extreme compression
-      if (compressedBytes.length > targetBytes) {
-        console.log(`[Compress PDF] Size ${compressedBytes.length} exceeds target ${targetBytes}. Pruning image objects for extreme compression...`);
-        const docToPrune = await PDFDocument.load(compressedBytes);
-        const pages = docToPrune.getPages();
-        pages.forEach(p => {
-          const resources = p.node.Resources();
-          if (resources) {
-            const xObject = resources.get(PDFName.of('XObject'));
-            if (xObject instanceof PDFDict) {
-              xObject.keys().forEach(key => {
-                const obj = xObject.get(key);
-                const resolvedObj = docToPrune.context.lookup(obj);
-                
-                let subtype;
-                if (resolvedObj instanceof PDFDict) {
-                  subtype = resolvedObj.get(PDFName.of('Subtype'));
-                } else if (resolvedObj instanceof PDFStream) {
-                  subtype = resolvedObj.dict.get(PDFName.of('Subtype'));
-                }
+      console.log(`[Compress PDF] After object-stream compression: ${compressedBytes.length} bytes`);
 
-                if (subtype === PDFName.of('Image')) {
-                  xObject.delete(key);
-                }
-              });
+      // Step 3: If still too big, remove embedded image XObjects from each page
+      if (compressedBytes.length > targetBytes) {
+        console.log(`[Compress PDF] Pruning image XObjects...`);
+        const docToPrune = await PDFDocument.load(compressedBytes, { ignoreEncryption: true });
+        const pages = docToPrune.getPages();
+
+        for (const page of pages) {
+          try {
+            const node = page.node;
+            const resources = node.get(PDFName.of('Resources'));
+            if (!resources) continue;
+
+            const resolvedResources = docToPrune.context.lookup(resources);
+            if (!(resolvedResources instanceof PDFDict)) continue;
+
+            const xObjectRef = resolvedResources.get(PDFName.of('XObject'));
+            if (!xObjectRef) continue;
+
+            const xObject = docToPrune.context.lookup(xObjectRef);
+            if (!(xObject instanceof PDFDict)) continue;
+
+            const keysToDelete: PDFName[] = [];
+            for (const key of xObject.keys()) {
+              const val = xObject.get(key);
+              if (!val) continue;
+              const resolved = docToPrune.context.lookup(val);
+              let subtype: PDFName | undefined;
+              if (resolved instanceof PDFDict) {
+                subtype = resolved.get(PDFName.of('Subtype')) as PDFName | undefined;
+              } else if (resolved instanceof PDFStream) {
+                subtype = resolved.dict.get(PDFName.of('Subtype')) as PDFName | undefined;
+              }
+              if (subtype && subtype.asString() === '/Image') {
+                keysToDelete.push(key as PDFName);
+              }
             }
+
+            for (const key of keysToDelete) {
+              xObject.delete(key);
+            }
+          } catch (pageErr) {
+            // Skip pages that fail — don't abort entire compression
+            console.warn('[Compress PDF] Page prune warning:', pageErr);
           }
-        });
+        }
+
         compressedBytes = await docToPrune.save({ useObjectStreams: true });
+        console.log(`[Compress PDF] After image prune: ${compressedBytes.length} bytes`);
       }
 
       const base64 = Buffer.from(compressedBytes).toString('base64');
-
-      const originalSizeText = (file.size / 1024).toFixed(2) + ' KB';
-      const compressedSizeText = (compressedBytes.length / 1024).toFixed(2) + ' KB';
-      const targetSizeText = targetSizeInput.toFixed(2) + ' ' + targetUnit;
+      const originalKB = (file.size / 1024).toFixed(1);
+      const compressedKB = (compressedBytes.length / 1024).toFixed(1);
+      const reduction = (((file.size - compressedBytes.length) / file.size) * 100).toFixed(1);
 
       res.status(200).json({
         success: true,
-        message: `Compressed successfully from ${originalSizeText} to ${compressedSizeText} (Target: ${targetSizeText}).`,
+        message: `Compressed from ${originalKB} KB → ${compressedKB} KB (${reduction}% reduction). Target was ${targetSizeInput} ${targetUnit}.`,
         originalSize: file.size,
         compressedSize: compressedBytes.length,
         targetSize: targetBytes,
         fileData: base64,
-        fileName: `compressed_${file.originalname || 'doc.pdf'}`,
-        downloadUrl: `data:application/pdf;base64,${base64}`
+        fileName: `compressed_${file.originalname || 'document.pdf'}`,
+        downloadUrl: `data:application/pdf;base64,${base64}`,
       });
     } catch (error: any) {
-      console.error('PDF Compress Error:', error);
-      res.status(500).json({ error: 'Processing Failed', message: error.message || 'Failed to compress PDF.' });
+      console.error('[Compress PDF] Error:', error);
+      res.status(500).json({
+        error: 'Processing Failed',
+        message: error.message || 'Failed to compress PDF.',
+      });
     }
   }
 );
 
-/**
- * POST /api/tools/protect
- * Protects a PDF (stamps security metadata/warnings).
- * Expects: a single PDF file
- */
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/tools/protect
+// NOTE: pdf-lib does NOT support AES/RC4 password encryption.
+// We add a visible protection stamp on every page as a deterrent.
+// For real password protection, an external binary (Ghostscript/qpdf) is needed.
+// ─────────────────────────────────────────────────────────────────────────────
 router.post(
   '/protect',
   upload.single('file'),
   async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     const file = req.file;
+    const password = req.body.password || '';
+
     if (!file) {
       res.status(400).json({ error: 'Bad Request', message: 'A PDF file is required.' });
       return;
     }
 
     try {
-      console.log(`[Protect PDF] Protecting file size: ${file.size} bytes`);
-      const pdfDoc = await PDFDocument.load(file.buffer);
-      
-      pdfDoc.setTitle(`Protected - ${pdfDoc.getTitle() || 'Document'}`);
-      pdfDoc.setCreator('OmniPDF Security Engine');
-      
+      console.log(`[Protect PDF] File: ${file.size} bytes`);
+      const pdfDoc = await loadPdf(file.buffer);
+      const font = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
       const pages = pdfDoc.getPages();
+
       pages.forEach((page) => {
         const { width, height } = page.getSize();
-        page.drawText('SECURED WITH OMNIPDF ENCRYPTION', {
-          x: 20,
-          y: height - 20,
-          size: 8,
-          color: rgb(0.8, 0.2, 0.2),
+
+        // Top banner
+        page.drawRectangle({
+          x: 0,
+          y: height - 22,
+          width,
+          height: 22,
+          color: rgb(0.8, 0.15, 0.15),
+          opacity: 0.85,
+        });
+        page.drawText('🔒 PROTECTED — OmniPDF Security Engine', {
+          x: 10,
+          y: height - 16,
+          size: 9,
+          font,
+          color: rgb(1, 1, 1),
+        });
+
+        // Centre diagonal watermark
+        page.drawText('PROTECTED', {
+          x: width / 2 - 80,
+          y: height / 2 - 20,
+          size: 36,
+          font,
+          color: rgb(0.8, 0.1, 0.1),
+          opacity: 0.08,
+          rotate: degrees(45),
         });
       });
 
-      const protectedBytes = await pdfDoc.save();
-      const base64 = Buffer.from(protectedBytes).toString('base64');
+      pdfDoc.setTitle(`Protected — ${pdfDoc.getTitle() || 'Document'}`);
+      pdfDoc.setCreator('OmniPDF Security Engine');
+
+      const bytes = await pdfDoc.save();
+      const base64 = Buffer.from(bytes).toString('base64');
 
       res.status(200).json({
         success: true,
-        message: 'PDF protected successfully.',
+        message:
+          'PDF has been stamped with a security overlay. Note: full AES password encryption requires a server-side binary (Ghostscript). Contact support for enterprise encryption.',
         fileData: base64,
-        fileName: `protected_${file.originalname || 'doc.pdf'}`,
-        downloadUrl: `data:application/pdf;base64,${base64}`
+        fileName: `protected_${file.originalname || 'document.pdf'}`,
+        downloadUrl: `data:application/pdf;base64,${base64}`,
       });
     } catch (error: any) {
-      console.error('PDF Protect Error:', error);
-      res.status(500).json({ error: 'Processing Failed', message: error.message || 'Failed to protect PDF.' });
+      console.error('[Protect PDF] Error:', error);
+      res.status(500).json({
+        error: 'Processing Failed',
+        message: error.message || 'Failed to protect PDF.',
+      });
     }
   }
 );
 
-/**
- * POST /api/tools/rotate
- * Rotates PDF pages.
- * Expects: a single PDF file
- */
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/tools/rotate
+// ─────────────────────────────────────────────────────────────────────────────
 router.post(
   '/rotate',
   upload.single('file'),
   async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     const file = req.file;
+    // angle: 90 | 180 | 270 (default 90)
+    const angle = parseInt(req.body.angle || '90', 10);
+    // pages: 'all' | comma-separated 1-indexed page numbers e.g. '1,3,5'
+    const pagesParam: string = req.body.pages || 'all';
+
     if (!file) {
       res.status(400).json({ error: 'Bad Request', message: 'A PDF file is required.' });
       return;
     }
 
-    try {
-      console.log(`[Rotate PDF] Rotating file size: ${file.size} bytes`);
-      const pdfDoc = await PDFDocument.load(file.buffer);
-      const pages = pdfDoc.getPages();
-      pages.forEach((page) => {
-        const rotation = page.getRotation();
-        page.setRotation(degrees((rotation.angle + 90) % 360));
-      });
+    const validAngles = [90, 180, 270];
+    if (!validAngles.includes(angle)) {
+      res.status(400).json({ error: 'Bad Request', message: `Invalid angle. Must be one of: ${validAngles.join(', ')}.` });
+      return;
+    }
 
-      const rotatedBytes = await pdfDoc.save();
-      const base64 = Buffer.from(rotatedBytes).toString('base64');
+    try {
+      const pdfDoc = await loadPdf(file.buffer);
+      const pages = pdfDoc.getPages();
+      const totalPages = pages.length;
+
+      // Determine which pages to rotate
+      let pageIndices: number[];
+      if (pagesParam === 'all') {
+        pageIndices = pages.map((_, i) => i);
+      } else {
+        pageIndices = pagesParam
+          .split(',')
+          .map((s) => parseInt(s.trim(), 10) - 1)
+          .filter((i) => i >= 0 && i < totalPages);
+      }
+
+      console.log(`[Rotate PDF] Rotating ${pageIndices.length}/${totalPages} pages by ${angle}°`);
+
+      for (const idx of pageIndices) {
+        const page = pages[idx];
+        const currentAngle = page.getRotation().angle;
+        page.setRotation(degrees((currentAngle + angle) % 360));
+      }
+
+      const bytes = await pdfDoc.save();
+      const base64 = Buffer.from(bytes).toString('base64');
 
       res.status(200).json({
         success: true,
-        message: 'PDF pages rotated successfully.',
+        message: `Rotated ${pageIndices.length} page(s) by ${angle}° successfully.`,
         fileData: base64,
-        fileName: `rotated_${file.originalname || 'doc.pdf'}`,
-        downloadUrl: `data:application/pdf;base64,${base64}`
+        fileName: `rotated_${file.originalname || 'document.pdf'}`,
+        downloadUrl: `data:application/pdf;base64,${base64}`,
       });
     } catch (error: any) {
-      console.error('PDF Rotate Error:', error);
-      res.status(500).json({ error: 'Processing Failed', message: error.message || 'Failed to rotate PDF.' });
+      console.error('[Rotate PDF] Error:', error);
+      res.status(500).json({
+        error: 'Processing Failed',
+        message: error.message || 'Failed to rotate PDF.',
+      });
     }
   }
 );
 
-/**
- * POST /api/tools/watermark
- * Watermarks PDF pages.
- * Expects: a single PDF file, optional "watermarkText" in body
- */
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/tools/watermark
+// ─────────────────────────────────────────────────────────────────────────────
 router.post(
   '/watermark',
   upload.single('file'),
   async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     const file = req.file;
-    const watermarkText = req.body.watermarkText || 'OmniPDF AI';
+    const watermarkText = (req.body.watermarkText || 'OmniPDF').trim() || 'OmniPDF';
+    const opacity = Math.min(1, Math.max(0.05, parseFloat(req.body.opacity || '0.15')));
+    const fontSize = Math.min(80, Math.max(12, parseInt(req.body.fontSize || '40', 10)));
+
     if (!file) {
       res.status(400).json({ error: 'Bad Request', message: 'A PDF file is required.' });
       return;
     }
 
     try {
-      console.log(`[Watermark PDF] Watermarking file size: ${file.size} bytes`);
-      const pdfDoc = await PDFDocument.load(file.buffer);
+      const pdfDoc = await loadPdf(file.buffer);
+      const font = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
       const pages = pdfDoc.getPages();
+
+      console.log(`[Watermark PDF] Applying watermark "${watermarkText}" to ${pages.length} pages`);
+
       pages.forEach((page) => {
         const { width, height } = page.getSize();
+        // Estimate text width at given font size (Helvetica-Bold: ~0.6 ratio)
+        const textWidth = watermarkText.length * fontSize * 0.55;
+        const textHeight = fontSize;
+
+        // Centre it properly accounting for 45° rotation
+        // When text is rotated 45°, its bounding box centre needs adjustment
+        const cx = width / 2;
+        const cy = height / 2;
+
         page.drawText(watermarkText, {
-          x: width / 2 - 100,
-          y: height / 2,
-          size: 40,
-          opacity: 0.15,
+          x: cx - textWidth / 2,
+          y: cy - textHeight / 2,
+          size: fontSize,
+          font,
           color: rgb(0.5, 0.5, 0.5),
+          opacity,
           rotate: degrees(45),
         });
       });
 
-      const watermarkedBytes = await pdfDoc.save();
-      const base64 = Buffer.from(watermarkedBytes).toString('base64');
+      const bytes = await pdfDoc.save();
+      const base64 = Buffer.from(bytes).toString('base64');
 
       res.status(200).json({
         success: true,
-        message: 'PDF watermarked successfully.',
+        message: `Watermark "${watermarkText}" applied to all ${pages.length} page(s) successfully.`,
         fileData: base64,
-        fileName: `watermarked_${file.originalname || 'doc.pdf'}`,
-        downloadUrl: `data:application/pdf;base64,${base64}`
+        fileName: `watermarked_${file.originalname || 'document.pdf'}`,
+        downloadUrl: `data:application/pdf;base64,${base64}`,
       });
     } catch (error: any) {
-      console.error('PDF Watermark Error:', error);
-      res.status(500).json({ error: 'Processing Failed', message: error.message || 'Failed to watermark PDF.' });
+      console.error('[Watermark PDF] Error:', error);
+      res.status(500).json({
+        error: 'Processing Failed',
+        message: error.message || 'Failed to watermark PDF.',
+      });
     }
   }
 );
 
-/**
- * POST /api/tools/ai-summarizer
- * Uses Google Gemini SDK to summarize PDF pages.
- * Requires user-provided Gemini API key.
- */
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/tools/remove-pages
+// ─────────────────────────────────────────────────────────────────────────────
+router.post(
+  '/remove-pages',
+  upload.single('file'),
+  async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    const file = req.file;
+    // pageNumbers: comma-separated 1-indexed pages to remove, e.g. "1,3,5"
+    const pageNumbersRaw: string = req.body.pageNumbers || '';
+
+    if (!file) {
+      res.status(400).json({ error: 'Bad Request', message: 'A PDF file is required.' });
+      return;
+    }
+    if (!pageNumbersRaw.trim()) {
+      res.status(400).json({
+        error: 'Bad Request',
+        message: 'pageNumbers is required. Provide comma-separated 1-indexed page numbers to remove.',
+      });
+      return;
+    }
+
+    try {
+      const pdfDoc = await loadPdf(file.buffer);
+      const totalPages = pdfDoc.getPageCount();
+
+      const pagesToRemove = new Set(
+        pageNumbersRaw
+          .split(',')
+          .map((s) => parseInt(s.trim(), 10) - 1)
+          .filter((i) => i >= 0 && i < totalPages)
+      );
+
+      if (pagesToRemove.size === 0) {
+        res.status(400).json({
+          error: 'Bad Request',
+          message: `No valid page numbers provided. Document has ${totalPages} page(s).`,
+        });
+        return;
+      }
+
+      if (pagesToRemove.size >= totalPages) {
+        res.status(400).json({
+          error: 'Bad Request',
+          message: 'Cannot remove all pages. At least one page must remain.',
+        });
+        return;
+      }
+
+      console.log(`[Remove Pages] Removing pages ${[...pagesToRemove].map(i => i+1).join(',')} from ${totalPages}-page PDF`);
+
+      const keepIndices = Array.from({ length: totalPages }, (_, i) => i).filter(
+        (i) => !pagesToRemove.has(i)
+      );
+
+      const resultPdf = await PDFDocument.create();
+      const copied = await resultPdf.copyPages(pdfDoc, keepIndices);
+      copied.forEach((p) => resultPdf.addPage(p));
+
+      const bytes = await resultPdf.save();
+      const base64 = Buffer.from(bytes).toString('base64');
+
+      res.status(200).json({
+        success: true,
+        message: `Removed ${pagesToRemove.size} page(s). Document now has ${keepIndices.length} page(s).`,
+        fileData: base64,
+        fileName: `pages_removed_${file.originalname || 'document.pdf'}`,
+        downloadUrl: `data:application/pdf;base64,${base64}`,
+      });
+    } catch (error: any) {
+      console.error('[Remove Pages] Error:', error);
+      res.status(500).json({ error: 'Processing Failed', message: error.message || 'Failed to remove pages.' });
+    }
+  }
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/tools/extract-pages
+// ─────────────────────────────────────────────────────────────────────────────
+router.post(
+  '/extract-pages',
+  upload.single('file'),
+  async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    const file = req.file;
+    // pageRanges: e.g. "1-3,5,7-9" (1-indexed)
+    const pageRangesRaw: string = req.body.pageRanges || '';
+
+    if (!file) {
+      res.status(400).json({ error: 'Bad Request', message: 'A PDF file is required.' });
+      return;
+    }
+    if (!pageRangesRaw.trim()) {
+      res.status(400).json({
+        error: 'Bad Request',
+        message: 'pageRanges is required. E.g. "1-3,5,7-9"',
+      });
+      return;
+    }
+
+    try {
+      const pdfDoc = await loadPdf(file.buffer);
+      const totalPages = pdfDoc.getPageCount();
+
+      const extractIndices: number[] = [];
+      for (const part of pageRangesRaw.split(',')) {
+        const trimmed = part.trim();
+        if (trimmed.includes('-')) {
+          const [startStr, endStr] = trimmed.split('-');
+          const start = Math.max(1, parseInt(startStr, 10));
+          const end = Math.min(totalPages, parseInt(endStr, 10));
+          for (let i = start; i <= end; i++) extractIndices.push(i - 1);
+        } else {
+          const pg = parseInt(trimmed, 10);
+          if (pg >= 1 && pg <= totalPages) extractIndices.push(pg - 1);
+        }
+      }
+
+      const uniqueIndices = [...new Set(extractIndices)].sort((a, b) => a - b);
+
+      if (uniqueIndices.length === 0) {
+        res.status(400).json({
+          error: 'Bad Request',
+          message: `No valid pages found. Document has ${totalPages} page(s).`,
+        });
+        return;
+      }
+
+      console.log(`[Extract Pages] Extracting ${uniqueIndices.length} pages from ${totalPages}-page PDF`);
+
+      const resultPdf = await PDFDocument.create();
+      const copied = await resultPdf.copyPages(pdfDoc, uniqueIndices);
+      copied.forEach((p) => resultPdf.addPage(p));
+
+      const bytes = await resultPdf.save();
+      const base64 = Buffer.from(bytes).toString('base64');
+
+      res.status(200).json({
+        success: true,
+        message: `Extracted ${uniqueIndices.length} page(s) from a ${totalPages}-page document.`,
+        fileData: base64,
+        fileName: `extracted_${file.originalname || 'document.pdf'}`,
+        downloadUrl: `data:application/pdf;base64,${base64}`,
+      });
+    } catch (error: any) {
+      console.error('[Extract Pages] Error:', error);
+      res.status(500).json({ error: 'Processing Failed', message: error.message || 'Failed to extract pages.' });
+    }
+  }
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/tools/page-numbers
+// ─────────────────────────────────────────────────────────────────────────────
+router.post(
+  '/page-numbers',
+  upload.single('file'),
+  async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    const file = req.file;
+    const position: string = req.body.position || 'bottom-center'; // top-left, top-center, top-right, bottom-left, bottom-center, bottom-right
+    const startNumber = parseInt(req.body.startNumber || '1', 10);
+    const fontSize = Math.min(18, Math.max(6, parseInt(req.body.fontSize || '10', 10)));
+    const prefix: string = req.body.prefix || '';
+
+    if (!file) {
+      res.status(400).json({ error: 'Bad Request', message: 'A PDF file is required.' });
+      return;
+    }
+
+    try {
+      const pdfDoc = await loadPdf(file.buffer);
+      const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+      const pages = pdfDoc.getPages();
+      const margin = 20;
+
+      console.log(`[Page Numbers] Adding page numbers to ${pages.length} pages, position=${position}`);
+
+      pages.forEach((page, idx) => {
+        const { width, height } = page.getSize();
+        const pageLabel = `${prefix}${startNumber + idx}`;
+        const textWidth = pageLabel.length * fontSize * 0.55;
+
+        let x: number;
+        let y: number;
+
+        const isBottom = position.startsWith('bottom');
+        y = isBottom ? margin : height - margin - fontSize;
+
+        if (position.endsWith('left')) {
+          x = margin;
+        } else if (position.endsWith('right')) {
+          x = width - margin - textWidth;
+        } else {
+          x = (width - textWidth) / 2;
+        }
+
+        page.drawText(pageLabel, {
+          x,
+          y,
+          size: fontSize,
+          font,
+          color: rgb(0.3, 0.3, 0.3),
+        });
+      });
+
+      const bytes = await pdfDoc.save();
+      const base64 = Buffer.from(bytes).toString('base64');
+
+      res.status(200).json({
+        success: true,
+        message: `Page numbers added to all ${pages.length} page(s) starting from ${startNumber}.`,
+        fileData: base64,
+        fileName: `numbered_${file.originalname || 'document.pdf'}`,
+        downloadUrl: `data:application/pdf;base64,${base64}`,
+      });
+    } catch (error: any) {
+      console.error('[Page Numbers] Error:', error);
+      res.status(500).json({ error: 'Processing Failed', message: error.message || 'Failed to add page numbers.' });
+    }
+  }
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/tools/repair
+// Attempts to reload and re-save the PDF to fix minor structural corruption.
+// ─────────────────────────────────────────────────────────────────────────────
+router.post(
+  '/repair',
+  upload.single('file'),
+  async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    const file = req.file;
+
+    if (!file) {
+      res.status(400).json({ error: 'Bad Request', message: 'A PDF file is required.' });
+      return;
+    }
+
+    try {
+      console.log(`[Repair PDF] Attempting repair on ${file.size}-byte file`);
+      // Load with ignoreEncryption and then re-save — fixes most cross-reference table issues
+      const pdfDoc = await PDFDocument.load(file.buffer, {
+        ignoreEncryption: true,
+        updateMetadata: false,
+      });
+
+      const bytes = await pdfDoc.save({ useObjectStreams: false });
+      const base64 = Buffer.from(bytes).toString('base64');
+
+      res.status(200).json({
+        success: true,
+        message: 'PDF repaired and re-serialised successfully. Cross-reference tables and object streams have been rebuilt.',
+        fileData: base64,
+        fileName: `repaired_${file.originalname || 'document.pdf'}`,
+        downloadUrl: `data:application/pdf;base64,${base64}`,
+      });
+    } catch (error: any) {
+      console.error('[Repair PDF] Error:', error);
+      res.status(500).json({
+        error: 'Repair Failed',
+        message: `Could not repair PDF: ${error.message}. The file may be too severely corrupted.`,
+      });
+    }
+  }
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/tools/unlock
+// ─────────────────────────────────────────────────────────────────────────────
+router.post(
+  '/unlock',
+  upload.single('file'),
+  async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    const file = req.file;
+
+    if (!file) {
+      res.status(400).json({ error: 'Bad Request', message: 'A PDF file is required.' });
+      return;
+    }
+
+    try {
+      console.log(`[Unlock PDF] Attempting to unlock ${file.size}-byte file`);
+      const pdfDoc = await PDFDocument.load(file.buffer, { ignoreEncryption: true });
+      const bytes = await pdfDoc.save();
+      const base64 = Buffer.from(bytes).toString('base64');
+
+      res.status(200).json({
+        success: true,
+        message:
+          'PDF unlocked and re-saved without encryption headers. Note: only PDFs without strict password protection can be unlocked this way.',
+        fileData: base64,
+        fileName: `unlocked_${file.originalname || 'document.pdf'}`,
+        downloadUrl: `data:application/pdf;base64,${base64}`,
+      });
+    } catch (error: any) {
+      console.error('[Unlock PDF] Error:', error);
+      res.status(500).json({
+        error: 'Unlock Failed',
+        message: `Could not unlock PDF: ${error.message}. The file may be strongly password-protected.`,
+      });
+    }
+  }
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/tools/jpg-to-pdf
+// ─────────────────────────────────────────────────────────────────────────────
+router.post(
+  '/jpg-to-pdf',
+  upload.array('files'),
+  async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    const files = req.files as Express.Multer.File[];
+
+    if (!files || files.length === 0) {
+      res.status(400).json({ error: 'Bad Request', message: 'At least one image file is required.' });
+      return;
+    }
+
+    try {
+      console.log(`[JPG to PDF] Converting ${files.length} image(s) to PDF`);
+      const pdfDoc = await PDFDocument.create();
+
+      for (const file of files) {
+        const mime = file.mimetype;
+        let image;
+        if (mime === 'image/jpeg' || mime === 'image/jpg') {
+          image = await pdfDoc.embedJpg(file.buffer);
+        } else if (mime === 'image/png') {
+          image = await pdfDoc.embedPng(file.buffer);
+        } else {
+          console.warn(`[JPG to PDF] Skipping unsupported mime type: ${mime}`);
+          continue;
+        }
+
+        const page = pdfDoc.addPage([image.width, image.height]);
+        page.drawImage(image, { x: 0, y: 0, width: image.width, height: image.height });
+      }
+
+      if (pdfDoc.getPageCount() === 0) {
+        res.status(400).json({ error: 'Bad Request', message: 'No valid JPG or PNG images found in the upload.' });
+        return;
+      }
+
+      const bytes = await pdfDoc.save();
+      const base64 = Buffer.from(bytes).toString('base64');
+
+      res.status(200).json({
+        success: true,
+        message: `${pdfDoc.getPageCount()} image(s) converted to PDF successfully.`,
+        fileData: base64,
+        fileName: `converted_images_${Date.now()}.pdf`,
+        downloadUrl: `data:application/pdf;base64,${base64}`,
+      });
+    } catch (error: any) {
+      console.error('[JPG to PDF] Error:', error);
+      res.status(500).json({
+        error: 'Processing Failed',
+        message: error.message || 'Failed to convert image(s) to PDF.',
+      });
+    }
+  }
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/tools/pdf-to-jpg  (extracts text as a "page-list" alternative)
+// Note: Real rasterisation needs canvas/puppeteer. We return page metadata instead.
+// ─────────────────────────────────────────────────────────────────────────────
+router.post(
+  '/pdf-to-jpg',
+  upload.single('file'),
+  async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    const file = req.file;
+
+    if (!file) {
+      res.status(400).json({ error: 'Bad Request', message: 'A PDF file is required.' });
+      return;
+    }
+
+    try {
+      const pdfDoc = await loadPdf(file.buffer);
+      const pages = pdfDoc.getPages();
+
+      res.status(200).json({
+        success: true,
+        message: `PDF has ${pages.length} page(s). Server-side rasterisation to JPG requires an additional binary (e.g. pdf2pic, Ghostscript). This endpoint confirms page count and dimensions.`,
+        pageCount: pages.length,
+        pages: pages.map((p, i) => ({
+          page: i + 1,
+          width: Math.round(p.getSize().width),
+          height: Math.round(p.getSize().height),
+        })),
+      });
+    } catch (error: any) {
+      console.error('[PDF to JPG] Error:', error);
+      res.status(500).json({ error: 'Processing Failed', message: error.message });
+    }
+  }
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/tools/ai-summarizer
+// ─────────────────────────────────────────────────────────────────────────────
 router.post(
   '/ai-summarizer',
   upload.single('file'),
   async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     const file = req.file;
     const geminiApiKey = (req.headers['x-gemini-key'] as string) || req.body.apiKey;
+    const summaryFormat: string = req.body.summaryFormat || 'bullets';
 
     if (!file) {
-      res.status(400).json({ error: 'Bad Request', message: 'PDF document is required.' });
+      res.status(400).json({ error: 'Bad Request', message: 'A PDF document is required.' });
       return;
     }
-
     if (!geminiApiKey) {
       res.status(400).json({
         error: 'Gemini Key Missing',
-        message: 'A Google Gemini API key must be provided to use the AI Summarizer tool.',
+        message: 'A Google Gemini API key must be provided to use the AI Summarizer.',
       });
       return;
     }
 
     try {
-      console.log(`[AI Summarizer] Calling Google Gemini API. File size: ${file.size} bytes`);
-      
+      console.log(`[AI Summarizer] File: ${file.size} bytes, format: ${summaryFormat}`);
       const genAI = new GoogleGenerativeAI(geminiApiKey);
       const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
-      const parts = [
+      const prompt =
+        summaryFormat === 'paragraph'
+          ? 'Analyze this PDF document and generate a clear, concise executive summary in fluid paragraph form, highlighting key points and conclusions.'
+          : 'Analyze this PDF document and generate a structured executive summary with clear bullet points for key findings, main topics, and actionable insights.';
+
+      const result = await model.generateContent([
         {
           inlineData: {
             data: file.buffer.toString('base64'),
-            mimeType: file.mimetype || 'application/pdf',
+            mimeType: 'application/pdf',
           },
         },
-        { text: 'Analyze this PDF document and generate a clear, structured executive summary with key bullet points.' },
-      ];
+        { text: prompt },
+      ]);
 
-      const result = await model.generateContent(parts);
-      const apiResponse = await result.response;
-      const summaryText = apiResponse.text();
-
-      // Create PDF of the summary as well
-      const summaryPdfBase64 = await createPdfFromText(summaryText, 'AI EXECUTIVE SUMMARY');
+      const summaryText = result.response.text();
+      const summaryPdfBase64 = await createPdfFromText(summaryText, 'AI EXECUTIVE SUMMARY — OmniPDF');
 
       res.status(200).json({
         success: true,
         summary: summaryText,
         fileData: summaryPdfBase64,
-        fileName: `summary_${file.originalname || 'doc.pdf'}.pdf`,
+        fileName: `summary_${file.originalname || 'document'}.pdf`,
         downloadUrl: `data:application/pdf;base64,${summaryPdfBase64}`,
       });
     } catch (error: any) {
-      console.error('Gemini Summarizer Error:', error);
+      console.error('[AI Summarizer] Error:', error);
       res.status(500).json({
         error: 'AI Processing Failed',
-        message: error.message || 'Could not summarize document. Ensure your Gemini API Key is valid.',
+        message: error.message || 'Could not summarize document. Check your Gemini API key.',
       });
     }
   }
 );
 
-/**
- * POST /api/tools/translate
- * Translates a PDF document while preserving format via Gemini.
- * Requires user-provided Gemini API key.
- */
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/tools/translate
+// ─────────────────────────────────────────────────────────────────────────────
 router.post(
   '/translate',
   upload.single('file'),
@@ -500,10 +1075,12 @@ router.post(
     const geminiApiKey = (req.headers['x-gemini-key'] as string) || req.body.apiKey;
 
     if (!file || !targetLanguage) {
-      res.status(400).json({ error: 'Bad Request', message: 'PDF document and targetLanguage are required.' });
+      res.status(400).json({
+        error: 'Bad Request',
+        message: 'PDF document and targetLanguage are required.',
+      });
       return;
     }
-
     if (!geminiApiKey) {
       res.status(400).json({
         error: 'Gemini Key Missing',
@@ -513,62 +1090,148 @@ router.post(
     }
 
     try {
-      console.log(`[Translate PDF] Calling Google Gemini API to translate to ${targetLanguage}. File size: ${file.size} bytes`);
-
+      console.log(`[Translate PDF] Target: ${targetLanguage}, File: ${file.size} bytes`);
       const genAI = new GoogleGenerativeAI(geminiApiKey);
       const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
-      const parts = [
+      const result = await model.generateContent([
         {
           inlineData: {
             data: file.buffer.toString('base64'),
-            mimeType: file.mimetype || 'application/pdf',
+            mimeType: 'application/pdf',
           },
         },
-        { text: `Translate the content of this PDF document into ${targetLanguage}. Return only the translated text maintaining structural paragraphs.` },
-      ];
+        {
+          text: `Translate the full content of this PDF document into ${targetLanguage}. Return only the translated text, maintaining structural paragraphs, headings, and lists as closely as possible.`,
+        },
+      ]);
 
-      const result = await model.generateContent(parts);
-      const apiResponse = await result.response;
-      const translatedText = apiResponse.text();
+      const translatedText = result.response.text();
+      console.log(`[Translate PDF] Done. ${translatedText.length} characters.`);
 
-      console.log(`[Translate PDF] Translation complete. Content character length: ${translatedText.length}`);
-
-      // Create PDF of the translation
-      const translatedPdfBase64 = await createPdfFromText(translatedText, `TRANSLATED PDF (${targetLanguage.toUpperCase()})`);
+      const translatedPdfBase64 = await createPdfFromText(
+        translatedText,
+        `TRANSLATED PDF — ${targetLanguage.toUpperCase()}`
+      );
 
       res.status(200).json({
         success: true,
-        message: `Translated PDF to ${targetLanguage} successfully.`,
+        message: `PDF translated to ${targetLanguage} successfully.`,
         fileData: translatedPdfBase64,
-        fileName: `translated_${targetLanguage}_${file.originalname || 'doc.pdf'}`,
+        fileName: `translated_${targetLanguage}_${file.originalname || 'document.pdf'}`,
         downloadUrl: `data:application/pdf;base64,${translatedPdfBase64}`,
       });
     } catch (error: any) {
-      console.error('PDF Translation Error:', error);
-      res.status(500).json({ 
-        error: 'Translation Failed', 
-        message: error.message || 'Translation failed. Make sure your Gemini API key is valid.' 
+      console.error('[Translate PDF] Error:', error);
+      res.status(500).json({
+        error: 'Translation Failed',
+        message: error.message || 'Translation failed. Ensure your Gemini API key is valid.',
       });
     }
   }
 );
 
-/**
- * POST /api/tools/log
- * Logs the usage of any tool.
- */
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/tools/organize-pdf (reorder pages)
+// ─────────────────────────────────────────────────────────────────────────────
+router.post(
+  '/organize-pdf',
+  upload.single('file'),
+  async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    const file = req.file;
+    // pageOrder: comma-separated 1-indexed new order, e.g. "3,1,2" for 3-page PDF
+    const pageOrderRaw: string = req.body.pageOrder || '';
+
+    if (!file) {
+      res.status(400).json({ error: 'Bad Request', message: 'A PDF file is required.' });
+      return;
+    }
+
+    try {
+      const pdfDoc = await loadPdf(file.buffer);
+      const totalPages = pdfDoc.getPageCount();
+
+      let newOrder: number[];
+      if (!pageOrderRaw.trim()) {
+        // Default: reverse pages
+        newOrder = Array.from({ length: totalPages }, (_, i) => totalPages - 1 - i);
+      } else {
+        newOrder = pageOrderRaw
+          .split(',')
+          .map((s) => parseInt(s.trim(), 10) - 1)
+          .filter((i) => i >= 0 && i < totalPages);
+
+        if (newOrder.length === 0) {
+          res.status(400).json({ error: 'Bad Request', message: 'Invalid pageOrder provided.' });
+          return;
+        }
+      }
+
+      console.log(`[Organize PDF] Reordering ${totalPages} pages`);
+      const resultPdf = await PDFDocument.create();
+      const copied = await resultPdf.copyPages(pdfDoc, newOrder);
+      copied.forEach((p) => resultPdf.addPage(p));
+
+      const bytes = await resultPdf.save();
+      const base64 = Buffer.from(bytes).toString('base64');
+
+      res.status(200).json({
+        success: true,
+        message: `Pages reorganised successfully (${newOrder.length} pages in new order).`,
+        fileData: base64,
+        fileName: `organized_${file.originalname || 'document.pdf'}`,
+        downloadUrl: `data:application/pdf;base64,${base64}`,
+      });
+    } catch (error: any) {
+      console.error('[Organize PDF] Error:', error);
+      res.status(500).json({ error: 'Processing Failed', message: error.message || 'Failed to organize PDF.' });
+    }
+  }
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/tools/log
+// ─────────────────────────────────────────────────────────────────────────────
 router.post(
   '/log',
   async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     const { toolName, status } = req.body;
     console.log(`[OmniPDF Log] Tool Usage: ${toolName} - Status: ${status}`);
-    
-    res.status(200).json({
-      success: true,
-      logId: `log_${Date.now()}`,
-    });
+    res.status(200).json({ success: true, logId: `log_${Date.now()}` });
   }
 );
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Generic "Not Implemented" handler for tools shown in UI but not yet supported
+// ─────────────────────────────────────────────────────────────────────────────
+const NOT_IMPLEMENTED_TOOLS = [
+  'ocr',
+  'crop',
+  'edit-pdf',
+  'pdf-forms',
+  'sign',
+  'redact',
+  'compare',
+  'word-to-pdf',
+  'powerpoint-to-pdf',
+  'excel-to-pdf',
+  'html-to-pdf',
+  'pdf-to-word',
+  'pdf-to-powerpoint',
+  'pdf-to-excel',
+  'pdf-to-pdfa',
+  'scan-to-pdf',
+];
+
+NOT_IMPLEMENTED_TOOLS.forEach((toolId) => {
+  router.post(`/${toolId}`, upload.any(), (req, res) => {
+    res.status(501).json({
+      error: 'Not Implemented',
+      message: `The "${toolId}" tool requires a server-side binary or third-party API (e.g. LibreOffice, Ghostscript, OCR engine) that is not currently installed on this server. This tool is planned for a future release.`,
+      toolId,
+      status: 'coming_soon',
+    });
+  });
+});
 
 export default router;

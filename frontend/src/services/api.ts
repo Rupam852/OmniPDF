@@ -38,10 +38,7 @@ export const OmniPdfApi = {
   async mergePdfs(token: string, files: File[], onProgress?: (percent: number) => void): Promise<ToolResult> {
     const headers = await getHeaders(token, true);
     const formData = new FormData();
-    
-    files.forEach((file) => {
-      formData.append('files', file);
-    });
+    files.forEach((file) => formData.append('files', file));
 
     const response = await fetch(`${API_BASE_URL}/tools/merge`, {
       method: 'POST',
@@ -57,15 +54,39 @@ export const OmniPdfApi = {
   },
 
   /**
+   * Convert JPG/PNG images to PDF
+   */
+  async mergeImages(token: string, files: File[]): Promise<ToolResult> {
+    const headers = await getHeaders(token, true);
+    const formData = new FormData();
+    files.forEach((file) => formData.append('files', file));
+
+    const response = await fetch(`${API_BASE_URL}/tools/jpg-to-pdf`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.message || 'Image conversion failed');
+    }
+    return data;
+  },
+
+  /**
    * Execute AI Summarize operation
    */
-  async summarizePdf(token: string, file: File, geminiKey?: string): Promise<ToolResult> {
+  async summarizePdf(token: string, file: File, geminiKey?: string, summaryFormat?: string): Promise<ToolResult> {
     const headers = await getHeaders(token, true);
     if (geminiKey) {
       headers['x-gemini-key'] = geminiKey;
     }
     const formData = new FormData();
     formData.append('file', file);
+    if (summaryFormat) {
+      formData.append('summaryFormat', summaryFormat);
+    }
 
     const response = await fetch(`${API_BASE_URL}/tools/ai-summarizer`, {
       method: 'POST',

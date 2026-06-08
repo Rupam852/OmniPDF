@@ -27,16 +27,5 @@ const app = initializeApp(firebaseConfig);
 // Auth Export
 export const auth = getAuth(app);
 
-// Authentication Provider Instances
+// Authentication Provider Instance
 export const googleProvider = new GoogleAuthProvider();
-
-/**
- * Helper to fetch the current user's Firebase ID Token.
- * This token must be attached as a Bearer token in the 'Authorization' header
- * for all secure backend API calls.
- */
-export async function getFirebaseAuthToken(): Promise<string | null> {
-  const currentUser = auth.currentUser;
-  if (!currentUser) return null;
-  return await currentUser.getIdToken();
-}

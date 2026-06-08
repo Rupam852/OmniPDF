@@ -1,15 +1,8 @@
 import { useState, useEffect } from 'react';
 import { FileUploadZone } from './components/FileUploadZone';
 import { OmniPdfApi } from './services/api';
-import { auth, googleProvider } from './services/firebase';
-import { 
-  onAuthStateChanged, 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
-  signInWithPopup, 
-  signOut, 
-  User 
-} from 'firebase/auth';
+import { auth } from './services/firebase';
+import { onAuthStateChanged, User } from 'firebase/auth';
 
 interface Tool {
   id: string;
@@ -24,12 +17,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<string>('All');
   const [selectedTool, setSelectedTool] = useState<Tool | null>(null);
   const [user, setUser] = useState<User | null>(null);
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [authError, setAuthError] = useState<string | null>(null);
-  
+
   // Dedicated state for processed results to render the success/download page
   const [processedResult, setProcessedResult] = useState<{
     toolName: string;
@@ -49,43 +37,6 @@ export default function App() {
     });
     return () => unsubscribe();
   }, []);
-
-  const handleAuthAction = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setAuthError(null);
-    try {
-      if (authMode === 'login') {
-        await signInWithEmailAndPassword(auth, email, password);
-      } else {
-        await createUserWithEmailAndPassword(auth, email, password);
-      }
-      setIsAuthModalOpen(false);
-      setEmail('');
-      setPassword('');
-    } catch (err: any) {
-      setAuthError(err.message || 'Authentication failed. Please check credentials.');
-    }
-  };
-
-  const handleGoogleSignIn = async () => {
-    setAuthError(null);
-    try {
-      await signInWithPopup(auth, googleProvider);
-      setIsAuthModalOpen(false);
-    } catch (err: any) {
-      setAuthError(err.message || 'Google Sign-in failed.');
-    }
-  };
-
-  const handleSignOut = async () => {
-    try {
-      await signOut(auth);
-      setSelectedTool(null);
-      setProcessedResult(null);
-    } catch (err: any) {
-      console.error('Sign out failed:', err);
-    }
-  };
 
   const tabs = [
     'All',
@@ -547,142 +498,296 @@ export default function App() {
   const handleProcessTool = async (files: File[], options: Record<string, any>) => {
     if (!selectedTool) return;
 
+    // Tools that are shown in UI but require external binaries — handle gracefully
+    const NOT_IMPLEMENTED_TOOLS = [
+      'ocr', 'crop', 'edit-pdf', 'pdf-forms', 'sign', 'redact', 'compare',
+      'word-to-pdf', 'powerpoint-to-pdf', 'excel-to-pdf', 'html-to-pdf',
+      'pdf-to-word', 'pdf-to-powerpoint', 'pdf-to-excel', 'pdf-to-pdfa', 'scan-to-pdf'
+    ];
+
+    if (NOT_IMPLEMENTED_TOOLS.includes(selectedTool.id)) {
+      alert(`"${selectedTool.name}" requires a server-side binary (e.g. LibreOffice, Ghostscript) that is not currently installed. This tool is coming soon!`);
+      throw new Error('Tool not yet implemented on this server.');
+    }
+
     try {
       const token = user ? await user.getIdToken() : undefined;
       console.log(`Processing tool ${selectedTool.id} for user ${user?.uid || 'guest'}`);
 
-      // Helper function to convert base64 to Blob URL
+      // Helper: base64 → Blob URL
       const base64ToBlobUrl = (base64: string, mimeType = 'application/pdf'): string => {
         const byteCharacters = atob(base64);
-        const byteNumbers = new Array(byteCharacters.length);
+        const byteArray = new Uint8Array(byteCharacters.length);
         for (let i = 0; i < byteCharacters.length; i++) {
-          byteNumbers[i] = byteCharacters.charCodeAt(i);
+          byteArray[i] = byteCharacters.charCodeAt(i);
         }
-        const byteArray = new Uint8Array(byteNumbers);
         const blob = new Blob([byteArray], { type: mimeType });
         return URL.createObjectURL(blob);
       };
 
+      // Helper: build a download filename
+      const makeFileName = (originalName: string, suffix: string): string => {
+        const dotIndex = originalName.lastIndexOf('.');
+        const base = dotIndex !== -1 ? originalName.substring(0, dotIndex) : originalName;
+        const ext  = dotIndex !== -1 ? originalName.substring(dotIndex)   : '.pdf';
+        return `${base}${suffix}${ext}`;
+      };
+
+      // ── MERGE ────────────────────────────────────────────────────────────────
       if (selectedTool.id === 'merge') {
         const result = await OmniPdfApi.mergePdfs(token || '', files);
         if (result.fileData) {
-          const url = base64ToBlobUrl(result.fileData);
           setProcessedResult({
             toolName: selectedTool.name,
             fileName: files.map(f => f.name).join(', '),
-            downloadUrl: url,
-            successMessage: "Your PDF files have been merged successfully!",
-            actionText: "Download Merged PDF",
+            downloadUrl: base64ToBlobUrl(result.fileData),
+            successMessage: result.message || 'Your PDF files have been merged successfully!',
+            actionText: 'Download Merged PDF',
             fileNameToDownload: result.fileName || `merged_${Date.now()}.pdf`,
           });
         }
-      } else if (selectedTool.id === 'ai-summarizer') {
-        const result = await OmniPdfApi.summarizePdf(token || '', files[0], options.geminiKey);
-        const url = result.fileData ? base64ToBlobUrl(result.fileData) : undefined;
+      }
+
+      // ── SPLIT ────────────────────────────────────────────────────────────────
+      else if (selectedTool.id === 'split') {
+        const result = await OmniPdfApi.runPdfTool('split', token || '', files[0], {
+          splitMode: options.splitMode || 'all',
+          pageRanges: options.pageRanges || '',
+        });
+        if (result.files && result.files.length > 0) {
+          setProcessedResult({
+            toolName: selectedTool.name,
+            fileName: files[0].name,
+            files: result.files.map(f => ({ fileName: f.fileName, downloadUrl: base64ToBlobUrl(f.fileData) })),
+            successMessage: result.message || 'Your PDF has been split successfully!',
+            actionText: 'Download Split PDFs',
+          });
+        }
+      }
+
+      // ── COMPRESS ─────────────────────────────────────────────────────────────
+      else if (selectedTool.id === 'compress') {
+        const result = await OmniPdfApi.runPdfTool('compress', token || '', files[0], {
+          targetSize: options.targetSize || 500,
+          targetUnit: options.targetUnit || 'KB',
+        });
+        if (result.fileData) {
+          setProcessedResult({
+            toolName: selectedTool.name,
+            fileName: files[0].name,
+            downloadUrl: base64ToBlobUrl(result.fileData),
+            successMessage: result.message || 'PDF compressed successfully!',
+            actionText: 'Download Compressed PDF',
+            fileNameToDownload: makeFileName(files[0].name, '_compressed'),
+          });
+        }
+      }
+
+      // ── PROTECT ──────────────────────────────────────────────────────────────
+      else if (selectedTool.id === 'protect') {
+        const result = await OmniPdfApi.runPdfTool('protect', token || '', files[0], {
+          password: options.password || '',
+        });
+        if (result.fileData) {
+          setProcessedResult({
+            toolName: selectedTool.name,
+            fileName: files[0].name,
+            downloadUrl: base64ToBlobUrl(result.fileData),
+            successMessage: result.message || 'PDF protected with security stamp!',
+            actionText: 'Download Protected PDF',
+            fileNameToDownload: makeFileName(files[0].name, '_protected'),
+          });
+        }
+      }
+
+      // ── ROTATE ───────────────────────────────────────────────────────────────
+      else if (selectedTool.id === 'rotate') {
+        const result = await OmniPdfApi.runPdfTool('rotate', token || '', files[0], {
+          angle: options.angle || '90',
+          pages: options.pages || 'all',
+        });
+        if (result.fileData) {
+          setProcessedResult({
+            toolName: selectedTool.name,
+            fileName: files[0].name,
+            downloadUrl: base64ToBlobUrl(result.fileData),
+            successMessage: result.message || 'PDF pages rotated successfully!',
+            actionText: 'Download Rotated PDF',
+            fileNameToDownload: makeFileName(files[0].name, '_rotated'),
+          });
+        }
+      }
+
+      // ── WATERMARK ─────────────────────────────────────────────────────────────
+      else if (selectedTool.id === 'watermark') {
+        const result = await OmniPdfApi.runPdfTool('watermark', token || '', files[0], {
+          watermarkText: options.watermarkText || 'OmniPDF',
+          opacity: options.opacity || '0.15',
+          fontSize: options.watermarkFontSize || '40',
+        });
+        if (result.fileData) {
+          setProcessedResult({
+            toolName: selectedTool.name,
+            fileName: files[0].name,
+            downloadUrl: base64ToBlobUrl(result.fileData),
+            successMessage: result.message || 'Watermark applied successfully!',
+            actionText: 'Download Watermarked PDF',
+            fileNameToDownload: makeFileName(files[0].name, '_watermarked'),
+          });
+        }
+      }
+
+      // ── REMOVE PAGES ─────────────────────────────────────────────────────────
+      else if (selectedTool.id === 'remove-pages') {
+        const result = await OmniPdfApi.runPdfTool('remove-pages', token || '', files[0], {
+          pageNumbers: options.pageNumbers || '',
+        });
+        if (result.fileData) {
+          setProcessedResult({
+            toolName: selectedTool.name,
+            fileName: files[0].name,
+            downloadUrl: base64ToBlobUrl(result.fileData),
+            successMessage: result.message || 'Pages removed successfully!',
+            actionText: 'Download PDF',
+            fileNameToDownload: makeFileName(files[0].name, '_pages_removed'),
+          });
+        }
+      }
+
+      // ── EXTRACT PAGES ────────────────────────────────────────────────────────
+      else if (selectedTool.id === 'extract-pages') {
+        const result = await OmniPdfApi.runPdfTool('extract-pages', token || '', files[0], {
+          pageRanges: options.pageRanges || '',
+        });
+        if (result.fileData) {
+          setProcessedResult({
+            toolName: selectedTool.name,
+            fileName: files[0].name,
+            downloadUrl: base64ToBlobUrl(result.fileData),
+            successMessage: result.message || 'Pages extracted successfully!',
+            actionText: 'Download Extracted PDF',
+            fileNameToDownload: makeFileName(files[0].name, '_extracted'),
+          });
+        }
+      }
+
+      // ── ORGANIZE PDF ─────────────────────────────────────────────────────────
+      else if (selectedTool.id === 'organize-pdf') {
+        const result = await OmniPdfApi.runPdfTool('organize-pdf', token || '', files[0], {
+          pageOrder: options.pageOrder || '',
+        });
+        if (result.fileData) {
+          setProcessedResult({
+            toolName: selectedTool.name,
+            fileName: files[0].name,
+            downloadUrl: base64ToBlobUrl(result.fileData),
+            successMessage: result.message || 'PDF pages reorganized successfully!',
+            actionText: 'Download Organized PDF',
+            fileNameToDownload: makeFileName(files[0].name, '_organized'),
+          });
+        }
+      }
+
+      // ── PAGE NUMBERS ─────────────────────────────────────────────────────────
+      else if (selectedTool.id === 'page-numbers') {
+        const result = await OmniPdfApi.runPdfTool('page-numbers', token || '', files[0], {
+          position: options.position || 'bottom-center',
+          startNumber: options.startNumber || '1',
+          prefix: options.prefix || '',
+          fontSize: options.pgNumFontSize || '10',
+        });
+        if (result.fileData) {
+          setProcessedResult({
+            toolName: selectedTool.name,
+            fileName: files[0].name,
+            downloadUrl: base64ToBlobUrl(result.fileData),
+            successMessage: result.message || 'Page numbers added successfully!',
+            actionText: 'Download PDF with Page Numbers',
+            fileNameToDownload: makeFileName(files[0].name, '_numbered'),
+          });
+        }
+      }
+
+      // ── REPAIR ───────────────────────────────────────────────────────────────
+      else if (selectedTool.id === 'repair') {
+        const result = await OmniPdfApi.runPdfTool('repair', token || '', files[0]);
+        if (result.fileData) {
+          setProcessedResult({
+            toolName: selectedTool.name,
+            fileName: files[0].name,
+            downloadUrl: base64ToBlobUrl(result.fileData),
+            successMessage: result.message || 'PDF repaired successfully!',
+            actionText: 'Download Repaired PDF',
+            fileNameToDownload: makeFileName(files[0].name, '_repaired'),
+          });
+        }
+      }
+
+      // ── UNLOCK ───────────────────────────────────────────────────────────────
+      else if (selectedTool.id === 'unlock') {
+        const result = await OmniPdfApi.runPdfTool('unlock', token || '', files[0]);
+        if (result.fileData) {
+          setProcessedResult({
+            toolName: selectedTool.name,
+            fileName: files[0].name,
+            downloadUrl: base64ToBlobUrl(result.fileData),
+            successMessage: result.message || 'PDF unlocked successfully!',
+            actionText: 'Download Unlocked PDF',
+            fileNameToDownload: makeFileName(files[0].name, '_unlocked'),
+          });
+        }
+      }
+
+      // ── JPG TO PDF ───────────────────────────────────────────────────────────
+      else if (selectedTool.id === 'jpg-to-pdf') {
+        const result = await OmniPdfApi.mergeImages(token || '', files);
+        if (result.fileData) {
+          setProcessedResult({
+            toolName: selectedTool.name,
+            fileName: files.map(f => f.name).join(', '),
+            downloadUrl: base64ToBlobUrl(result.fileData),
+            successMessage: result.message || 'Images converted to PDF!',
+            actionText: 'Download PDF',
+            fileNameToDownload: result.fileName || `images_to_pdf_${Date.now()}.pdf`,
+          });
+        }
+      }
+
+      // ── AI SUMMARIZER ─────────────────────────────────────────────────────────
+      else if (selectedTool.id === 'ai-summarizer') {
+        const result = await OmniPdfApi.summarizePdf(token || '', files[0], options.geminiKey, options.summaryFormat);
         setProcessedResult({
           toolName: selectedTool.name,
           fileName: files[0].name,
           summary: result.summary,
-          downloadUrl: url,
+          downloadUrl: result.fileData ? base64ToBlobUrl(result.fileData) : undefined,
           fileNameToDownload: result.fileName || `summary_${files[0].name}.pdf`,
-          successMessage: "Your PDF document has been summarized successfully using Gemini AI!",
-          actionText: "Download Summary PDF",
+          successMessage: 'Your PDF has been summarized with Gemini AI!',
+          actionText: 'Download Summary PDF',
         });
-      } else if (selectedTool.id === 'translate') {
+      }
+
+      // ── TRANSLATE ─────────────────────────────────────────────────────────────
+      else if (selectedTool.id === 'translate') {
         const result = await OmniPdfApi.translatePdf(token || '', files[0], options.targetLanguage || 'Spanish', options.geminiKey);
         if (result.fileData) {
-          const url = base64ToBlobUrl(result.fileData);
-          const dotIndex = files[0].name.lastIndexOf('.');
-          const baseName = dotIndex !== -1 ? files[0].name.substring(0, dotIndex) : files[0].name;
-          const ext = dotIndex !== -1 ? files[0].name.substring(dotIndex) : '.pdf';
-          const downloadName = `translated_${options.targetLanguage || 'Spanish'}_${baseName}${ext}`;
-
           setProcessedResult({
             toolName: selectedTool.name,
             fileName: files[0].name,
-            downloadUrl: url,
-            successMessage: `Your PDF document has been successfully translated to ${options.targetLanguage || 'Spanish'}!`,
-            actionText: `Download Translated PDF`,
-            fileNameToDownload: downloadName,
-          });
-        }
-      } else if (selectedTool.id === 'split') {
-        const result = await OmniPdfApi.runPdfTool('split', token || '', files[0]);
-        if (result.files) {
-          const processedFiles = result.files.map(f => ({
-            fileName: f.fileName,
-            downloadUrl: base64ToBlobUrl(f.fileData)
-          }));
-          setProcessedResult({
-            toolName: selectedTool.name,
-            fileName: files[0].name,
-            files: processedFiles,
-            successMessage: "Your PDF file has been split successfully!",
-            actionText: "Download Split PDFs",
-          });
-        }
-      } else {
-        // Other tools: compress, protect, rotate, watermark
-        const endpointMap: Record<string, string> = {
-          'compress': 'compress',
-          'protect': 'protect',
-          'rotate': 'rotate',
-          'watermark': 'watermark',
-        };
-
-        const endpoint = endpointMap[selectedTool.id] || selectedTool.id;
-        
-        let toolOptions: Record<string, any> = {};
-        if (selectedTool.id === 'protect') {
-          toolOptions.password = options.password || 'OmniPdfSecure';
-        } else if (selectedTool.id === 'watermark') {
-          toolOptions.watermarkText = options.watermarkText || 'OmniPDF AI';
-        } else if (selectedTool.id === 'compress') {
-          toolOptions.targetSize = options.targetSize || 500;
-          toolOptions.targetUnit = options.targetUnit || 'KB';
-        }
-
-        const result = await OmniPdfApi.runPdfTool(endpoint, token || '', files[0], toolOptions);
-        
-        if (result.fileData) {
-          const url = base64ToBlobUrl(result.fileData);
-          
-          let actionText = 'Download Processed PDF';
-          let successMessage = result.message || `Your PDF has been processed using ${selectedTool.name}!`;
-          let suffix = '_processed';
-
-          if (selectedTool.id === 'compress') {
-            actionText = 'Download Compressed PDF';
-            suffix = '_compressed';
-          } else if (selectedTool.id === 'protect') {
-            successMessage = 'Your PDF has been protected with password encryption!';
-            actionText = 'Download Protected PDF';
-            suffix = '_protected';
-          } else if (selectedTool.id === 'rotate') {
-            successMessage = 'Your PDF pages have been rotated successfully!';
-            actionText = 'Download Rotated PDF';
-            suffix = '_rotated';
-          } else if (selectedTool.id === 'watermark') {
-            successMessage = 'Watermark has been stamped onto your PDF successfully!';
-            actionText = 'Download Watermarked PDF';
-            suffix = '_watermarked';
-          }
-
-          const dotIndex = files[0].name.lastIndexOf('.');
-          const baseName = dotIndex !== -1 ? files[0].name.substring(0, dotIndex) : files[0].name;
-          const ext = dotIndex !== -1 ? files[0].name.substring(dotIndex) : '.pdf';
-          const downloadName = `${baseName}${suffix}${ext}`;
-
-          setProcessedResult({
-            toolName: selectedTool.name,
-            fileName: files[0].name,
-            downloadUrl: url,
-            successMessage,
-            actionText,
-            fileNameToDownload: downloadName,
+            downloadUrl: base64ToBlobUrl(result.fileData),
+            successMessage: result.message || `PDF translated to ${options.targetLanguage || 'Spanish'} successfully!`,
+            actionText: 'Download Translated PDF',
+            fileNameToDownload: makeFileName(files[0].name, `_translated_${options.targetLanguage || 'Spanish'}`),
           });
         }
       }
+
+      // ── FALLBACK ─────────────────────────────────────────────────────────────
+      else {
+        alert(`"${selectedTool.name}" is not yet supported. Coming soon!`);
+        throw new Error(`No handler for tool: ${selectedTool.id}`);
+      }
+
     } catch (err: any) {
       alert(`Operation failed: ${err.message || err}`);
       throw err;
@@ -849,8 +954,14 @@ export default function App() {
             </button>
             <FileUploadZone
               toolName={selectedTool.name}
-              allowMultiple={selectedTool.id === 'merge'}
+              toolId={selectedTool.id}
+              allowMultiple={selectedTool.id === 'merge' || selectedTool.id === 'jpg-to-pdf'}
               isIntelligence={selectedTool.category === 'intelligence'}
+              acceptedMimeTypes={
+                selectedTool.id === 'jpg-to-pdf'
+                  ? ['image/jpeg', 'image/jpg', 'image/png']
+                  : ['application/pdf']
+              }
               onProcess={handleProcessTool}
             />
           </div>
@@ -923,29 +1034,6 @@ const appStyles: Record<string, React.CSSProperties> = {
     flexDirection: 'column',
     minHeight: '100vh',
     backgroundColor: '#030712',
-  },
-  authButtons: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '16px',
-  },
-  userInfo: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-  },
-  userEmail: {
-    color: '#94a3b8',
-    fontSize: '14px',
-    fontWeight: 500,
-  },
-  loginBtn: {
-    background: 'none',
-    border: 'none',
-    color: '#94a3b8',
-    cursor: 'pointer',
-    fontWeight: 600,
-    fontSize: '14px',
   },
   main: {
     flex: 1,
