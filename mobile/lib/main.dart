@@ -286,7 +286,7 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
             const SizedBox(height: 10),
             const Text(
               'Drag or tap to pick PDF files from device storage, Google Drive, or Dropbox.',
-              textAlign: Center,
+              textAlign: TextAlign.center,
               style: TextStyle(color: Colors.grey),
             ),
             const SizedBox(height: 40),
