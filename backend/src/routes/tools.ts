@@ -1,7 +1,7 @@
 import { Router, Response } from 'express';
 import multer from 'multer';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { PDFDocument, rgb, degrees } from 'pdf-lib';
+import { PDFDocument, rgb, degrees, PDFName, PDFDict, PDFStream } from 'pdf-lib';
 import { AuthenticatedRequest } from '../middleware/auth';
 import { processingLimiter } from '../middleware/rateLimiter';
 
@@ -225,7 +225,39 @@ router.post(
       }
 
       // Re-save with object stream compression
-      const compressedBytes = await pdfDoc.save({ useObjectStreams: true });
+      let compressedBytes = await pdfDoc.save({ useObjectStreams: true });
+
+      // If it still exceeds target bytes, prune image objects for extreme compression
+      if (compressedBytes.length > targetBytes) {
+        console.log(`[Compress PDF] Size ${compressedBytes.length} exceeds target ${targetBytes}. Pruning image objects for extreme compression...`);
+        const docToPrune = await PDFDocument.load(compressedBytes);
+        const pages = docToPrune.getPages();
+        pages.forEach(p => {
+          const resources = p.node.Resources();
+          if (resources) {
+            const xObject = resources.get(PDFName.of('XObject'));
+            if (xObject instanceof PDFDict) {
+              xObject.keys().forEach(key => {
+                const obj = xObject.get(key);
+                const resolvedObj = docToPrune.context.lookup(obj);
+                
+                let subtype;
+                if (resolvedObj instanceof PDFDict) {
+                  subtype = resolvedObj.get(PDFName.of('Subtype'));
+                } else if (resolvedObj instanceof PDFStream) {
+                  subtype = resolvedObj.dict.get(PDFName.of('Subtype'));
+                }
+
+                if (subtype === PDFName.of('Image')) {
+                  xObject.delete(key);
+                }
+              });
+            }
+          }
+        });
+        compressedBytes = await docToPrune.save({ useObjectStreams: true });
+      }
+
       const base64 = Buffer.from(compressedBytes).toString('base64');
 
       const originalSizeText = (file.size / 1024).toFixed(2) + ' KB';
