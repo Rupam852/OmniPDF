@@ -29,7 +29,15 @@ export default function App() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [authError, setAuthError] = useState<string | null>(null);
-  const [summaryResult, setSummaryResult] = useState<string | null>(null);
+  
+  // Dedicated state for processed results to render the success/download page
+  const [processedResult, setProcessedResult] = useState<{
+    toolName: string;
+    fileName: string;
+    downloadUrl?: string;
+    summary?: string;
+    fileNameToDownload?: string;
+  } | null>(null);
 
   // Auth State Listener
   useEffect(() => {
@@ -70,6 +78,7 @@ export default function App() {
     try {
       await signOut(auth);
       setSelectedTool(null);
+      setProcessedResult(null);
     } catch (err: any) {
       console.error('Sign out failed:', err);
     }
@@ -195,7 +204,7 @@ export default function App() {
     {
       id: 'ocr',
       name: 'OCR PDF',
-      description: 'Easify convert scanned PDF into searchable and selectable documents.',
+      description: 'Easily convert scanned PDF into searchable and selectable documents.',
       category: 'optimize',
       iconColor: '#22c55e',
       iconPath: (
@@ -542,15 +551,27 @@ export default function App() {
       if (selectedTool.id === 'merge') {
         const result = await OmniPdfApi.mergePdfs(token || '', files);
         if (result.downloadUrl) {
-          window.open(result.downloadUrl, '_blank');
+          setProcessedResult({
+            toolName: selectedTool.name,
+            fileName: result.fileName || `merged_${Date.now()}.pdf`,
+            downloadUrl: result.downloadUrl,
+          });
         }
       } else if (selectedTool.id === 'ai-summarizer') {
         const result = await OmniPdfApi.summarizePdf(token || '', files[0], options.geminiKey);
-        setSummaryResult(result.summary || '');
+        setProcessedResult({
+          toolName: selectedTool.name,
+          fileName: files[0].name,
+          summary: result.summary,
+        });
       } else if (selectedTool.id === 'translate') {
         const result = await OmniPdfApi.translatePdf(token || '', files[0], options.targetLanguage || 'Spanish', options.geminiKey);
         if (result.downloadUrl) {
-          window.open(result.downloadUrl, '_blank');
+          setProcessedResult({
+            toolName: selectedTool.name,
+            fileName: `translated_${options.targetLanguage || 'Spanish'}_${files[0].name}`,
+            downloadUrl: result.downloadUrl,
+          });
         }
       } else {
         await new Promise((resolve) => setTimeout(resolve, 1500));
@@ -565,19 +586,18 @@ export default function App() {
         if (files && files.length > 0) {
           const file = files[0];
           const url = URL.createObjectURL(file);
-          const mockLink = document.createElement('a');
-          mockLink.href = url;
           const dotIndex = file.name.lastIndexOf('.');
           const baseName = dotIndex !== -1 ? file.name.substring(0, dotIndex) : file.name;
           const ext = dotIndex !== -1 ? file.name.substring(dotIndex) : '.pdf';
-          mockLink.download = `${baseName}_processed${ext}`;
-          document.body.appendChild(mockLink);
-          mockLink.click();
-          document.body.removeChild(mockLink);
-          URL.revokeObjectURL(url);
+          const downloadName = `${baseName}_processed${ext}`;
+          
+          setProcessedResult({
+            toolName: selectedTool.name,
+            fileName: file.name,
+            downloadUrl: url,
+            fileNameToDownload: downloadName,
+          });
         }
-
-        alert(`${selectedTool.name} task completed successfully!`);
       }
     } catch (err: any) {
       alert(`Operation failed: ${err.message || err}`);
@@ -591,7 +611,7 @@ export default function App() {
       <header className="app-header">
         <a 
           href="#" 
-          onClick={(e) => { e.preventDefault(); setSelectedTool(null); setActiveTab('All'); }} 
+          onClick={(e) => { e.preventDefault(); setSelectedTool(null); setActiveTab('All'); setProcessedResult(null); }} 
           className="logo"
         >
           Omni<span>PDF</span> AI
@@ -600,7 +620,7 @@ export default function App() {
           <li>
             <a 
               href="#" 
-              onClick={(e) => { e.preventDefault(); setSelectedTool(tools.find(t => t.id === 'merge') || null); }} 
+              onClick={(e) => { e.preventDefault(); setSelectedTool(tools.find(t => t.id === 'merge') || null); setProcessedResult(null); }} 
               className="nav-link"
             >
               MERGE PDF
@@ -609,7 +629,7 @@ export default function App() {
           <li>
             <a 
               href="#" 
-              onClick={(e) => { e.preventDefault(); setSelectedTool(tools.find(t => t.id === 'split') || null); }} 
+              onClick={(e) => { e.preventDefault(); setSelectedTool(tools.find(t => t.id === 'split') || null); setProcessedResult(null); }} 
               className="nav-link"
             >
               SPLIT PDF
@@ -618,7 +638,7 @@ export default function App() {
           <li>
             <a 
               href="#" 
-              onClick={(e) => { e.preventDefault(); setSelectedTool(tools.find(t => t.id === 'compress') || null); }} 
+              onClick={(e) => { e.preventDefault(); setSelectedTool(tools.find(t => t.id === 'compress') || null); setProcessedResult(null); }} 
               className="nav-link"
             >
               COMPRESS PDF
@@ -627,7 +647,7 @@ export default function App() {
           <li>
             <a 
               href="#" 
-              onClick={(e) => { e.preventDefault(); setSelectedTool(null); setActiveTab('Convert PDF'); }} 
+              onClick={(e) => { e.preventDefault(); setSelectedTool(null); setActiveTab('Convert PDF'); setProcessedResult(null); }} 
               className="nav-link"
             >
               CONVERT PDF
@@ -636,7 +656,7 @@ export default function App() {
           <li>
             <a 
               href="#" 
-              onClick={(e) => { e.preventDefault(); setSelectedTool(null); setActiveTab('All'); }} 
+              onClick={(e) => { e.preventDefault(); setSelectedTool(null); setActiveTab('All'); setProcessedResult(null); }} 
               className="nav-link"
             >
               ALL PDF TOOLS
@@ -647,9 +667,76 @@ export default function App() {
 
       {/* Main Container */}
       <main style={appStyles.main}>
-        {selectedTool ? (
+        {processedResult ? (
+          <div style={appStyles.successContainer}>
+            <div style={appStyles.successIconWrapper}>
+              <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                <polyline points="22 4 12 14.01 9 11.01" />
+              </svg>
+            </div>
+            
+            <h2 style={appStyles.successTitle}>{processedResult.toolName} Completed!</h2>
+            <p style={appStyles.successSubtitle}>
+              Your file <strong>{processedResult.fileName}</strong> has been successfully processed.
+            </p>
+
+            {processedResult.summary ? (
+              <div style={appStyles.successSummaryContainer}>
+                <h4 style={appStyles.summaryBoxTitle}>AI Summary Results</h4>
+                <div style={appStyles.summaryBoxContent}>
+                  {processedResult.summary.split('\n').map((line, i) => (
+                    <p key={i} style={{ margin: '0 0 10px 0', lineHeight: 1.6 }}>{line}</p>
+                  ))}
+                </div>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(processedResult.summary || '');
+                    alert('Summary copied to clipboard!');
+                  }}
+                  style={appStyles.copySummaryBtn}
+                >
+                  Copy Summary
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => {
+                  const link = document.createElement('a');
+                  link.href = processedResult.downloadUrl || '#';
+                  link.download = processedResult.fileNameToDownload || `processed_${processedResult.fileName}`;
+                  if (processedResult.downloadUrl && !processedResult.downloadUrl.startsWith('blob:')) {
+                    window.open(processedResult.downloadUrl, '_blank');
+                  } else {
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                  }
+                }}
+                style={appStyles.downloadBtn}
+              >
+                Download Processed PDF
+              </button>
+            )}
+
+            <div style={appStyles.successActions}>
+              <button 
+                onClick={() => setProcessedResult(null)} 
+                style={appStyles.actionBtnSecondary}
+              >
+                Process Another File
+              </button>
+              <button 
+                onClick={() => { setProcessedResult(null); setSelectedTool(null); }} 
+                style={appStyles.actionBtnPrimary}
+              >
+                Go to Dashboard
+              </button>
+            </div>
+          </div>
+        ) : selectedTool ? (
           <div>
-            <button onClick={() => setSelectedTool(null)} style={appStyles.backBtn}>
+            <button onClick={() => { setSelectedTool(null); setProcessedResult(null); }} style={appStyles.backBtn}>
               &larr; Back to Tools Grid
             </button>
             <FileUploadZone
@@ -714,34 +801,6 @@ export default function App() {
           </div>
         )}
       </main>
-
-      {/* Summary View Modal */}
-      {summaryResult !== null && (
-        <div style={appStyles.modalOverlay}>
-          <div style={appStyles.summaryModal}>
-            <h3 style={appStyles.summaryTitle}>AI Summarizer Result</h3>
-            <div style={appStyles.summaryBody}>
-              {summaryResult.split('\n').map((line, i) => (
-                <p key={i} style={{ margin: '0 0 10px 0', color: '#e2e8f0', lineHeight: 1.6 }}>{line}</p>
-              ))}
-            </div>
-            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '20px' }}>
-              <button
-                onClick={() => {
-                  navigator.clipboard.writeText(summaryResult);
-                  alert('Summary copied to clipboard!');
-                }}
-                style={appStyles.copyBtn}
-              >
-                Copy to Clipboard
-              </button>
-              <button onClick={() => setSummaryResult(null)} style={appStyles.closeBtn}>
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       <footer style={appStyles.footer}>
         &copy; {new Date().getFullYear()} OmniPDF AI. Decoupled Cloud Architecture Blueprint.
@@ -863,64 +922,111 @@ const appStyles: Record<string, React.CSSProperties> = {
     fontSize: '12px',
     color: '#64748b',
   },
-  modalOverlay: {
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1000,
-    backdropFilter: 'blur(8px)',
-  },
-  summaryModal: {
+  successContainer: {
+    maxWidth: '600px',
+    margin: '40px auto',
+    padding: '40px 30px',
     backgroundColor: '#0b1329',
     borderRadius: '16px',
-    padding: '30px',
-    maxWidth: '600px',
-    width: '90%',
-    maxHeight: '80vh',
+    boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
+    border: '1px solid rgba(255, 255, 255, 0.05)',
+    textAlign: 'center',
+    color: '#f8fafc',
+    fontFamily: '"Outfit", "Inter", sans-serif',
+  },
+  successIconWrapper: {
     display: 'flex',
-    flexDirection: 'column',
-    border: '1px solid rgba(255, 255, 255, 0.08)',
-    boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.5), 0 8px 10px -6px rgb(0 0 0 / 0.5)',
+    justifyContent: 'center',
+    marginBottom: '24px',
   },
-  summaryTitle: {
-    fontSize: '20px',
+  successTitle: {
+    fontSize: '28px',
     fontWeight: 700,
-    color: '#60a5fa',
-    margin: '0 0 16px 0',
+    color: '#22c55e',
+    marginBottom: '12px',
   },
-  summaryBody: {
-    flex: 1,
-    overflowY: 'auto',
-    fontSize: '15px',
-    color: '#cbd5e1',
-    paddingRight: '8px',
+  successSubtitle: {
+    fontSize: '16px',
+    color: '#94a3b8',
+    marginBottom: '30px',
+    lineHeight: 1.6,
   },
-  copyBtn: {
-    padding: '10px 20px',
+  downloadBtn: {
+    display: 'inline-block',
+    padding: '14px 28px',
     backgroundColor: '#2563eb',
     color: '#ffffff',
     border: 'none',
     borderRadius: '8px',
-    fontWeight: '600',
-    fontSize: '14px',
+    fontWeight: 600,
+    fontSize: '16px',
     cursor: 'pointer',
     transition: 'background-color 0.2s ease',
+    marginBottom: '30px',
+    width: '100%',
+    textAlign: 'center',
+    boxShadow: '0 4px 14px 0 rgba(37, 99, 235, 0.4)',
   },
-  closeBtn: {
+  successSummaryContainer: {
+    textAlign: 'left',
+    backgroundColor: 'rgba(30, 41, 59, 0.4)',
+    border: '1px solid rgba(255, 255, 255, 0.05)',
+    borderRadius: '12px',
+    padding: '24px',
+    marginBottom: '30px',
+  },
+  summaryBoxTitle: {
+    fontSize: '16px',
+    fontWeight: 600,
+    color: '#60a5fa',
+    margin: '0 0 16px 0',
+  },
+  summaryBoxContent: {
+    maxHeight: '300px',
+    overflowY: 'auto',
+    color: '#cbd5e1',
+    fontSize: '14px',
+    paddingRight: '8px',
+    marginBottom: '16px',
+  },
+  copySummaryBtn: {
+    padding: '8px 16px',
+    backgroundColor: '#1e293b',
+    color: '#3b82f6',
+    border: '1px solid #3b82f6',
+    borderRadius: '6px',
+    fontWeight: 600,
+    fontSize: '13px',
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
+  },
+  successActions: {
+    display: 'flex',
+    justifyContent: 'center',
+    gap: '16px',
+    borderTop: '1px solid rgba(255, 255, 255, 0.05)',
+    paddingTop: '24px',
+  },
+  actionBtnPrimary: {
     padding: '10px 20px',
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    color: '#f8fafc',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    color: '#94a3b8',
     border: '1px solid rgba(255, 255, 255, 0.1)',
     borderRadius: '8px',
-    fontWeight: '600',
+    fontWeight: 600,
     fontSize: '14px',
     cursor: 'pointer',
-    transition: 'background-color 0.2s ease',
+    transition: 'all 0.2s ease',
+  },
+  actionBtnSecondary: {
+    padding: '10px 20px',
+    backgroundColor: 'transparent',
+    color: '#3b82f6',
+    border: '1px solid #3b82f6',
+    borderRadius: '8px',
+    fontWeight: 600,
+    fontSize: '14px',
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
   },
 };

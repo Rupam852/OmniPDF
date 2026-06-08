@@ -247,6 +247,12 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
   double _progress = 0.0;
   bool _hasFile = false;
 
+  // New success state controller
+  bool _isCompleted = false;
+  String? _downloadUrl;
+  String? _summaryText;
+  final String _fileName = 'selected_document.pdf';
+
   late final TextEditingController _keyController;
   String _targetLanguage = 'Spanish';
   final List<String> _languages = ['Spanish', 'French', 'German', 'Hindi', 'Japanese', 'Italian', 'Portuguese'];
@@ -261,76 +267,6 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
   void dispose() {
     _keyController.dispose();
     super.dispose();
-  }
-
-  void _showSummaryDialog(String summary) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFF0B1329),
-          title: const Text('AI Summary Result', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: SingleChildScrollView(
-              child: Text(
-                summary,
-                style: const TextStyle(color: Color(0xFFE2E8F0), fontSize: 14, height: 1.5),
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Close', style: TextStyle(color: Colors.blueAccent)),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  void _showDownloadDialog(String url) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFF0B1329),
-          title: const Text('Translation Completed', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('PDF has been successfully translated.', style: TextStyle(color: Colors.white70)),
-              const SizedBox(height: 12),
-              Text(
-                'Download URL:\n$url',
-                style: const TextStyle(color: Colors.blueAccent, fontSize: 12),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Dismiss', style: TextStyle(color: Colors.grey)),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Downloading from: $url'),
-                    backgroundColor: Colors.green,
-                  ),
-                );
-              },
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF3B82F6)),
-              child: const Text('Download', style: TextStyle(color: Colors.white)),
-            ),
-          ],
-        );
-      },
-    );
   }
 
   void _runOperation() async {
@@ -350,6 +286,7 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
     setState(() {
       _isProcessing = true;
       _progress = 0.1;
+      _isCompleted = false;
     });
 
     if (isAiTool) {
@@ -365,7 +302,6 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
           request.fields['targetLanguage'] = _targetLanguage;
         }
 
-        // Mock PDF file upload bytes
         request.files.add(http.MultipartFile.fromBytes(
           'file',
           utf8.encode('Simulated mobile PDF file bytes for processing'),
@@ -379,21 +315,22 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
         var streamedResponse = await request.send();
         var response = await http.Response.fromStream(streamedResponse);
 
-        setState(() {
-          _isProcessing = false;
-          _progress = 1.0;
-        });
-
         if (response.statusCode == 200) {
           final resData = jsonDecode(response.body);
-          if (widget.tool['id'] == 'ai_summarizer') {
-            final summaryText = resData['summary'] ?? 'No summary returned.';
-            _showSummaryDialog(summaryText);
-          } else {
-            final downloadUrl = resData['downloadUrl'] ?? '';
-            _showDownloadDialog(downloadUrl);
-          }
+          setState(() {
+            _isProcessing = false;
+            _isCompleted = true;
+            _progress = 1.0;
+            if (widget.tool['id'] == 'ai_summarizer') {
+              _summaryText = resData['summary'] ?? 'No summary returned.';
+            } else {
+              _downloadUrl = resData['downloadUrl'] ?? '';
+            }
+          });
         } else {
+          setState(() {
+            _isProcessing = false;
+          });
           String errMsg = 'Request failed.';
           try {
             final errData = jsonDecode(response.body);
@@ -425,11 +362,6 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
           _progress += 0.2;
         });
         if (_progress >= 1.0) {
-          setState(() {
-            _isProcessing = false;
-            _progress = 1.0;
-          });
-
           final toolDbName = widget.tool['name'].toString().toUpperCase().replaceAll(' ', '_');
           try {
             await http.post(
@@ -445,12 +377,12 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
             );
           } catch (_) {}
 
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('${widget.tool['name']} completed successfully!'),
-              backgroundColor: Colors.green,
-            ),
-          );
+          setState(() {
+            _isProcessing = false;
+            _isCompleted = true;
+            _progress = 1.0;
+            _downloadUrl = 'https://omnipdf-bucket.s3.amazonaws.com/processed/guest/simulated_document.pdf';
+          });
           return false;
         }
         return true;
@@ -461,6 +393,128 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
   @override
   Widget build(BuildContext context) {
     final isAiTool = widget.tool['id'] == 'ai_summarizer' || widget.tool['id'] == 'translate';
+
+    // If task is completed, render a dedicated success/download page
+    if (_isCompleted) {
+      return Scaffold(
+        appBar: AppBar(
+          title: Text(widget.tool['name']),
+          backgroundColor: const Color(0xFF0B1329),
+        ),
+        body: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.check_circle_outline_rounded,
+                    color: Colors.green,
+                    size: 80,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  '${widget.tool['name']} Completed!',
+                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Your file "$_fileName" has been processed successfully.',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 14, color: Colors.grey),
+                ),
+                const SizedBox(height: 30),
+
+                if (_summaryText != null) ...[
+                  Card(
+                    color: const Color(0xFF1E293B),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide(color: Colors.white.withOpacity(0.08)),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'AI Summary Result',
+                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF60A5FA)),
+                          ),
+                          const SizedBox(height: 12),
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(maxHeight: 200),
+                            child: SingleChildScrollView(
+                              child: Text(
+                                _summaryText!,
+                                style: const TextStyle(color: Color(0xFFE2E8F0), fontSize: 13, height: 1.5),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                ] else if (_downloadUrl != null) ...[
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Downloading: $_downloadUrl'),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.file_download_rounded),
+                    label: const Text('Download PDF File'),
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 50),
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                ],
+
+                OutlinedButton(
+                  onPressed: () {
+                    setState(() {
+                      _isCompleted = false;
+                      _hasFile = false;
+                      _progress = 0.0;
+                      _summaryText = null;
+                      _downloadUrl = null;
+                    });
+                  },
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 50),
+                    side: BorderSide(color: Colors.white.withOpacity(0.15)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  child: const Text('Process Another File'),
+                ),
+                const SizedBox(height: 12),
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                  },
+                  child: const Text('Back to Dashboard', style: TextStyle(color: Colors.blueAccent)),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
