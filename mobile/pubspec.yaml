@@ -1,0 +1,37 @@
+name: omnipdf
+description: "OmniPDF AI Modular Mobile Utility App Client"
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Cupertino Icons
+  cupertino_icons: ^1.0.6
+
+  # Firebase Core & Authentication
+  firebase_core: ^2.30.0
+  firebase_auth: ^4.19.0
+  google_sign_in: ^6.2.1
+
+  # API Communications
+  http: ^1.2.1
+  path: ^1.9.0
+
+  # Native device features & download logic
+  path_provider: ^2.1.3
+  permission_handler: ^11.3.1
+  file_picker: ^8.0.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true

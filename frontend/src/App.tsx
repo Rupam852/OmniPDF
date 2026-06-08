@@ -154,15 +154,59 @@ export default function App() {
     <div style={appStyles.appWrapper}>
       {/* Navigation Bar */}
       <header className="app-header">
-        <a href="#" className="logo">
+        <a 
+          href="#" 
+          onClick={(e) => { e.preventDefault(); setSelectedTool(null); setActiveTab('All'); }} 
+          className="logo"
+        >
           Omni<span>PDF</span> AI
         </a>
         <ul className="nav-links">
-          <li><a href="#" className="nav-link">MERGE PDF</a></li>
-          <li><a href="#" className="nav-link">SPLIT PDF</a></li>
-          <li><a href="#" className="nav-link">COMPRESS PDF</a></li>
-          <li><a href="#" className="nav-link">CONVERT PDF</a></li>
-          <li><a href="#" className="nav-link">ALL PDF TOOLS</a></li>
+          <li>
+            <a 
+              href="#" 
+              onClick={(e) => { e.preventDefault(); setSelectedTool(tools.find(t => t.id === 'merge') || null); }} 
+              className="nav-link"
+            >
+              MERGE PDF
+            </a>
+          </li>
+          <li>
+            <a 
+              href="#" 
+              onClick={(e) => { e.preventDefault(); setSelectedTool(tools.find(t => t.id === 'split') || null); }} 
+              className="nav-link"
+            >
+              SPLIT PDF
+            </a>
+          </li>
+          <li>
+            <a 
+              href="#" 
+              onClick={(e) => { e.preventDefault(); setSelectedTool(tools.find(t => t.id === 'compress') || null); }} 
+              className="nav-link"
+            >
+              COMPRESS PDF
+            </a>
+          </li>
+          <li>
+            <a 
+              href="#" 
+              onClick={(e) => { e.preventDefault(); setSelectedTool(null); setActiveTab('Convert PDF'); }} 
+              className="nav-link"
+            >
+              CONVERT PDF
+            </a>
+          </li>
+          <li>
+            <a 
+              href="#" 
+              onClick={(e) => { e.preventDefault(); setSelectedTool(null); setActiveTab('All'); }} 
+              className="nav-link"
+            >
+              ALL PDF TOOLS
+            </a>
+          </li>
         </ul>
         <div style={appStyles.authButtons}>
           <button style={appStyles.loginBtn}>Login</button>
