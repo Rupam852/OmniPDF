@@ -3,6 +3,7 @@ import { FileUploadZone } from './components/FileUploadZone';
 import { OmniPdfApi } from './services/api';
 import { auth } from './services/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
+import { compressPdfInBrowser } from './services/compressPdf';
 
 interface Tool {
   id: string;
@@ -567,20 +568,21 @@ export default function App() {
 
       // ── COMPRESS ─────────────────────────────────────────────────────────────
       else if (selectedTool.id === 'compress') {
-        const result = await OmniPdfApi.runPdfTool('compress', token || '', files[0], {
-          targetSize: options.targetSize || 500,
-          targetUnit: options.targetUnit || 'KB',
+        const result = await compressPdfInBrowser(
+          files[0],
+          options.targetSize || 500,
+          options.targetUnit || 'KB'
+        );
+        const blob = new Blob([result.bytes as any], { type: 'application/pdf' });
+        const downloadUrl = URL.createObjectURL(blob);
+        setProcessedResult({
+          toolName: selectedTool.name,
+          fileName: files[0].name,
+          downloadUrl: downloadUrl,
+          successMessage: result.message || 'PDF compressed successfully!',
+          actionText: 'Download Compressed PDF',
+          fileNameToDownload: makeFileName(files[0].name, '_compressed'),
         });
-        if (result.fileData) {
-          setProcessedResult({
-            toolName: selectedTool.name,
-            fileName: files[0].name,
-            downloadUrl: base64ToBlobUrl(result.fileData),
-            successMessage: result.message || 'PDF compressed successfully!',
-            actionText: 'Download Compressed PDF',
-            fileNameToDownload: makeFileName(files[0].name, '_compressed'),
-          });
-        }
       }
 
       // ── PROTECT ──────────────────────────────────────────────────────────────

@@ -12,6 +12,12 @@ import {
 } from 'pdf-lib';
 import { AuthenticatedRequest } from '../middleware/auth';
 import { processingLimiter } from '../middleware/rateLimiter';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
+import fs from 'fs';
+import path from 'path';
+
+const execFileAsync = promisify(execFile);
 
 const router = Router();
 
@@ -293,77 +299,41 @@ router.post(
     const targetBytes =
       targetUnit === 'MB' ? targetSizeInput * 1024 * 1024 : targetSizeInput * 1024;
 
+    const tempDir = path.join(__dirname, '../../temp');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    const inputTempPath = path.join(tempDir, `input-${uniqueSuffix}.pdf`);
+    const outputTempPath = path.join(tempDir, `output-${uniqueSuffix}.pdf`);
+
     try {
       console.log(
         `[Compress PDF] Original: ${file.size} bytes, Target: ${targetSizeInput} ${targetUnit} (${targetBytes} bytes)`
       );
 
-      const pdfDoc = await loadPdf(file.buffer);
+      await fs.promises.writeFile(inputTempPath, file.buffer);
 
-      // Step 1: Strip all metadata to save space
-      pdfDoc.setTitle('');
-      pdfDoc.setAuthor('');
-      pdfDoc.setSubject('');
-      pdfDoc.setKeywords([]);
-      pdfDoc.setCreator('OmniPDF');
-      pdfDoc.setProducer('OmniPDF');
+      const scriptPath = path.join(__dirname, '../scripts/compress.py');
+      console.log(`[Compress PDF] Running python compression script: ${scriptPath}`);
 
-      // Step 2: Save with object stream compression enabled
-      let compressedBytes = await pdfDoc.save({ useObjectStreams: true });
+      await execFileAsync('python', [
+        scriptPath,
+        inputTempPath,
+        outputTempPath,
+        targetSizeInput.toString(),
+        targetUnit,
+      ]);
 
-      console.log(`[Compress PDF] After object-stream compression: ${compressedBytes.length} bytes`);
-
-      // Step 3: If still too big, remove embedded image XObjects from each page
-      if (compressedBytes.length > targetBytes) {
-        console.log(`[Compress PDF] Pruning image XObjects...`);
-        const docToPrune = await PDFDocument.load(compressedBytes, { ignoreEncryption: true });
-        const pages = docToPrune.getPages();
-
-        for (const page of pages) {
-          try {
-            const node = page.node;
-            const resources = node.get(PDFName.of('Resources'));
-            if (!resources) continue;
-
-            const resolvedResources = docToPrune.context.lookup(resources);
-            if (!(resolvedResources instanceof PDFDict)) continue;
-
-            const xObjectRef = resolvedResources.get(PDFName.of('XObject'));
-            if (!xObjectRef) continue;
-
-            const xObject = docToPrune.context.lookup(xObjectRef);
-            if (!(xObject instanceof PDFDict)) continue;
-
-            const keysToDelete: PDFName[] = [];
-            for (const key of xObject.keys()) {
-              const val = xObject.get(key);
-              if (!val) continue;
-              const resolved = docToPrune.context.lookup(val);
-              let subtype: PDFName | undefined;
-              if (resolved instanceof PDFDict) {
-                subtype = resolved.get(PDFName.of('Subtype')) as PDFName | undefined;
-              } else if (resolved instanceof PDFStream) {
-                subtype = resolved.dict.get(PDFName.of('Subtype')) as PDFName | undefined;
-              }
-              if (subtype && subtype.asString() === '/Image') {
-                keysToDelete.push(key as PDFName);
-              }
-            }
-
-            for (const key of keysToDelete) {
-              xObject.delete(key);
-            }
-          } catch (pageErr) {
-            // Skip pages that fail — don't abort entire compression
-            console.warn('[Compress PDF] Page prune warning:', pageErr);
-          }
-        }
-
-        compressedBytes = await docToPrune.save({ useObjectStreams: true });
-        console.log(`[Compress PDF] After image prune: ${compressedBytes.length} bytes`);
+      if (!fs.existsSync(outputTempPath)) {
+        throw new Error('Python compression script did not generate output file.');
       }
 
-      const base64 = Buffer.from(compressedBytes).toString('base64');
+      const compressedBytes = await fs.promises.readFile(outputTempPath);
+      console.log(`[Compress PDF] Successfully compressed file from python script: ${compressedBytes.length} bytes`);
+
+      const base64 = compressedBytes.toString('base64');
       const originalKB = (file.size / 1024).toFixed(1);
       const compressedKB = (compressedBytes.length / 1024).toFixed(1);
       const reduction = (((file.size - compressedBytes.length) / file.size) * 100).toFixed(1);
@@ -384,6 +354,17 @@ router.post(
         error: 'Processing Failed',
         message: error.message || 'Failed to compress PDF.',
       });
+    } finally {
+      try {
+        if (fs.existsSync(inputTempPath)) {
+          fs.unlinkSync(inputTempPath);
+        }
+        if (fs.existsSync(outputTempPath)) {
+          fs.unlinkSync(outputTempPath);
+        }
+      } catch (cleanupErr) {
+        console.error('[Compress PDF] Temp file cleanup error:', cleanupErr);
+      }
     }
   }
 );
