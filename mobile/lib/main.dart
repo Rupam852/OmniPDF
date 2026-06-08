@@ -123,40 +123,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
               );
             },
           ),
-          if (FirebaseAuth.instance.currentUser != null) ...[
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8.0),
-              child: Center(
-                child: Text(
-                  FirebaseAuth.instance.currentUser!.email ?? '',
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
-                ),
-              ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.logout_rounded, color: Colors.redAccent),
-              onPressed: () async {
-                await FirebaseAuth.instance.signOut();
-                try {
-                  await GoogleSignIn().signOut();
-                } catch (_) {}
-                setState(() {});
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Logged out successfully!')),
-                );
-              },
-            ),
-          ] else
-            IconButton(
-              icon: const Icon(Icons.login_rounded, color: Colors.blueAccent),
-              onPressed: () async {
-                await Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const LoginScreen()),
-                );
-                setState(() {});
-              },
-            ),
         ],
       ),
       body: SingleChildScrollView(
@@ -278,21 +244,6 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
   bool _hasFile = false;
 
   void _runOperation() {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please log in first to use tools!'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => const LoginScreen()),
-      );
-      return;
-    }
-
     setState(() {
       _isProcessing = true;
       _progress = 0.0;
@@ -310,15 +261,13 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
           _progress = 1.0;
         });
 
-        // Log tool usage to PostgreSQL via backend REST API
-        final token = await user.getIdToken();
+        // Log tool usage to PostgreSQL via backend REST API (guest mode)
         final toolDbName = widget.tool['name'].toString().toUpperCase().replaceAll(' ', '_');
         try {
           final response = await http.post(
-            Uri.parse('https://omnipdf-backend.onrender.com/api/tools/log'),
+            Uri.parse('https://omnipdf-backed.onrender.com/api/tools/log'),
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': 'Bearer $token',
             },
             body: jsonEncode({
               'toolName': toolDbName,
@@ -379,19 +328,6 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
             if (!_hasFile)
               ElevatedButton.icon(
                 onPressed: () {
-                  if (FirebaseAuth.instance.currentUser == null) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Please log in first to use tools!'),
-                        backgroundColor: Colors.orange,
-                      ),
-                    );
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const LoginScreen()),
-                    );
-                    return;
-                  }
                   setState(() {
                     _hasFile = true;
                   });

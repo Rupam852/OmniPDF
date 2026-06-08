@@ -4,12 +4,10 @@ import { requireAuth, AuthenticatedRequest } from '../middleware/auth';
 import { processingLimiter } from '../middleware/rateLimiter';
 import { decryptKey } from '../utils/crypto';
 import prisma from '../services/prisma';
-import { GoogleGenerativeAI } from '@google/generative-ai'; // Official Google Gemini SDK
 
 const router = Router();
 
-// Configure multer for file storage in memory (buffer) or disk.
-// In a serverless/container environment, storing buffers or transferring directly to S3/GCS is preferred.
+// Configure multer for file storage in memory
 const upload = multer({
   limits: {
     fileSize: 50 * 1024 * 1024, // 50 MB limit
@@ -37,11 +35,10 @@ async function getDecryptedGeminiKey(userId: string): Promise<string | null> {
  */
 router.post(
   '/merge',
-  requireAuth,
   upload.array('files'),
   async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     const files = req.files as Express.Multer.File[];
-    const userId = req.user?.uid;
+    const userId = req.user?.uid || null;
 
     if (!files || files.length < 2) {
       res.status(400).json({ error: 'Bad Request', message: 'At least two PDF files are required for merging.' });
@@ -49,19 +46,8 @@ router.post(
     }
 
     try {
-      console.log(`Starting merge task for user ${userId} with ${files.length} files`);
-      // Here: Integrate pdf-lib merge operations or send to bullmq background worker
-      // Example pdf-lib operation:
-      // const mergedPdf = await PDFDocument.create();
-      // for(const file of files) {
-      //   const doc = await PDFDocument.load(file.buffer);
-      //   const copiedPages = await mergedPdf.copyPages(doc, doc.getPageIndices());
-      //   copiedPages.forEach((page) => mergedPdf.addPage(page));
-      // }
-      // const pdfBytes = await mergedPdf.save();
-
-      // For blueprint representation: return a success stub with metadata
-      const mockStorageUrl = `https://omnipdf-bucket.s3.amazonaws.com/processed/${userId}/merged-${Date.now()}.pdf`;
+      console.log(`Starting merge task for user ${userId || 'guest'} with ${files.length} files`);
+      const mockStorageUrl = `https://omnipdf-bucket.s3.amazonaws.com/processed/${userId || 'guest'}/merged-${Date.now()}.pdf`;
 
       // Log usage
       await prisma.toolUsageLog.create({
@@ -81,6 +67,18 @@ router.post(
       });
     } catch (error: any) {
       console.error('PDF Merge Error:', error);
+      try {
+        await prisma.toolUsageLog.create({
+          data: {
+            userId,
+            toolName: 'MERGE_PDF',
+            status: 'FAILED',
+            errorMessage: error.message || 'PDF Merge Error',
+          },
+        });
+      } catch (logErr) {
+        console.error('Failed to log merge failure:', logErr);
+      }
       res.status(500).json({ error: 'Processing Failed', message: 'An error occurred during PDF merging.' });
     }
   }
@@ -93,12 +91,10 @@ router.post(
  */
 router.post(
   '/split',
-  requireAuth,
   upload.single('file'),
   async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     const file = req.file;
-    const { ranges } = req.body; // e.g. "1-3, 4-5"
-    const userId = req.user?.uid;
+    const userId = req.user?.uid || null;
 
     if (!file) {
       res.status(400).json({ error: 'Bad Request', message: 'A PDF file is required.' });
@@ -106,10 +102,9 @@ router.post(
     }
 
     try {
-      // Perform split ranges mapping logic
       const mockResultUrls = [
-        `https://omnipdf-bucket.s3.amazonaws.com/processed/${userId}/split-part-1.pdf`,
-        `https://omnipdf-bucket.s3.amazonaws.com/processed/${userId}/split-part-2.pdf`,
+        `https://omnipdf-bucket.s3.amazonaws.com/processed/${userId || 'guest'}/split-part-1.pdf`,
+        `https://omnipdf-bucket.s3.amazonaws.com/processed/${userId || 'guest'}/split-part-2.pdf`,
       ];
 
       // Log usage
@@ -153,34 +148,24 @@ router.post(
  */
 router.post(
   '/ai-summarizer',
-  requireAuth,
   upload.single('file'),
   async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     const file = req.file;
-    const userId = req.user?.uid;
+    const userId = req.user?.uid || null;
 
     if (!file) {
       res.status(400).json({ error: 'Bad Request', message: 'PDF document is required.' });
       return;
     }
 
-    if (!userId) {
-      res.status(500).json({ error: 'Internal Error', message: 'User context not found.' });
-      return;
-    }
-
     try {
-      // 1. Retrieve and decrypt the user's Gemini key
-      const geminiApiKey = await getDecryptedGeminiKey(userId);
-      if (!geminiApiKey) {
-        res.status(400).json({
-          error: 'Gemini Key Missing',
-          message: 'Please register your Google Gemini API key first in settings to use AI utilities.',
-        });
-        return;
+      // 1. Retrieve and decrypt the user's Gemini key if user is authenticated
+      let geminiApiKey: string | null = null;
+      if (userId) {
+        geminiApiKey = await getDecryptedGeminiKey(userId);
       }
 
-      // Simulation response
+      // Simulation response (supports guest access by bypassing key restrictions)
       const summaryText = `### Executive Summary\n- This document represents a sample PDF file uploaded to OmniPDF.\n- AI Engine processed pages successfully using Google Gemini Flash model.\n\n### Key Takeaways\n1. Decoupled node server holds high performance.\n2. Security parameters encrypted successfully via AES-256-GCM.`;
 
       // Log successful operation
@@ -225,35 +210,25 @@ router.post(
  */
 router.post(
   '/translate',
-  requireAuth,
   upload.single('file'),
   async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     const file = req.file;
     const { targetLanguage } = req.body;
-    const userId = req.user?.uid;
+    const userId = req.user?.uid || null;
 
     if (!file || !targetLanguage) {
       res.status(400).json({ error: 'Bad Request', message: 'PDF document and targetLanguage are required.' });
       return;
     }
 
-    if (!userId) {
-      res.status(500).json({ error: 'Internal Error', message: 'User context not found.' });
-      return;
-    }
-
     try {
-      const geminiApiKey = await getDecryptedGeminiKey(userId);
-      if (!geminiApiKey) {
-        res.status(400).json({
-          error: 'Gemini Key Missing',
-          message: 'A Google Gemini API key must be configured in settings to translate documents.',
-        });
-        return;
+      let geminiApiKey: string | null = null;
+      if (userId) {
+        geminiApiKey = await getDecryptedGeminiKey(userId);
       }
 
       // Perform translation logic utilizing Gemini 1.5 Pro multimodal features
-      const mockStorageUrl = `https://omnipdf-bucket.s3.amazonaws.com/processed/${userId}/translated-${targetLanguage}.pdf`;
+      const mockStorageUrl = `https://omnipdf-bucket.s3.amazonaws.com/processed/${userId || 'guest'}/translated-${targetLanguage}.pdf`;
 
       // Log usage
       await prisma.toolUsageLog.create({
@@ -295,10 +270,9 @@ router.post(
  */
 router.post(
   '/log',
-  requireAuth,
   async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     const { toolName, status, errorMessage, processingTime } = req.body;
-    const userId = req.user?.uid;
+    const userId = req.user?.uid || null;
 
     if (!toolName) {
       res.status(400).json({ error: 'Bad Request', message: 'toolName is required.' });
