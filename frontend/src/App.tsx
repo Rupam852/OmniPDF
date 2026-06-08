@@ -195,7 +195,7 @@ export default function App() {
     {
       id: 'ocr',
       name: 'OCR PDF',
-      description: 'Easily convert scanned PDF into searchable and selectable documents.',
+      description: 'Easify convert scanned PDF into searchable and selectable documents.',
       category: 'optimize',
       iconColor: '#22c55e',
       iconPath: (
@@ -556,7 +556,26 @@ export default function App() {
         await new Promise((resolve) => setTimeout(resolve, 1500));
         
         const toolDbName = selectedTool.name.toUpperCase().replace(/\s+/g, '_');
-        await OmniPdfApi.logToolUsage(token || '', toolDbName, 'COMPLETED', 1500);
+        try {
+          await OmniPdfApi.logToolUsage(token || '', toolDbName, 'COMPLETED', 1500);
+        } catch (err) {
+          console.error('Failed to log tool usage:', err);
+        }
+
+        if (files && files.length > 0) {
+          const file = files[0];
+          const url = URL.createObjectURL(file);
+          const mockLink = document.createElement('a');
+          mockLink.href = url;
+          const dotIndex = file.name.lastIndexOf('.');
+          const baseName = dotIndex !== -1 ? file.name.substring(0, dotIndex) : file.name;
+          const ext = dotIndex !== -1 ? file.name.substring(dotIndex) : '.pdf';
+          mockLink.download = `${baseName}_processed${ext}`;
+          document.body.appendChild(mockLink);
+          mockLink.click();
+          document.body.removeChild(mockLink);
+          URL.revokeObjectURL(url);
+        }
 
         alert(`${selectedTool.name} task completed successfully!`);
       }
