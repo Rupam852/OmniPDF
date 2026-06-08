@@ -39,111 +39,102 @@ def compress_pdf(input_path, output_path, target_kb, target_unit):
         out_doc.save(output_path, garbage=4, deflate=True)
         out_doc.close()
 
-    # Determine initial quality and scale based on target ratio
-    ratio = target_bytes / original_size
-    scale = 1.5
-    if ratio >= 0.9:
-        scale = 2.0
-    elif ratio >= 0.7:
-        scale = 1.8
-    elif ratio >= 0.5:
-        scale = 1.5
-    elif ratio >= 0.3:
-        scale = 1.25
+    # ── Step 5: Advanced Binary Search Quality Optimizer ──────────────────────
+    configs = [
+        {"scale": 0.6, "quality": 20}, # 0
+        {"scale": 0.7, "quality": 25}, # 1
+        {"scale": 0.8, "quality": 32}, # 2
+        {"scale": 0.9, "quality": 40}, # 3
+        {"scale": 1.0, "quality": 48}, # 4
+        {"scale": 1.1, "quality": 54}, # 5
+        {"scale": 1.2, "quality": 60}, # 6
+        {"scale": 1.3, "quality": 65}, # 7
+        {"scale": 1.4, "quality": 70}, # 8
+        {"scale": 1.5, "quality": 75}, # 9
+        {"scale": 1.6, "quality": 79}, # 10
+        {"scale": 1.7, "quality": 83}, # 11
+        {"scale": 1.8, "quality": 86}, # 12
+        {"scale": 1.9, "quality": 89}, # 13
+        {"scale": 2.0, "quality": 92}  # 14
+    ]
+
+    if target_bytes <= 0:
+        # Simple save
+        build_raster_pdf(75, 1.5)
+        doc.close()
     else:
-        scale = 1.0
+        low = 0
+        high = len(configs) - 1
+        best_size = 0
+        has_found_valid = False
 
-    if ratio >= 0.9:
-        quality = 90
-    elif ratio >= 0.7:
-        quality = 82
-    elif ratio >= 0.5:
-        quality = 72
-    elif ratio >= 0.3:
-        quality = 58
-    elif ratio >= 0.2:
-        quality = 45
-    else:
-        quality = 35
-
-    build_raster_pdf(quality, scale)
-    compressed_size = os.path.getsize(output_path)
-    
-    # ── Refinement Pass ────────────────────────────────────────────────
-    margin_min = target_bytes * 0.75
-    margin_max = target_bytes
-
-    if compressed_size < margin_min and (quality < 92 or scale < 2.0):
-        # Too small! Let's increase quality and scale for a better result
-        new_quality = int(min(92, quality + 15))
-        new_scale = min(2.0, scale * 1.25)
-        
+        # Temp path for testing passes
         temp_output_path = output_path + ".tmp"
-        
-        out_doc2 = fitz.open()
-        for page in doc:
-            rect = page.rect
-            mat = fitz.Matrix(new_scale, new_scale)
-            pix = page.get_pixmap(matrix=mat, alpha=False)
-            img_bytes = pix.tobytes(output="jpg", jpg_quality=new_quality)
+
+        for step in range(4):
+            if low > high:
+                break
+            mid = (low + high) // 2
+            conf = configs[mid]
             
-            new_page = out_doc2.new_page(width=rect.width, height=rect.height)
-            new_page.insert_image(rect, stream=img_bytes)
+            # Render a raster PDF to temp path
+            out_doc2 = fitz.open()
+            for page in doc:
+                rect = page.rect
+                mat = fitz.Matrix(conf["scale"], conf["scale"])
+                pix = page.get_pixmap(matrix=mat, alpha=False)
+                img_bytes = pix.tobytes(output="jpg", jpg_quality=conf["quality"])
+                
+                new_page = out_doc2.new_page(width=rect.width, height=rect.height)
+                new_page.insert_image(rect, stream=img_bytes)
+                
+            out_doc2.save(temp_output_path, garbage=4, deflate=True)
+            out_doc2.close()
             
-        out_doc2.save(temp_output_path, garbage=4, deflate=True)
-        out_doc2.close()
-        
-        temp_size = os.path.getsize(temp_output_path)
-        if temp_size <= target_bytes:
-            # Only swap if it stays below the target
-            doc.close()
-            try:
-                os.remove(output_path)
-                os.rename(temp_output_path, output_path)
-            except Exception as e:
-                print(f"Error swapping files: {e}", file=sys.stderr)
-        else:
-            try:
+            size = os.path.getsize(temp_output_path)
+            print(f"[Compress Step {step + 1}] index={mid}, scale={conf['scale']}, quality={conf['quality']} -> size={size / 1024:.1f} KB")
+
+            if size <= target_bytes:
+                # Valid pass: copy temp to final output
+                best_size = size
+                has_found_valid = True
+                
+                # Copy temp to output path
+                try:
+                    if os.path.exists(output_path):
+                        os.remove(output_path)
+                    os.rename(temp_output_path, output_path)
+                except Exception as e:
+                    print(f"Error saving best size: {e}", file=sys.stderr)
+
+                # Early exit if within 8% of target
+                if size >= target_bytes * 0.92:
+                    print(f"[Compress] Close match found: {size/1024:.1f} KB. Stopping early.")
+                    break
+                    
+                low = mid + 1
+            else:
+                # Too big, try to get a smaller file size
+                high = mid - 1
+                try:
+                    if os.path.exists(temp_output_path):
+                        os.remove(temp_output_path)
+                except:
+                    pass
+
+        # Cleanup final temp if left
+        try:
+            if os.path.exists(temp_output_path):
                 os.remove(temp_output_path)
-            except:
-                pass
-            doc.close()
-            
-    elif compressed_size > margin_max and quality > 30:
-        # Too big! Let's reduce quality and scale to fit
-        new_quality = int(max(25, quality * 0.65))
-        new_scale = max(0.8, scale * 0.75)
-        
-        temp_output_path = output_path + ".tmp"
-        
-        out_doc2 = fitz.open()
-        for page in doc:
-            rect = page.rect
-            mat = fitz.Matrix(new_scale, new_scale)
-            pix = page.get_pixmap(matrix=mat, alpha=False)
-            img_bytes = pix.tobytes(output="jpg", jpg_quality=new_quality)
-            
-            new_page = out_doc2.new_page(width=rect.width, height=rect.height)
-            new_page.insert_image(rect, stream=img_bytes)
-            
-        out_doc2.save(temp_output_path, garbage=4, deflate=True)
-        out_doc2.close()
-        
-        temp_size = os.path.getsize(temp_output_path)
-        if temp_size < compressed_size:
-            doc.close()
-            try:
-                os.remove(output_path)
-                os.rename(temp_output_path, output_path)
-            except Exception as e:
-                print(f"Error swapping files: {e}", file=sys.stderr)
-        else:
-            try:
-                os.remove(temp_output_path)
-            except:
-                pass
-            doc.close()
-    else:
+        except:
+            pass
+
+        # Fallback: if not even the lowest configuration was under target, build with lowest configuration
+        if not has_found_valid:
+            print(f"[Compress] Target size too small. Fallback to lowest compression settings.")
+            conf = configs[0]
+            build_raster_pdf(conf["quality"], conf["scale"])
+
         doc.close()
 
 if __name__ == '__main__':
