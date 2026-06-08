@@ -16,14 +16,22 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',') 
   : ['http://localhost:3000', 'https://omnipdf.vercel.app', 'https://omnipdf-convertor.vercel.app'];
 
+console.log("[OmniPDF Backend] Allowed Origins:", allowedOrigins.map(o => o.trim()));
+
 app.use(
   cors({
     origin: (origin, callback) => {
       // Allow requests with no origin (like mobile apps or curl requests)
       if (!origin) return callback(null, true);
-      if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV !== 'production') {
+      
+      const cleanOrigin = origin.trim();
+      const cleanAllowed = allowedOrigins.map(o => o.trim());
+      
+      if (cleanAllowed.indexOf(cleanOrigin) !== -1 || process.env.NODE_ENV !== 'production') {
         return callback(null, true);
       }
+      
+      console.warn(`[CORS Blocked] Request from: ${cleanOrigin} is not allowed. Allowed list:`, cleanAllowed);
       return callback(new Error('Blocked by CORS policy'));
     },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
