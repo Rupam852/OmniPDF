@@ -1111,3 +1111,144 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
+/* Dropdown Common Layout */
+.nav-item-dropdown {
+  display: inline-block;
+}
+
+.normal-dropdown-container {
+  position: relative;
+}
+
+.mega-dropdown-container {
+  position: static;
+}
+
+.dropdown-indicator {
+  display: inline-block;
+  margin-left: 4px;
+  font-size: 10px;
+  transition: transform 0.2s ease;
+  vertical-align: middle;
+}
+
+/* Wide Mega Dropdown for ALL PDF TOOLS */
+.mega-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background-color: var(--bg-card);
+  border-bottom: 1px solid var(--border-color);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+  padding: 30px 40px;
+  display: none;
+  z-index: 99;
+  animation: fadeIn 0.15s ease-out;
+}
+
+.mega-dropdown-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Normal Dropdown for CONVERT PDF */
+.normal-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 440px;
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 0 0 12px 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+  padding: 24px;
+  display: none;
+  z-index: 99;
+  animation: fadeIn 0.15s ease-out;
+}
+
+.normal-dropdown-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+}
+
+/* Dropdown Column Styles */
+.dropdown-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.dropdown-col-title {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 14px;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  padding-bottom: 6px;
+  text-align: left;
+}
+
+.dropdown-links-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  list-style: none;
+}
+
+.dropdown-item-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+
+.dropdown-item-link:hover {
+  color: var(--color-accent);
+  transform: translateX(3px);
+}
+
+.dropdown-icon {
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.dropdown-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Hover States to trigger dropdowns */
+.nav-item-dropdown:hover .mega-dropdown,
+.nav-item-dropdown:hover .normal-dropdown {
+  display: block;
+}
+
+.nav-item-dropdown:hover .dropdown-indicator {
+  transform: rotate(180deg);
+}
+
+/* Responsive Hide for Dropdowns on mobile */
+@media (max-width: 768px) {
+  .mega-dropdown, .normal-dropdown {
+    display: none !important;
+  }
+}
+
+

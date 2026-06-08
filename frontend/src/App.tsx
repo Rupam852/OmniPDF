@@ -859,23 +859,222 @@ export default function App() {
               COMPRESS PDF
             </a>
           </li>
-          <li>
+          
+          {/* CONVERT PDF Dropdown */}
+          <li className="nav-item-dropdown normal-dropdown-container">
             <a 
               href="#" 
-              onClick={(e) => { e.preventDefault(); setSelectedTool(null); setActiveTab('Convert PDF'); setProcessedResult(null); }} 
+              onClick={(e) => { e.preventDefault(); setSelectedTool(null); setActiveTab('Convert to PDF'); setProcessedResult(null); }} 
               className="nav-link"
             >
-              CONVERT PDF
+              CONVERT PDF <span className="dropdown-indicator">▼</span>
             </a>
+            
+            <div className="normal-dropdown">
+              <div className="normal-dropdown-grid">
+                <div className="dropdown-col">
+                  <div className="dropdown-col-title">Convert to PDF</div>
+                  <ul className="dropdown-links-list">
+                    {tools.filter(t => t.category === 'convert_to').map(tool => (
+                      <li key={tool.id}>
+                        <a 
+                          href="#" 
+                          onClick={(e) => { e.preventDefault(); setSelectedTool(tool); setProcessedResult(null); }}
+                          className="dropdown-item-link"
+                        >
+                          <span className="dropdown-icon" style={{ color: tool.iconColor }}>
+                            {tool.iconPath}
+                          </span>
+                          {tool.name}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                
+                <div className="dropdown-col">
+                  <div className="dropdown-col-title">Convert from PDF</div>
+                  <ul className="dropdown-links-list">
+                    {tools.filter(t => t.category === 'convert_from').map(tool => (
+                      <li key={tool.id}>
+                        <a 
+                          href="#" 
+                          onClick={(e) => { e.preventDefault(); setSelectedTool(tool); setProcessedResult(null); }}
+                          className="dropdown-item-link"
+                        >
+                          <span className="dropdown-icon" style={{ color: tool.iconColor }}>
+                            {tool.iconPath}
+                          </span>
+                          {tool.name}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
           </li>
-          <li>
+          
+          {/* ALL PDF TOOLS Megamenu */}
+          <li className="nav-item-dropdown mega-dropdown-container">
             <a 
               href="#" 
               onClick={(e) => { e.preventDefault(); setSelectedTool(null); setActiveTab('All'); setProcessedResult(null); }} 
               className="nav-link"
             >
-              ALL PDF TOOLS
+              ALL PDF TOOLS <span className="dropdown-indicator">▼</span>
             </a>
+            
+            <div className="mega-dropdown">
+              <div className="mega-dropdown-grid">
+                {/* Organize Column */}
+                <div className="dropdown-col">
+                  <div className="dropdown-col-title">Organize PDF</div>
+                  <ul className="dropdown-links-list">
+                    {tools.filter(t => t.category === 'organize').map(tool => (
+                      <li key={tool.id}>
+                        <a 
+                          href="#" 
+                          onClick={(e) => { e.preventDefault(); setSelectedTool(tool); setProcessedResult(null); }}
+                          className="dropdown-item-link"
+                        >
+                          <span className="dropdown-icon" style={{ color: tool.iconColor }}>
+                            {tool.iconPath}
+                          </span>
+                          {tool.name}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* Optimize Column */}
+                <div className="dropdown-col">
+                  <div className="dropdown-col-title">Optimize PDF</div>
+                  <ul className="dropdown-links-list">
+                    {tools.filter(t => t.category === 'optimize').map(tool => (
+                      <li key={tool.id}>
+                        <a 
+                          href="#" 
+                          onClick={(e) => { e.preventDefault(); setSelectedTool(tool); setProcessedResult(null); }}
+                          className="dropdown-item-link"
+                        >
+                          <span className="dropdown-icon" style={{ color: tool.iconColor }}>
+                            {tool.iconPath}
+                          </span>
+                          {tool.name}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* Convert To Column */}
+                <div className="dropdown-col">
+                  <div className="dropdown-col-title">Convert to PDF</div>
+                  <ul className="dropdown-links-list">
+                    {tools.filter(t => t.category === 'convert_to').map(tool => (
+                      <li key={tool.id}>
+                        <a 
+                          href="#" 
+                          onClick={(e) => { e.preventDefault(); setSelectedTool(tool); setProcessedResult(null); }}
+                          className="dropdown-item-link"
+                        >
+                          <span className="dropdown-icon" style={{ color: tool.iconColor }}>
+                            {tool.iconPath}
+                          </span>
+                          {tool.name}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* Convert From Column */}
+                <div className="dropdown-col">
+                  <div className="dropdown-col-title">Convert from PDF</div>
+                  <ul className="dropdown-links-list">
+                    {tools.filter(t => t.category === 'convert_from').map(tool => (
+                      <li key={tool.id}>
+                        <a 
+                          href="#" 
+                          onClick={(e) => { e.preventDefault(); setSelectedTool(tool); setProcessedResult(null); }}
+                          className="dropdown-item-link"
+                        >
+                          <span className="dropdown-icon" style={{ color: tool.iconColor }}>
+                            {tool.iconPath}
+                          </span>
+                          {tool.name}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* Edit Column */}
+                <div className="dropdown-col">
+                  <div className="dropdown-col-title">Edit PDF</div>
+                  <ul className="dropdown-links-list">
+                    {tools.filter(t => t.category === 'edit').map(tool => (
+                      <li key={tool.id}>
+                        <a 
+                          href="#" 
+                          onClick={(e) => { e.preventDefault(); setSelectedTool(tool); setProcessedResult(null); }}
+                          className="dropdown-item-link"
+                        >
+                          <span className="dropdown-icon" style={{ color: tool.iconColor }}>
+                            {tool.iconPath}
+                          </span>
+                          {tool.name}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* Security Column */}
+                <div className="dropdown-col">
+                  <div className="dropdown-col-title">PDF Security</div>
+                  <ul className="dropdown-links-list">
+                    {tools.filter(t => t.category === 'security').map(tool => (
+                      <li key={tool.id}>
+                        <a 
+                          href="#" 
+                          onClick={(e) => { e.preventDefault(); setSelectedTool(tool); setProcessedResult(null); }}
+                          className="dropdown-item-link"
+                        >
+                          <span className="dropdown-icon" style={{ color: tool.iconColor }}>
+                            {tool.iconPath}
+                          </span>
+                          {tool.name}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* Intelligence Column */}
+                <div className="dropdown-col">
+                  <div className="dropdown-col-title">PDF Intelligence</div>
+                  <ul className="dropdown-links-list">
+                    {tools.filter(t => t.category === 'intelligence').map(tool => (
+                      <li key={tool.id}>
+                        <a 
+                          href="#" 
+                          onClick={(e) => { e.preventDefault(); setSelectedTool(tool); setProcessedResult(null); }}
+                          className="dropdown-item-link"
+                        >
+                          <span className="dropdown-icon" style={{ color: tool.iconColor }}>
+                            {tool.iconPath}
+                          </span>
+                          {tool.name}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
           </li>
         </ul>
       </header>
