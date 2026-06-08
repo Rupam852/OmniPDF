@@ -24,12 +24,28 @@ tasks.register<Delete>("clean") {
 }
 
 subprojects {
-    plugins.withId("com.android.library") {
-        val android = extensions.findByName("android") as? com.android.build.gradle.BaseExtension
-        android?.compileSdkVersion(36)
+    val configureAndroid = Action<Project> {
+        val android = extensions.findByName("android")
+        if (android != null) {
+            try {
+                val method = android.javaClass.getMethod("compileSdk", java.lang.Integer::class.java)
+                method.invoke(android, 36)
+            } catch (e: Exception) {
+                try {
+                    val method = android.javaClass.getMethod("setCompileSdkVersion", Int::class.java)
+                    method.invoke(android, 36)
+                } catch (ex: Exception) {
+                    // ignore
+                }
+            }
+        }
     }
-    plugins.withId("com.android.application") {
-        val android = extensions.findByName("android") as? com.android.build.gradle.BaseExtension
-        android?.compileSdkVersion(36)
+
+    if (state.executed) {
+        configureAndroid.execute(this)
+    } else {
+        afterEvaluate {
+            configureAndroid.execute(this)
+        }
     }
 }
