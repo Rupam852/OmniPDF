@@ -637,6 +637,9 @@ export default function App() {
           toolOptions.password = options.password || 'OmniPdfSecure';
         } else if (selectedTool.id === 'watermark') {
           toolOptions.watermarkText = options.watermarkText || 'OmniPDF AI';
+        } else if (selectedTool.id === 'compress') {
+          toolOptions.targetSize = options.targetSize || 500;
+          toolOptions.targetUnit = options.targetUnit || 'KB';
         }
 
         const result = await OmniPdfApi.runPdfTool(endpoint, token || '', files[0], toolOptions);
@@ -645,11 +648,10 @@ export default function App() {
           const url = base64ToBlobUrl(result.fileData);
           
           let actionText = 'Download Processed PDF';
-          let successMessage = `Your PDF has been processed using ${selectedTool.name}!`;
+          let successMessage = result.message || `Your PDF has been processed using ${selectedTool.name}!`;
           let suffix = '_processed';
 
           if (selectedTool.id === 'compress') {
-            successMessage = 'Your PDF has been successfully compressed!';
             actionText = 'Download Compressed PDF';
             suffix = '_compressed';
           } else if (selectedTool.id === 'protect') {

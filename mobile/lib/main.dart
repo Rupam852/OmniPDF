@@ -260,6 +260,8 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
   String _actionText = 'Download Processed PDF';
 
   late final TextEditingController _keyController;
+  late final TextEditingController _targetSizeController;
+  String _targetUnit = 'KB';
   String _targetLanguage = 'Spanish';
   final List<String> _languages = [
     'Spanish',
@@ -275,11 +277,13 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
   void initState() {
     super.initState();
     _keyController = TextEditingController(text: globalGeminiApiKey);
+    _targetSizeController = TextEditingController(text: '500');
   }
 
   @override
   void dispose() {
     _keyController.dispose();
+    _targetSizeController.dispose();
     super.dispose();
   }
 
@@ -364,6 +368,11 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
 
       if (widget.tool['id'] == 'translate') {
         request.fields['targetLanguage'] = _targetLanguage;
+      }
+
+      if (widget.tool['id'] == 'compress') {
+        request.fields['targetSize'] = _targetSizeController.text.trim();
+        request.fields['targetUnit'] = _targetUnit;
       }
 
       setState(() {
@@ -841,6 +850,76 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
                             },
                           ),
                         ],
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
+
+              // Compress PDF configuration panel
+              if (widget.tool['id'] == 'compress') ...[
+                Card(
+                  color: const Color(0xFF1E293B),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(color: Colors.white.withOpacity(0.08)),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Compression Options',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF60A5FA),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              flex: 2,
+                              child: TextField(
+                                controller: _targetSizeController,
+                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                decoration: const InputDecoration(
+                                  labelText: 'Target Size',
+                                  labelStyle: TextStyle(fontSize: 13, color: Colors.grey),
+                                  border: OutlineInputBorder(),
+                                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: DropdownButtonFormField<String>(
+                                initialValue: _targetUnit,
+                                dropdownColor: const Color(0xFF0B1329),
+                                decoration: const InputDecoration(
+                                  labelText: 'Unit',
+                                  labelStyle: TextStyle(fontSize: 13, color: Colors.grey),
+                                  border: OutlineInputBorder(),
+                                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                ),
+                                items: const [
+                                  DropdownMenuItem(value: 'KB', child: Text('KB')),
+                                  DropdownMenuItem(value: 'MB', child: Text('MB')),
+                                ],
+                                onChanged: (String? newVal) {
+                                  if (newVal != null) {
+                                    setState(() {
+                                      _targetUnit = newVal;
+                                    });
+                                  }
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
                       ],
                     ),
                   ),

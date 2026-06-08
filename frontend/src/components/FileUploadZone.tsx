@@ -22,7 +22,8 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   
   // Custom tool-specific settings states
-  const [compressLevel, setCompressLevel] = useState<'low' | 'medium' | 'high'>('medium');
+  const [targetSize, setTargetSize] = useState<number>(500);
+  const [targetUnit, setTargetUnit] = useState<'KB' | 'MB'>('KB');
   const [watermarkText, setWatermarkText] = useState('');
   const [summaryFormat, setSummaryFormat] = useState<'bullets' | 'paragraph'>('bullets');
   const [geminiKey, setGeminiKey] = useState(() => localStorage.getItem('gemini_api_key') || '');
@@ -109,7 +110,8 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
 
     try {
       const options = {
-        compressLevel,
+        targetSize,
+        targetUnit,
         watermarkText,
         summaryFormat,
         geminiKey,
@@ -216,21 +218,33 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
               </div>
             )}
 
-            {toolName.includes('Compress') && (
-              <div style={styles.settingGroup}>
-                <label style={styles.label}>Compression Quality:</label>
-                <select 
-                  value={compressLevel} 
-                  onChange={(e) => setCompressLevel(e.target.value as any)}
-                  style={styles.select}
-                  id="compress-level-select"
-                >
-                  <option value="low">Extreme Compression (Lower Quality)</option>
-                  <option value="medium">Recommended Compression (Good Quality)</option>
-                  <option value="high">Less Compression (High Quality)</option>
-                </select>
-              </div>
-            )}
+             {toolName.includes('Compress') && (
+               <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end' }}>
+                 <div style={{ ...styles.settingGroup, flex: 1 }}>
+                   <label style={styles.label}>Target Compression Size:</label>
+                   <input
+                     type="number"
+                     min="1"
+                     value={targetSize}
+                     onChange={(e) => setTargetSize(parseFloat(e.target.value) || 0)}
+                     style={styles.input}
+                     id="target-size-input"
+                   />
+                 </div>
+                 <div style={{ ...styles.settingGroup, width: '100px' }}>
+                   <label style={styles.label}>Unit:</label>
+                   <select
+                     value={targetUnit}
+                     onChange={(e) => setTargetUnit(e.target.value as any)}
+                     style={styles.select}
+                     id="target-unit-select"
+                   >
+                     <option value="KB">KB</option>
+                     <option value="MB">MB</option>
+                   </select>
+                 </div>
+               </div>
+             )}
 
             {toolName.includes('Watermark') && (
               <div style={styles.settingGroup}>

@@ -202,21 +202,42 @@ router.post(
   upload.single('file'),
   async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     const file = req.file;
+    const targetSizeInput = parseFloat(req.body.targetSize || '500');
+    const targetUnit = req.body.targetUnit || 'KB';
+
     if (!file) {
       res.status(400).json({ error: 'Bad Request', message: 'A PDF file is required.' });
       return;
     }
 
     try {
-      console.log(`[Compress PDF] Compressing file size: ${file.size} bytes`);
+      console.log(`[Compress PDF] Original size: ${file.size} bytes. Target: ${targetSizeInput} ${targetUnit}`);
       const pdfDoc = await PDFDocument.load(file.buffer);
+      
+      // Clear metadata if target is smaller than the original size
+      const targetBytes = targetUnit === 'MB' ? targetSizeInput * 1024 * 1024 : targetSizeInput * 1024;
+      if (file.size > targetBytes) {
+        pdfDoc.setTitle('');
+        pdfDoc.setAuthor('');
+        pdfDoc.setSubject('');
+        pdfDoc.setCreator('');
+        pdfDoc.setProducer('');
+      }
+
       // Re-save with object stream compression
       const compressedBytes = await pdfDoc.save({ useObjectStreams: true });
       const base64 = Buffer.from(compressedBytes).toString('base64');
 
+      const originalSizeText = (file.size / 1024).toFixed(2) + ' KB';
+      const compressedSizeText = (compressedBytes.length / 1024).toFixed(2) + ' KB';
+      const targetSizeText = targetSizeInput.toFixed(2) + ' ' + targetUnit;
+
       res.status(200).json({
         success: true,
-        message: 'PDF compressed successfully.',
+        message: `Compressed successfully from ${originalSizeText} to ${compressedSizeText} (Target: ${targetSizeText}).`,
+        originalSize: file.size,
+        compressedSize: compressedBytes.length,
+        targetSize: targetBytes,
         fileData: base64,
         fileName: `compressed_${file.originalname || 'doc.pdf'}`,
         downloadUrl: `data:application/pdf;base64,${base64}`
