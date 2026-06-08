@@ -1,6 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
 import { firebaseAdmin } from '../config/firebase';
-import prisma from '../services/prisma';
 
 // Augment Express Request type definition to include user metadata
 export interface AuthenticatedRequest extends Request {
@@ -46,13 +45,6 @@ export async function requireAuth(
       name: decodedToken.name,
       picture: decodedToken.picture,
     };
-
-    // Auto-register/sync authenticated Firebase user to Neon DB
-    await prisma.user.upsert({
-      where: { id: decodedToken.uid },
-      update: { email: decodedToken.email || '' },
-      create: { id: decodedToken.uid, email: decodedToken.email || '' },
-    });
     
     next();
   } catch (error: any) {

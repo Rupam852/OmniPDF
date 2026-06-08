@@ -5,6 +5,9 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
+// Global memory API key store for the active app session
+String globalGeminiApiKey = '';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   try {
@@ -58,6 +61,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }
     });
   }
+  
   final List<Map<String, dynamic>> _tools = [
     {
       'id': 'merge',
@@ -243,61 +247,221 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
   double _progress = 0.0;
   bool _hasFile = false;
 
-  void _runOperation() {
+  late final TextEditingController _keyController;
+  String _targetLanguage = 'Spanish';
+  final List<String> _languages = ['Spanish', 'French', 'German', 'Hindi', 'Japanese', 'Italian', 'Portuguese'];
+
+  @override
+  void initState() {
+    super.initState();
+    _keyController = TextEditingController(text: globalGeminiApiKey);
+  }
+
+  @override
+  void dispose() {
+    _keyController.dispose();
+    super.dispose();
+  }
+
+  void _showSummaryDialog(String summary) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF0B1329),
+          title: const Text('AI Summary Result', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: SingleChildScrollView(
+              child: Text(
+                summary,
+                style: const TextStyle(color: Color(0xFFE2E8F0), fontSize: 14, height: 1.5),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Close', style: TextStyle(color: Colors.blueAccent)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showDownloadDialog(String url) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF0B1329),
+          title: const Text('Translation Completed', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('PDF has been successfully translated.', style: TextStyle(color: Colors.white70)),
+              const SizedBox(height: 12),
+              Text(
+                'Download URL:\n$url',
+                style: const TextStyle(color: Colors.blueAccent, fontSize: 12),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Dismiss', style: TextStyle(color: Colors.grey)),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Downloading from: $url'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF3B82F6)),
+              child: const Text('Download', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _runOperation() async {
+    final apiKey = _keyController.text.trim();
+    final isAiTool = widget.tool['id'] == 'ai_summarizer' || widget.tool['id'] == 'translate';
+
+    if (isAiTool && apiKey.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('A Google Gemini API key must be provided to use this tool.'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
     setState(() {
       _isProcessing = true;
-      _progress = 0.0;
+      _progress = 0.1;
     });
 
-    // Simulate file generation
-    Future.doWhile(() async {
-      await Future.delayed(const Duration(milliseconds: 300));
-      setState(() {
-        _progress += 0.2;
-      });
-      if (_progress >= 1.0) {
+    if (isAiTool) {
+      try {
+        final uri = widget.tool['id'] == 'ai_summarizer'
+            ? Uri.parse('https://omnipdf-backed.onrender.com/api/tools/ai-summarizer')
+            : Uri.parse('https://omnipdf-backed.onrender.com/api/tools/translate');
+
+        var request = http.MultipartRequest('POST', uri);
+        request.headers['x-gemini-key'] = apiKey;
+
+        if (widget.tool['id'] == 'translate') {
+          request.fields['targetLanguage'] = _targetLanguage;
+        }
+
+        // Mock PDF file upload bytes
+        request.files.add(http.MultipartFile.fromBytes(
+          'file',
+          utf8.encode('Simulated mobile PDF file bytes for processing'),
+          filename: 'selected_document.pdf',
+        ));
+
+        setState(() {
+          _progress = 0.5;
+        });
+
+        var streamedResponse = await request.send();
+        var response = await http.Response.fromStream(streamedResponse);
+
         setState(() {
           _isProcessing = false;
           _progress = 1.0;
         });
 
-        // Log tool usage to PostgreSQL via backend REST API (guest mode)
-        final toolDbName = widget.tool['name'].toString().toUpperCase().replaceAll(' ', '_');
-        try {
-          final response = await http.post(
-            Uri.parse('https://omnipdf-backed.onrender.com/api/tools/log'),
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: jsonEncode({
-              'toolName': toolDbName,
-              'status': 'COMPLETED',
-              'processingTime': 1500,
-            }),
-          );
-          if (response.statusCode == 200) {
-            debugPrint("Tool usage persisted to database: ${response.body}");
+        if (response.statusCode == 200) {
+          final resData = jsonDecode(response.body);
+          if (widget.tool['id'] == 'ai_summarizer') {
+            final summaryText = resData['summary'] ?? 'No summary returned.';
+            _showSummaryDialog(summaryText);
           } else {
-            debugPrint("Failed to persist tool usage: ${response.statusCode} - ${response.body}");
+            final downloadUrl = resData['downloadUrl'] ?? '';
+            _showDownloadDialog(downloadUrl);
           }
-        } catch (e) {
-          debugPrint("Error logging tool run: $e");
+        } else {
+          String errMsg = 'Request failed.';
+          try {
+            final errData = jsonDecode(response.body);
+            errMsg = errData['message'] ?? errData['error'] ?? errMsg;
+          } catch (_) {}
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error: $errMsg'),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
         }
-
+      } catch (e) {
+        setState(() {
+          _isProcessing = false;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${widget.tool['name']} completed and saved to Downloads folder successfully!'),
-            backgroundColor: Colors.green,
+            content: Text('Network Error: $e'),
+            backgroundColor: Colors.redAccent,
           ),
         );
-        return false;
       }
-      return true;
-    });
+    } else {
+      // Simulate non-AI operations locally
+      Future.doWhile(() async {
+        await Future.delayed(const Duration(milliseconds: 300));
+        setState(() {
+          _progress += 0.2;
+        });
+        if (_progress >= 1.0) {
+          setState(() {
+            _isProcessing = false;
+            _progress = 1.0;
+          });
+
+          final toolDbName = widget.tool['name'].toString().toUpperCase().replaceAll(' ', '_');
+          try {
+            await http.post(
+              Uri.parse('https://omnipdf-backed.onrender.com/api/tools/log'),
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: jsonEncode({
+                'toolName': toolDbName,
+                'status': 'COMPLETED',
+                'processingTime': 1500,
+              }),
+            );
+          } catch (_) {}
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('${widget.tool['name']} completed successfully!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          return false;
+        }
+        return true;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final isAiTool = widget.tool['id'] == 'ai_summarizer' || widget.tool['id'] == 'translate';
+
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.tool['name']),
@@ -305,85 +469,178 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
       ),
       body: Padding(
         padding: const EdgeInsets.all(20.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              widget.tool['icon'],
-              size: 80,
-              color: widget.tool['color'],
-            ),
-            const SizedBox(height: 20),
-            Text(
-              'Modular File Upload & Processing',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
-            ),
-            const SizedBox(height: 10),
-            const Text(
-              'Drag or tap to pick PDF files from device storage, Google Drive, or Dropbox.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey),
-            ),
-            const SizedBox(height: 40),
-            if (!_hasFile)
-              ElevatedButton.icon(
-                onPressed: () {
-                  setState(() {
-                    _hasFile = true;
-                  });
-                },
-                icon: const Icon(Icons.file_upload_outlined),
-                label: const Text('Pick PDF Document'),
-                style: ElevatedButton.styleFrom(
-                  minimumSize: const Size(200, 50),
-                  backgroundColor: const Color(0xFF3B82F6),
-                  foregroundColor: Colors.white,
-                ),
-              )
-            else ...[
-              const Card(
-                color: Color(0xFF1E293B),
-                child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.picture_as_pdf, color: Colors.redAccent),
-                      SizedBox(width: 12),
-                      Text('selected_document.pdf (4.8 MB)'),
-                    ],
-                  ),
-                ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const SizedBox(height: 20),
+              Icon(
+                widget.tool['icon'],
+                size: 80,
+                color: widget.tool['color'],
               ),
               const SizedBox(height: 20),
-              if (_isProcessing) ...[
-                LinearProgressIndicator(
-                  value: _progress,
-                  backgroundColor: const Color(0xFF1E293B),
-                  color: const Color(0xFF3B82F6),
+              const Text(
+                'Modular File Upload & Processing',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'Drag or tap to pick PDF files from device storage, Google Drive, or Dropbox.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey),
+              ),
+              const SizedBox(height: 30),
+
+              // AI tool configuration panel
+              if (isAiTool) ...[
+                Card(
+                  color: const Color(0xFF1E293B),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(color: Colors.white.withOpacity(0.08)),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'AI Option Settings',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF60A5FA),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: _keyController,
+                          obscureText: true,
+                          onChanged: (val) {
+                            globalGeminiApiKey = val.trim();
+                          },
+                          decoration: const InputDecoration(
+                            labelText: 'Google Gemini API Key',
+                            labelStyle: TextStyle(fontSize: 13, color: Colors.grey),
+                            border: OutlineInputBorder(),
+                            prefixIcon: Icon(Icons.vpn_key_rounded, size: 20),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          ),
+                        ),
+                        if (widget.tool['id'] == 'translate') ...[
+                          const SizedBox(height: 16),
+                          DropdownButtonFormField<String>(
+                            value: _targetLanguage,
+                            dropdownColor: const Color(0xFF0B1329),
+                            decoration: const InputDecoration(
+                              labelText: 'Target Language',
+                              labelStyle: TextStyle(fontSize: 13, color: Colors.grey),
+                              border: OutlineInputBorder(),
+                              prefixIcon: Icon(Icons.language_rounded, size: 20),
+                              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            ),
+                            items: _languages.map((String lang) {
+                              return DropdownMenuItem<String>(
+                                value: lang,
+                                child: Text(lang),
+                              );
+                            }).toList(),
+                            onChanged: (String? newVal) {
+                              if (newVal != null) {
+                                setState(() {
+                                  _targetLanguage = newVal;
+                                });
+                              }
+                            },
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
                 ),
-                const SizedBox(height: 10),
-                Text('Processing: ${( _progress * 100).toInt()}%'),
-              ] else
-                ElevatedButton(
-                  onPressed: _runOperation,
+                const SizedBox(height: 20),
+              ],
+
+              if (!_hasFile)
+                ElevatedButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _hasFile = true;
+                    });
+                  },
+                  icon: const Icon(Icons.file_upload_outlined),
+                  label: const Text('Pick PDF Document'),
                   style: ElevatedButton.styleFrom(
                     minimumSize: const Size(200, 50),
-                    backgroundColor: Colors.green,
+                    backgroundColor: const Color(0xFF3B82F6),
                     foregroundColor: Colors.white,
                   ),
-                  child: const Text('Start Operations'),
+                )
+              else ...[
+                const Card(
+                  color: Color(0xFF1E293B),
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.picture_as_pdf, color: Colors.redAccent),
+                        SizedBox(width: 12),
+                        Text('selected_document.pdf (4.8 MB)'),
+                      ],
+                    ),
+                  ),
                 ),
-            ]
-          ],
+                const SizedBox(height: 20),
+                if (_isProcessing) ...[
+                  LinearProgressIndicator(
+                    value: _progress,
+                    backgroundColor: const Color(0xFF1E293B),
+                    color: const Color(0xFF3B82F6),
+                  ),
+                  const SizedBox(height: 10),
+                  Text('Processing: ${( _progress * 100).toInt()}%'),
+                ] else
+                  ElevatedButton(
+                    onPressed: _runOperation,
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size(200, 50),
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: const Text('Start Operations'),
+                  ),
+              ]
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-class SettingsScreen extends StatelessWidget {
+class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  late final TextEditingController _keyController;
+
+  @override
+  void initState() {
+    super.initState();
+    _keyController = TextEditingController(text: globalGeminiApiKey);
+  }
+
+  @override
+  void dispose() {
+    _keyController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -403,13 +660,14 @@ class SettingsScreen extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             const Text(
-              'Provide your own Gemini API key. Keys are securely encrypted using AES-256-GCM on the backend before being stored in the Neon database.',
+              'Provide your own Gemini API key. The key is stored locally in memory and sent via secure headers to run AI Summarizer and Translate PDF tools.',
               style: TextStyle(color: Colors.grey),
             ),
             const SizedBox(height: 30),
-            const TextField(
+            TextField(
+              controller: _keyController,
               obscureText: true,
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 labelText: 'Google Gemini API Key',
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.vpn_key_rounded),
@@ -418,9 +676,10 @@ class SettingsScreen extends StatelessWidget {
             const SizedBox(height: 20),
             ElevatedButton(
               onPressed: () {
+                globalGeminiApiKey = _keyController.text.trim();
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('API Key stored and encrypted successfully!'),
+                    content: Text('API Key saved successfully!'),
                     backgroundColor: Colors.green,
                   ),
                 );
@@ -431,7 +690,7 @@ class SettingsScreen extends StatelessWidget {
                 backgroundColor: const Color(0xFF3B82F6),
                 foregroundColor: Colors.white,
               ),
-              child: const Text('Save Encrypted Key'),
+              child: const Text('Save Key'),
             ),
           ],
         ),
@@ -521,7 +780,7 @@ class _LoginScreenState extends State<LoginScreen> {
         setState(() {
           _isLoading = false;
         });
-        return; // User canceled
+        return;
       }
 
       final GoogleSignInAuthentication googleAuth = await googleUser.authentication;

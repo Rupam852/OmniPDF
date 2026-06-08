@@ -29,6 +29,7 @@ export default function App() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [authError, setAuthError] = useState<string | null>(null);
+  const [summaryResult, setSummaryResult] = useState<string | null>(null);
 
   // Auth State Listener
   useEffect(() => {
@@ -544,18 +545,16 @@ export default function App() {
           window.open(result.downloadUrl, '_blank');
         }
       } else if (selectedTool.id === 'ai-summarizer') {
-        const result = await OmniPdfApi.summarizePdf(token || '', files[0]);
-        alert(`AI Summary Result:\n\n${result.summary}`);
+        const result = await OmniPdfApi.summarizePdf(token || '', files[0], options.geminiKey);
+        setSummaryResult(result.summary || '');
       } else if (selectedTool.id === 'translate') {
-        const result = await OmniPdfApi.translatePdf(token || '', files[0], options.targetLanguage || 'Spanish');
+        const result = await OmniPdfApi.translatePdf(token || '', files[0], options.targetLanguage || 'Spanish', options.geminiKey);
         if (result.downloadUrl) {
           window.open(result.downloadUrl, '_blank');
         }
       } else {
-        // Simulate generic download response
         await new Promise((resolve) => setTimeout(resolve, 1500));
         
-        // Log this tool execution to backend PostgreSQL DB (optional token)
         const toolDbName = selectedTool.name.toUpperCase().replace(/\s+/g, '_');
         await OmniPdfApi.logToolUsage(token || '', toolDbName, 'COMPLETED', 1500);
 
@@ -637,6 +636,7 @@ export default function App() {
             <FileUploadZone
               toolName={selectedTool.name}
               allowMultiple={selectedTool.id === 'merge'}
+              isIntelligence={selectedTool.category === 'intelligence'}
               onProcess={handleProcessTool}
             />
           </div>
@@ -695,6 +695,34 @@ export default function App() {
           </div>
         )}
       </main>
+
+      {/* Summary View Modal */}
+      {summaryResult !== null && (
+        <div style={appStyles.modalOverlay}>
+          <div style={appStyles.summaryModal}>
+            <h3 style={appStyles.summaryTitle}>AI Summarizer Result</h3>
+            <div style={appStyles.summaryBody}>
+              {summaryResult.split('\n').map((line, i) => (
+                <p key={i} style={{ margin: '0 0 10px 0', color: '#e2e8f0', lineHeight: 1.6 }}>{line}</p>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '20px' }}>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(summaryResult);
+                  alert('Summary copied to clipboard!');
+                }}
+                style={appStyles.copyBtn}
+              >
+                Copy to Clipboard
+              </button>
+              <button onClick={() => setSummaryResult(null)} style={appStyles.closeBtn}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <footer style={appStyles.footer}>
         &copy; {new Date().getFullYear()} OmniPDF AI. Decoupled Cloud Architecture Blueprint.
@@ -815,5 +843,65 @@ const appStyles: Record<string, React.CSSProperties> = {
     borderTop: '1px solid rgba(255, 255, 255, 0.05)',
     fontSize: '12px',
     color: '#64748b',
+  },
+  modalOverlay: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1000,
+    backdropFilter: 'blur(8px)',
+  },
+  summaryModal: {
+    backgroundColor: '#0b1329',
+    borderRadius: '16px',
+    padding: '30px',
+    maxWidth: '600px',
+    width: '90%',
+    maxHeight: '80vh',
+    display: 'flex',
+    flexDirection: 'column',
+    border: '1px solid rgba(255, 255, 255, 0.08)',
+    boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.5), 0 8px 10px -6px rgb(0 0 0 / 0.5)',
+  },
+  summaryTitle: {
+    fontSize: '20px',
+    fontWeight: 700,
+    color: '#60a5fa',
+    margin: '0 0 16px 0',
+  },
+  summaryBody: {
+    flex: 1,
+    overflowY: 'auto',
+    fontSize: '15px',
+    color: '#cbd5e1',
+    paddingRight: '8px',
+  },
+  copyBtn: {
+    padding: '10px 20px',
+    backgroundColor: '#2563eb',
+    color: '#ffffff',
+    border: 'none',
+    borderRadius: '8px',
+    fontWeight: '600',
+    fontSize: '14px',
+    cursor: 'pointer',
+    transition: 'background-color 0.2s ease',
+  },
+  closeBtn: {
+    padding: '10px 20px',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    color: '#f8fafc',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+    borderRadius: '8px',
+    fontWeight: '600',
+    fontSize: '14px',
+    cursor: 'pointer',
+    transition: 'background-color 0.2s ease',
   },
 };

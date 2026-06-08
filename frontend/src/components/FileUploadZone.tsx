@@ -4,6 +4,7 @@ interface FileUploadZoneProps {
   toolName: string; // e.g. "Merge PDF", "AI Summarizer", "Compress PDF"
   acceptedMimeTypes?: string[];
   allowMultiple?: boolean;
+  isIntelligence?: boolean;
   onProcess: (files: File[], options: Record<string, any>) => Promise<void>;
 }
 
@@ -11,6 +12,7 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
   toolName,
   acceptedMimeTypes = ['application/pdf'],
   allowMultiple = true,
+  isIntelligence = false,
   onProcess,
 }) => {
   const [dragActive, setDragActive] = useState(false);
@@ -23,6 +25,8 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
   const [compressLevel, setCompressLevel] = useState<'low' | 'medium' | 'high'>('medium');
   const [watermarkText, setWatermarkText] = useState('');
   const [summaryFormat, setSummaryFormat] = useState<'bullets' | 'paragraph'>('bullets');
+  const [geminiKey, setGeminiKey] = useState(() => localStorage.getItem('gemini_api_key') || '');
+  const [targetLanguage, setTargetLanguage] = useState('Spanish');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleDrag = (e: DragEvent) => {
@@ -42,7 +46,6 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
 
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       const droppedFiles = Array.from(e.dataTransfer.files);
-      // Filter PDFs
       const validFiles = droppedFiles.filter(f => acceptedMimeTypes.includes(f.type));
       if (validFiles.length === 0) {
         setErrorMessage('Invalid file type. Please upload a valid PDF document.');
@@ -85,11 +88,15 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
       return;
     }
 
+    if (isIntelligence && !geminiKey.trim()) {
+      setErrorMessage('A Google Gemini API key must be provided to use this tool.');
+      return;
+    }
+
     setIsProcessing(true);
     setProgress(10);
     setErrorMessage(null);
 
-    // Simulate progress updates for UI feedback
     const interval = setInterval(() => {
       setProgress(prev => {
         if (prev >= 90) {
@@ -105,6 +112,8 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
         compressLevel,
         watermarkText,
         summaryFormat,
+        geminiKey,
+        targetLanguage,
       };
       await onProcess(files, options);
       setProgress(100);
@@ -190,6 +199,23 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
           <div style={styles.settingsPanel}>
             <h4 style={styles.settingsTitle}>Options Configurator</h4>
             
+            {isIntelligence && (
+              <div style={{ ...styles.settingGroup, marginBottom: '12px' }}>
+                <label style={styles.label}>Google Gemini API Key:</label>
+                <input
+                  type="password"
+                  placeholder="Enter your Gemini API Key..."
+                  value={geminiKey}
+                  onChange={(e) => {
+                    setGeminiKey(e.target.value);
+                    localStorage.setItem('gemini_api_key', e.target.value);
+                  }}
+                  style={styles.input}
+                  id="gemini-api-key-input"
+                />
+              </div>
+            )}
+
             {toolName.includes('Compress') && (
               <div style={styles.settingGroup}>
                 <label style={styles.label}>Compression Quality:</label>
@@ -231,6 +257,26 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
                 >
                   <option value="bullets">Key Bullet Points</option>
                   <option value="paragraph">Fluid Narrative Summary</option>
+                </select>
+              </div>
+            )}
+
+            {toolName.includes('Translate') && (
+              <div style={styles.settingGroup}>
+                <label style={styles.label}>Target Language:</label>
+                <select 
+                  value={targetLanguage} 
+                  onChange={(e) => setTargetLanguage(e.target.value)}
+                  style={styles.select}
+                  id="target-language-select"
+                >
+                  <option value="Spanish">Spanish</option>
+                  <option value="French">French</option>
+                  <option value="German">German</option>
+                  <option value="Hindi">Hindi</option>
+                  <option value="Japanese">Japanese</option>
+                  <option value="Italian">Italian</option>
+                  <option value="Portuguese">Portuguese</option>
                 </select>
               </div>
             )}
