@@ -94,7 +94,8 @@ def compress_pdf(input_path, output_path, target_kb, target_unit):
             size = os.path.getsize(temp_output_path)
             print(f"[Compress Step {step + 1}] index={mid}, scale={conf['scale']}, quality={conf['quality']} -> size={size / 1024:.1f} KB")
 
-            if size <= target_bytes:
+            # Allow a tiny 8% tolerance threshold to prevent massive quality loss when a config is just 1-2% over target
+            if size <= target_bytes * 1.08:
                 # Valid pass: copy temp to final output
                 best_size = size
                 has_found_valid = True
@@ -108,7 +109,7 @@ def compress_pdf(input_path, output_path, target_kb, target_unit):
                     print(f"Error saving best size: {e}", file=sys.stderr)
 
                 # Early exit if within 8% of target
-                if size >= target_bytes * 0.92:
+                if size >= target_bytes * 0.92 and size <= target_bytes * 1.08:
                     print(f"[Compress] Close match found: {size/1024:.1f} KB. Stopping early.")
                     break
                     

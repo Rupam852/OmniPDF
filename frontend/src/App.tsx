@@ -821,7 +821,7 @@ export default function App() {
   };
 
   return (
-    <div style={appStyles.appWrapper}>
+    <div className="app-wrapper">
       {/* Navigation Bar */}
       <header className="app-header">
         <a 
@@ -881,18 +881,18 @@ export default function App() {
       </header>
 
       {/* Main Container */}
-      <main style={appStyles.main}>
+      <main className="app-main">
         {processedResult ? (
-          <div style={appStyles.successContainer}>
-            <div style={appStyles.successIconWrapper}>
+          <div className="success-container">
+            <div className="success-icon-wrapper">
               <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5">
                 <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
                 <polyline points="22 4 12 14.01 9 11.01" />
               </svg>
             </div>
             
-            <h2 style={appStyles.successTitle}>{processedResult.toolName} Done!</h2>
-            <p style={appStyles.successSubtitle}>
+            <h2 className="success-title">{processedResult.toolName} Done!</h2>
+            <p className="success-subtitle">
               {processedResult.successMessage}
             </p>
             <p style={{ color: '#64748b', fontSize: '13px', marginBottom: '24px' }}>
@@ -912,7 +912,7 @@ export default function App() {
                       link.click();
                       document.body.removeChild(link);
                     }}
-                    style={appStyles.downloadBtn}
+                    className="download-btn"
                   >
                     Download Part {i + 1}: {f.fileName}
                   </button>
@@ -921,9 +921,9 @@ export default function App() {
             ) : (
               <>
                 {processedResult.summary && (
-                  <div style={appStyles.successSummaryContainer}>
-                    <h4 style={appStyles.summaryBoxTitle}>AI Summary Results</h4>
-                    <div style={appStyles.summaryBoxContent}>
+                  <div className="success-summary-container">
+                    <h4 className="summary-box-title">AI Summary Results</h4>
+                    <div className="summary-box-content">
                       {processedResult.summary.split('\n').map((line, i) => (
                         <p key={i} style={{ margin: '0 0 10px 0', lineHeight: 1.6 }}>{line}</p>
                       ))}
@@ -933,7 +933,7 @@ export default function App() {
                         navigator.clipboard.writeText(processedResult.summary || '');
                         alert('Summary copied to clipboard!');
                       }}
-                      style={appStyles.copySummaryBtn}
+                      className="copy-summary-btn"
                     >
                       Copy Summary
                     </button>
@@ -950,7 +950,7 @@ export default function App() {
                       link.click();
                       document.body.removeChild(link);
                     }}
-                    style={appStyles.downloadBtn}
+                    className="download-btn"
                   >
                     {processedResult.actionText}
                   </button>
@@ -958,16 +958,16 @@ export default function App() {
               </>
             )}
 
-            <div style={appStyles.successActions}>
+            <div className="success-actions">
               <button 
                 onClick={() => setProcessedResult(null)} 
-                style={appStyles.actionBtnSecondary}
+                className="action-btn-secondary"
               >
                 Process Another File
               </button>
               <button 
                 onClick={() => { setProcessedResult(null); setSelectedTool(null); }} 
-                style={appStyles.actionBtnPrimary}
+                className="action-btn-primary"
               >
                 Go to Dashboard
               </button>
@@ -975,7 +975,7 @@ export default function App() {
           </div>
         ) : selectedTool ? (
           <div>
-            <button onClick={() => { setSelectedTool(null); setProcessedResult(null); }} style={appStyles.backBtn}>
+            <button onClick={() => { setSelectedTool(null); setProcessedResult(null); }} className="back-btn">
               &larr; Back to Tools Grid
             </button>
             <FileUploadZone
@@ -1003,17 +1003,12 @@ export default function App() {
             </section>
 
             {/* Filter Tabs */}
-            <div style={appStyles.tabsContainer}>
+            <div className="tabs-container">
               {tabs.map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
-                  style={{
-                    ...appStyles.tabBtn,
-                    backgroundColor: activeTab === tab ? '#1e293b' : 'transparent',
-                    borderColor: activeTab === tab ? '#3b82f6' : 'rgba(255, 255, 255, 0.08)',
-                    color: activeTab === tab ? '#60a5fa' : '#94a3b8',
-                  }}
+                  className={`tab-btn ${activeTab === tab ? 'active' : ''}`}
                 >
                   {tab}
                 </button>
@@ -1021,9 +1016,9 @@ export default function App() {
             </div>
 
             {/* Grid Area */}
-            <div style={appStyles.grid}>
+            <div className="tool-grid">
               {filteredTools.length === 0 ? (
-                <div style={appStyles.emptyGrid}>
+                <div className="empty-grid">
                   <p>No tools configured in this category yet. Check back soon!</p>
                 </div>
               ) : (
@@ -1031,14 +1026,16 @@ export default function App() {
                   <div
                     key={tool.id}
                     onClick={() => setSelectedTool(tool)}
-                    style={appStyles.card}
                     className="tool-card"
                   >
-                    <div style={{ ...appStyles.iconWrapper, backgroundColor: `${tool.iconColor}22`, color: tool.iconColor }}>
+                    <div 
+                      className="icon-wrapper" 
+                      style={{ backgroundColor: `${tool.iconColor}22`, color: tool.iconColor }}
+                    >
                       {tool.iconPath}
                     </div>
-                    <h3 style={appStyles.cardTitle}>{tool.name}</h3>
-                    <p style={appStyles.cardDesc}>{tool.description}</p>
+                    <h3 className="card-title">{tool.name}</h3>
+                    <p className="card-desc">{tool.description}</p>
                   </div>
                 ))
               )}
@@ -1047,209 +1044,11 @@ export default function App() {
         )}
       </main>
 
-      <footer style={appStyles.footer}>
+      <footer className="app-footer">
         &copy; {new Date().getFullYear()} OmniPDF AI. Decoupled Cloud Architecture Blueprint.
       </footer>
     </div>
   );
 }
 
-const appStyles: Record<string, React.CSSProperties> = {
-  appWrapper: {
-    display: 'flex',
-    flexDirection: 'column',
-    minHeight: '100vh',
-    backgroundColor: '#030712',
-  },
-  main: {
-    flex: 1,
-    padding: '20px 40px 60px 40px',
-    maxWidth: '1200px',
-    width: '100%',
-    margin: '0 auto',
-  },
-  backBtn: {
-    background: 'none',
-    border: 'none',
-    color: '#60a5fa',
-    cursor: 'pointer',
-    fontSize: '16px',
-    fontWeight: 600,
-    marginBottom: '20px',
-    display: 'flex',
-    alignItems: 'center',
-  },
-  tabsContainer: {
-    display: 'flex',
-    justifyContent: 'center',
-    flexWrap: 'wrap',
-    gap: '10px',
-    margin: '30px 0',
-  },
-  tabBtn: {
-    padding: '8px 16px',
-    borderRadius: '20px',
-    border: '1px solid',
-    cursor: 'pointer',
-    fontSize: '14px',
-    fontWeight: 500,
-    transition: 'all 0.2s ease',
-  },
-  grid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))',
-    gap: '24px',
-    marginTop: '20px',
-  },
-  emptyGrid: {
-    gridColumn: '1 / -1',
-    textAlign: 'center',
-    padding: '40px',
-    color: '#64748b',
-    border: '1px dashed rgba(255, 255, 255, 0.05)',
-    borderRadius: '12px',
-  },
-  card: {
-    backgroundColor: '#0b1329',
-    borderRadius: '12px',
-    padding: '24px',
-    border: '1px solid rgba(255, 255, 255, 0.04)',
-    cursor: 'pointer',
-    transition: 'transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease',
-  },
-  iconWrapper: {
-    width: '44px',
-    height: '44px',
-    borderRadius: '8px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: '16px',
-  },
-  cardTitle: {
-    fontSize: '18px',
-    fontWeight: 700,
-    marginBottom: '10px',
-    color: '#f8fafc',
-  },
-  cardDesc: {
-    fontSize: '14px',
-    color: '#94a3b8',
-    lineHeight: '1.5',
-  },
-  footer: {
-    textAlign: 'center',
-    padding: '24px',
-    borderTop: '1px solid rgba(255, 255, 255, 0.05)',
-    fontSize: '12px',
-    color: '#64748b',
-  },
-  successContainer: {
-    maxWidth: '600px',
-    margin: '40px auto',
-    padding: '40px 30px',
-    backgroundColor: '#0b1329',
-    borderRadius: '16px',
-    boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
-    border: '1px solid rgba(255, 255, 255, 0.05)',
-    textAlign: 'center',
-    color: '#f8fafc',
-    fontFamily: '"Outfit", "Inter", sans-serif',
-  },
-  successIconWrapper: {
-    display: 'flex',
-    justifyContent: 'center',
-    marginBottom: '24px',
-  },
-  successTitle: {
-    fontSize: '28px',
-    fontWeight: 700,
-    color: '#22c55e',
-    marginBottom: '12px',
-  },
-  successSubtitle: {
-    fontSize: '16px',
-    color: '#e2e8f0',
-    marginBottom: '10px',
-    lineHeight: 1.6,
-    fontWeight: '500',
-  },
-  downloadBtn: {
-    display: 'inline-block',
-    padding: '14px 28px',
-    backgroundColor: '#2563eb',
-    color: '#ffffff',
-    border: 'none',
-    borderRadius: '8px',
-    fontWeight: 600,
-    fontSize: '16px',
-    cursor: 'pointer',
-    transition: 'background-color 0.2s ease',
-    marginBottom: '30px',
-    width: '100%',
-    textAlign: 'center',
-    boxShadow: '0 4px 14px 0 rgba(37, 99, 235, 0.4)',
-  },
-  successSummaryContainer: {
-    textAlign: 'left',
-    backgroundColor: 'rgba(30, 41, 59, 0.4)',
-    border: '1px solid rgba(255, 255, 255, 0.05)',
-    borderRadius: '12px',
-    padding: '24px',
-    marginBottom: '30px',
-  },
-  summaryBoxTitle: {
-    fontSize: '16px',
-    fontWeight: 600,
-    color: '#60a5fa',
-    margin: '0 0 16px 0',
-  },
-  summaryBoxContent: {
-    maxHeight: '300px',
-    overflowY: 'auto',
-    color: '#cbd5e1',
-    fontSize: '14px',
-    paddingRight: '8px',
-    marginBottom: '16px',
-  },
-  copySummaryBtn: {
-    padding: '8px 16px',
-    backgroundColor: '#1e293b',
-    color: '#3b82f6',
-    border: '1px solid #3b82f6',
-    borderRadius: '6px',
-    fontWeight: 600,
-    fontSize: '13px',
-    cursor: 'pointer',
-    transition: 'all 0.2s ease',
-  },
-  successActions: {
-    display: 'flex',
-    justifyContent: 'center',
-    gap: '16px',
-    borderTop: '1px solid rgba(255, 255, 255, 0.05)',
-    paddingTop: '24px',
-  },
-  actionBtnPrimary: {
-    padding: '10px 20px',
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    color: '#94a3b8',
-    border: '1px solid rgba(255, 255, 255, 0.1)',
-    borderRadius: '8px',
-    fontWeight: 600,
-    fontSize: '14px',
-    cursor: 'pointer',
-    transition: 'all 0.2s ease',
-  },
-  actionBtnSecondary: {
-    padding: '10px 20px',
-    backgroundColor: 'transparent',
-    color: '#3b82f6',
-    border: '1px solid #3b82f6',
-    borderRadius: '8px',
-    fontWeight: 600,
-    fontSize: '14px',
-    cursor: 'pointer',
-    transition: 'all 0.2s ease',
-  },
-};
+

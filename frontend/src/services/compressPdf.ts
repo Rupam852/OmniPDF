@@ -121,7 +121,7 @@ export async function compressPdfInBrowser(
       page.drawImage(jpegImage, { x: 0, y: 0, width: ptWidth, height: ptHeight });
     }
 
-    return resultPdf.save();
+    return resultPdf.save() as any;
   };
 
   // ── Step 5: Advanced Binary Search Quality Optimizer ──────────────────────
@@ -143,7 +143,7 @@ export async function compressPdfInBrowser(
     { scale: 2.0, quality: 0.92 }  // 14
   ];
 
-  let compressedBytes = new Uint8Array();
+  let compressedBytes: any = new Uint8Array();
   let compressedSize = 0;
   let scale = 1.5;
   let quality = 0.75;
@@ -157,7 +157,7 @@ export async function compressPdfInBrowser(
   } else {
     let low = 0;
     let high = configs.length - 1;
-    let bestBytes = new Uint8Array();
+    let bestBytes: any = new Uint8Array();
     let bestSize = 0;
     let bestScale = 1.5;
     let bestQuality = 0.75;
@@ -173,7 +173,8 @@ export async function compressPdfInBrowser(
 
       console.log(`[Compress Step ${step + 1}] Try config index=${mid} (scale=${conf.scale.toFixed(2)}, quality=${conf.quality.toFixed(2)}) -> size=${(size/1024).toFixed(1)} KB`);
 
-      if (size <= targetBytes) {
+      // Allow a tiny 8% tolerance threshold to prevent massive quality loss when a config is just 1-2% over target
+      if (size <= targetBytes * 1.08) {
         bestBytes = bytes;
         bestSize = size;
         bestScale = conf.scale;
@@ -181,7 +182,7 @@ export async function compressPdfInBrowser(
         hasFoundValid = true;
 
         // Early Exit: If within 8% of target size, stop search to run faster and avoid over-compressing
-        if (size >= targetBytes * 0.92) {
+        if (size >= targetBytes * 0.92 && size <= targetBytes * 1.08) {
           console.log(`[Compress] Found close match: ${(size/1024).toFixed(1)} KB. Stopping search early.`);
           break;
         }
