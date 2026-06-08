@@ -52,6 +52,14 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
         setErrorMessage('Invalid file type. Please upload a valid PDF document.');
         return;
       }
+
+      // Validate size limit (10MB)
+      const maxLimit = 10 * 1024 * 1024;
+      const tooLarge = validFiles.find(f => f.size > maxLimit);
+      if (tooLarge) {
+        setErrorMessage(`File "${tooLarge.name}" is too large. Maximum allowed size is 10MB.`);
+        return;
+      }
       
       if (!allowMultiple) {
         setFiles([validFiles[0]]);
@@ -65,6 +73,15 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const selectedFiles = Array.from(e.target.files);
+
+      // Validate size limit (10MB)
+      const maxLimit = 10 * 1024 * 1024;
+      const tooLarge = selectedFiles.find(f => f.size > maxLimit);
+      if (tooLarge) {
+        setErrorMessage(`File "${tooLarge.name}" is too large. Maximum allowed size is 10MB.`);
+        return;
+      }
+
       if (!allowMultiple) {
         setFiles([selectedFiles[0]]);
       } else {
@@ -168,7 +185,7 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
           <p style={styles.dropText}>
             Drag & drop files here, or <span style={styles.browseText}>browse</span>
           </p>
-          <p style={styles.subText}>Supports PDFs up to 50MB</p>
+          <p style={styles.subText}>Supports PDFs up to 10MB</p>
         </div>
       ) : (
         <div style={styles.fileListContainer}>

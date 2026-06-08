@@ -45,6 +45,13 @@ app.use('/api', apiRouter);
 // Global Error Handler
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error('Unhandled Server Error:', err);
+  if (err.code === 'LIMIT_FILE_SIZE') {
+    res.status(400).json({
+      error: 'File Too Large',
+      message: 'Uploaded file exceeds the maximum size limit of 10MB.',
+    });
+    return;
+  }
   res.status(err.status || 500).json({
     error: 'Internal Server Error',
     message: process.env.NODE_ENV === 'production' 

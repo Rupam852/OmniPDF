@@ -296,13 +296,35 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
       );
       if (!mounted) return;
       if (result != null && result.files.isNotEmpty) {
-        setState(() {
-          if (widget.tool['id'] == 'merge') {
-            _pickedFiles.addAll(result.files);
+        final List<PlatformFile> validFiles = [];
+        final List<String> tooLargeNames = [];
+
+        for (var file in result.files) {
+          if (file.size > 10 * 1024 * 1024) {
+            tooLargeNames.add(file.name);
           } else {
-            _pickedFiles = [result.files.first];
+            validFiles.add(file);
           }
-        });
+        }
+
+        if (tooLargeNames.isNotEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('File(s) too large: ${tooLargeNames.join(', ')}. Maximum allowed size is 10MB.'),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+        }
+
+        if (validFiles.isNotEmpty) {
+          setState(() {
+            if (widget.tool['id'] == 'merge') {
+              _pickedFiles.addAll(validFiles);
+            } else {
+              _pickedFiles = [validFiles.first];
+            }
+          });
+        }
       }
     } catch (e) {
       if (!mounted) return;
@@ -778,7 +800,7 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
               ),
               const SizedBox(height: 10),
               const Text(
-                'Pick PDF files from device storage to start processing.',
+                'Pick PDF files from device storage to start processing. (Max 10MB per file)',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.grey),
               ),

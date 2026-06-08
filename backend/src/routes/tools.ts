@@ -10,7 +10,7 @@ const router = Router();
 // Configure multer for file storage in memory
 const upload = multer({
   limits: {
-    fileSize: 50 * 1024 * 1024, // 50 MB limit
+    fileSize: 10 * 1024 * 1024, // 10 MB limit
   },
 });
 
