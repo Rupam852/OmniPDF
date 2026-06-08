@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "978084889533",
+    "project_id": "omnipdf-c60ac",
+    "storage_bucket": "omnipdf-c60ac.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:978084889533:android:ea7b4032752e890ddd08d4",
+        "android_client_info": {
+          "package_name": "com.omnipdf.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "978084889533-8op96ehndbbqtooov14be1oeoodv2bdu.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDGPxj6dUwghK1nxv13D74t99e11TZ09Ao"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "978084889533-8op96ehndbbqtooov14be1oeoodv2bdu.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
