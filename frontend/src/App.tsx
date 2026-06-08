@@ -34,9 +34,12 @@ export default function App() {
   const [processedResult, setProcessedResult] = useState<{
     toolName: string;
     fileName: string;
+    successMessage: string;
+    actionText: string;
     downloadUrl?: string;
     summary?: string;
     fileNameToDownload?: string;
+    files?: { fileName: string; downloadUrl: string; }[];
   } | null>(null);
 
   // Auth State Listener
@@ -548,53 +551,132 @@ export default function App() {
       const token = user ? await user.getIdToken() : undefined;
       console.log(`Processing tool ${selectedTool.id} for user ${user?.uid || 'guest'}`);
 
+      // Helper function to convert base64 to Blob URL
+      const base64ToBlobUrl = (base64: string, mimeType = 'application/pdf'): string => {
+        const byteCharacters = atob(base64);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: mimeType });
+        return URL.createObjectURL(blob);
+      };
+
       if (selectedTool.id === 'merge') {
         const result = await OmniPdfApi.mergePdfs(token || '', files);
-        if (result.downloadUrl) {
+        if (result.fileData) {
+          const url = base64ToBlobUrl(result.fileData);
           setProcessedResult({
             toolName: selectedTool.name,
-            fileName: result.fileName || `merged_${Date.now()}.pdf`,
-            downloadUrl: result.downloadUrl,
+            fileName: files.map(f => f.name).join(', '),
+            downloadUrl: url,
+            successMessage: "Your PDF files have been merged successfully!",
+            actionText: "Download Merged PDF",
+            fileNameToDownload: result.fileName || `merged_${Date.now()}.pdf`,
           });
         }
       } else if (selectedTool.id === 'ai-summarizer') {
         const result = await OmniPdfApi.summarizePdf(token || '', files[0], options.geminiKey);
+        const url = result.fileData ? base64ToBlobUrl(result.fileData) : undefined;
         setProcessedResult({
           toolName: selectedTool.name,
           fileName: files[0].name,
           summary: result.summary,
+          downloadUrl: url,
+          fileNameToDownload: result.fileName || `summary_${files[0].name}.pdf`,
+          successMessage: "Your PDF document has been summarized successfully using Gemini AI!",
+          actionText: "Download Summary PDF",
         });
       } else if (selectedTool.id === 'translate') {
         const result = await OmniPdfApi.translatePdf(token || '', files[0], options.targetLanguage || 'Spanish', options.geminiKey);
-        if (result.downloadUrl) {
+        if (result.fileData) {
+          const url = base64ToBlobUrl(result.fileData);
+          const dotIndex = files[0].name.lastIndexOf('.');
+          const baseName = dotIndex !== -1 ? files[0].name.substring(0, dotIndex) : files[0].name;
+          const ext = dotIndex !== -1 ? files[0].name.substring(dotIndex) : '.pdf';
+          const downloadName = `translated_${options.targetLanguage || 'Spanish'}_${baseName}${ext}`;
+
           setProcessedResult({
             toolName: selectedTool.name,
-            fileName: `translated_${options.targetLanguage || 'Spanish'}_${files[0].name}`,
-            downloadUrl: result.downloadUrl,
+            fileName: files[0].name,
+            downloadUrl: url,
+            successMessage: `Your PDF document has been successfully translated to ${options.targetLanguage || 'Spanish'}!`,
+            actionText: `Download Translated PDF`,
+            fileNameToDownload: downloadName,
+          });
+        }
+      } else if (selectedTool.id === 'split') {
+        const result = await OmniPdfApi.runPdfTool('split', token || '', files[0]);
+        if (result.files) {
+          const processedFiles = result.files.map(f => ({
+            fileName: f.fileName,
+            downloadUrl: base64ToBlobUrl(f.fileData)
+          }));
+          setProcessedResult({
+            toolName: selectedTool.name,
+            fileName: files[0].name,
+            files: processedFiles,
+            successMessage: "Your PDF file has been split successfully!",
+            actionText: "Download Split PDFs",
           });
         }
       } else {
-        await new Promise((resolve) => setTimeout(resolve, 1500));
+        // Other tools: compress, protect, rotate, watermark
+        const endpointMap: Record<string, string> = {
+          'compress': 'compress',
+          'protect': 'protect',
+          'rotate': 'rotate',
+          'watermark': 'watermark',
+        };
+
+        const endpoint = endpointMap[selectedTool.id] || selectedTool.id;
         
-        const toolDbName = selectedTool.name.toUpperCase().replace(/\s+/g, '_');
-        try {
-          await OmniPdfApi.logToolUsage(token || '', toolDbName, 'COMPLETED', 1500);
-        } catch (err) {
-          console.error('Failed to log tool usage:', err);
+        let toolOptions: Record<string, any> = {};
+        if (selectedTool.id === 'protect') {
+          toolOptions.password = options.password || 'OmniPdfSecure';
+        } else if (selectedTool.id === 'watermark') {
+          toolOptions.watermarkText = options.watermarkText || 'OmniPDF AI';
         }
 
-        if (files && files.length > 0) {
-          const file = files[0];
-          const url = URL.createObjectURL(file);
-          const dotIndex = file.name.lastIndexOf('.');
-          const baseName = dotIndex !== -1 ? file.name.substring(0, dotIndex) : file.name;
-          const ext = dotIndex !== -1 ? file.name.substring(dotIndex) : '.pdf';
-          const downloadName = `${baseName}_processed${ext}`;
+        const result = await OmniPdfApi.runPdfTool(endpoint, token || '', files[0], toolOptions);
+        
+        if (result.fileData) {
+          const url = base64ToBlobUrl(result.fileData);
           
+          let actionText = 'Download Processed PDF';
+          let successMessage = `Your PDF has been processed using ${selectedTool.name}!`;
+          let suffix = '_processed';
+
+          if (selectedTool.id === 'compress') {
+            successMessage = 'Your PDF has been successfully compressed!';
+            actionText = 'Download Compressed PDF';
+            suffix = '_compressed';
+          } else if (selectedTool.id === 'protect') {
+            successMessage = 'Your PDF has been protected with password encryption!';
+            actionText = 'Download Protected PDF';
+            suffix = '_protected';
+          } else if (selectedTool.id === 'rotate') {
+            successMessage = 'Your PDF pages have been rotated successfully!';
+            actionText = 'Download Rotated PDF';
+            suffix = '_rotated';
+          } else if (selectedTool.id === 'watermark') {
+            successMessage = 'Watermark has been stamped onto your PDF successfully!';
+            actionText = 'Download Watermarked PDF';
+            suffix = '_watermarked';
+          }
+
+          const dotIndex = files[0].name.lastIndexOf('.');
+          const baseName = dotIndex !== -1 ? files[0].name.substring(0, dotIndex) : files[0].name;
+          const ext = dotIndex !== -1 ? files[0].name.substring(dotIndex) : '.pdf';
+          const downloadName = `${baseName}${suffix}${ext}`;
+
           setProcessedResult({
             toolName: selectedTool.name,
-            fileName: file.name,
+            fileName: files[0].name,
             downloadUrl: url,
+            successMessage,
+            actionText,
             fileNameToDownload: downloadName,
           });
         }
@@ -676,47 +758,71 @@ export default function App() {
               </svg>
             </div>
             
-            <h2 style={appStyles.successTitle}>{processedResult.toolName} Completed!</h2>
+            <h2 style={appStyles.successTitle}>{processedResult.toolName} Done!</h2>
             <p style={appStyles.successSubtitle}>
-              Your file <strong>{processedResult.fileName}</strong> has been successfully processed.
+              {processedResult.successMessage}
+            </p>
+            <p style={{ color: '#64748b', fontSize: '13px', marginBottom: '24px' }}>
+              File Name: <em>{processedResult.fileName}</em>
             </p>
 
-            {processedResult.summary ? (
-              <div style={appStyles.successSummaryContainer}>
-                <h4 style={appStyles.summaryBoxTitle}>AI Summary Results</h4>
-                <div style={appStyles.summaryBoxContent}>
-                  {processedResult.summary.split('\n').map((line, i) => (
-                    <p key={i} style={{ margin: '0 0 10px 0', lineHeight: 1.6 }}>{line}</p>
-                  ))}
-                </div>
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(processedResult.summary || '');
-                    alert('Summary copied to clipboard!');
-                  }}
-                  style={appStyles.copySummaryBtn}
-                >
-                  Copy Summary
-                </button>
+            {processedResult.files && processedResult.files.length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '30px' }}>
+                {processedResult.files.map((f, i) => (
+                  <button
+                    key={i}
+                    onClick={() => {
+                      const link = document.createElement('a');
+                      link.href = f.downloadUrl || '#';
+                      link.download = f.fileName;
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                    }}
+                    style={appStyles.downloadBtn}
+                  >
+                    Download Part {i + 1}: {f.fileName}
+                  </button>
+                ))}
               </div>
             ) : (
-              <button
-                onClick={() => {
-                  const link = document.createElement('a');
-                  link.href = processedResult.downloadUrl || '#';
-                  link.download = processedResult.fileNameToDownload || `processed_${processedResult.fileName}`;
-                  if (processedResult.downloadUrl && !processedResult.downloadUrl.startsWith('blob:')) {
-                    window.open(processedResult.downloadUrl, '_blank');
-                  } else {
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                  }
-                }}
-                style={appStyles.downloadBtn}
-              >
-                Download Processed PDF
-              </button>
+              <>
+                {processedResult.summary && (
+                  <div style={appStyles.successSummaryContainer}>
+                    <h4 style={appStyles.summaryBoxTitle}>AI Summary Results</h4>
+                    <div style={appStyles.summaryBoxContent}>
+                      {processedResult.summary.split('\n').map((line, i) => (
+                        <p key={i} style={{ margin: '0 0 10px 0', lineHeight: 1.6 }}>{line}</p>
+                      ))}
+                    </div>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(processedResult.summary || '');
+                        alert('Summary copied to clipboard!');
+                      }}
+                      style={appStyles.copySummaryBtn}
+                    >
+                      Copy Summary
+                    </button>
+                  </div>
+                )}
+
+                {processedResult.downloadUrl && (
+                  <button
+                    onClick={() => {
+                      const link = document.createElement('a');
+                      link.href = processedResult.downloadUrl || '#';
+                      link.download = processedResult.fileNameToDownload || `processed_${processedResult.fileName}`;
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                    }}
+                    style={appStyles.downloadBtn}
+                  >
+                    {processedResult.actionText}
+                  </button>
+                )}
+              </>
             )}
 
             <div style={appStyles.successActions}>
@@ -947,9 +1053,10 @@ const appStyles: Record<string, React.CSSProperties> = {
   },
   successSubtitle: {
     fontSize: '16px',
-    color: '#94a3b8',
-    marginBottom: '30px',
+    color: '#e2e8f0',
+    marginBottom: '10px',
     lineHeight: 1.6,
+    fontWeight: '500',
   },
   downloadBtn: {
     display: 'inline-block',

@@ -27,6 +27,8 @@ export interface ToolResult {
   downloadUrls?: string[];
   summary?: string;
   fileName?: string;
+  fileData?: string; // Base64 representation of processed PDF
+  files?: { fileName: string; fileData: string; downloadUrl?: string; }[]; // Array of split parts
 }
 
 export const OmniPdfApi = {
@@ -99,6 +101,38 @@ export const OmniPdfApi = {
     const data = await response.json();
     if (!response.ok) {
       throw new Error(data.message || 'PDF Translation failed');
+    }
+    return data;
+  },
+
+  /**
+   * Execute a generic PDF tool on the backend
+   */
+  async runPdfTool(
+    endpoint: string,
+    token: string,
+    file: File,
+    options: Record<string, any> = {}
+  ): Promise<ToolResult> {
+    const headers = await getHeaders(token, true);
+    const formData = new FormData();
+    formData.append('file', file);
+
+    Object.keys(options).forEach((key) => {
+      if (options[key] !== undefined) {
+        formData.append(key, options[key]);
+      }
+    });
+
+    const response = await fetch(`${API_BASE_URL}/tools/${endpoint}`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.message || `${endpoint} operation failed`);
     }
     return data;
   },
