@@ -1,9 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { 
   getAuth, 
-  GoogleAuthProvider, 
-  FacebookAuthProvider, 
-  GithubAuthProvider 
+  GoogleAuthProvider 
 } from 'firebase/auth';
 
 // Firebase Project Web Configuration credentials.
@@ -25,8 +23,6 @@ export const auth = getAuth(app);
 
 // Authentication Provider Instances
 export const googleProvider = new GoogleAuthProvider();
-export const facebookProvider = new FacebookAuthProvider();
-export const githubProvider = new GithubAuthProvider();
 
 /**
  * Helper to fetch the current user's Firebase ID Token.
