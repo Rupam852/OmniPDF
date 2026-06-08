@@ -481,13 +481,30 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
                   <option value="French">French</option>
                   <option value="German">German</option>
                   <option value="Hindi">Hindi</option>
+                  <option value="Bengali">Bengali</option>
+                  <option value="Marathi">Marathi</option>
+                  <option value="Telugu">Telugu</option>
+                  <option value="Tamil">Tamil</option>
+                  <option value="Gujarati">Gujarati</option>
+                  <option value="Urdu">Urdu</option>
+                  <option value="Kannada">Kannada</option>
+                  <option value="Odia">Odia</option>
+                  <option value="Malayalam">Malayalam</option>
+                  <option value="Punjabi">Punjabi</option>
+                  <option value="Assamese">Assamese</option>
+                  <option value="Chinese (Simplified)">Chinese (Simplified)</option>
+                  <option value="Chinese (Traditional)">Chinese (Traditional)</option>
                   <option value="Japanese">Japanese</option>
-                  <option value="Italian">Italian</option>
-                  <option value="Portuguese">Portuguese</option>
-                  <option value="Arabic">Arabic</option>
-                  <option value="Chinese">Chinese (Simplified)</option>
                   <option value="Korean">Korean</option>
                   <option value="Russian">Russian</option>
+                  <option value="Arabic">Arabic</option>
+                  <option value="Portuguese">Portuguese</option>
+                  <option value="Italian">Italian</option>
+                  <option value="Turkish">Turkish</option>
+                  <option value="Vietnamese">Vietnamese</option>
+                  <option value="Dutch">Dutch</option>
+                  <option value="Indonesian">Indonesian</option>
+                  <option value="Polish">Polish</option>
                 </select>
               </div>
             )}

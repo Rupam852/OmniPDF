@@ -829,7 +829,7 @@ export default function App() {
           onClick={(e) => { e.preventDefault(); setSelectedTool(null); setActiveTab('All'); setProcessedResult(null); }} 
           className="logo"
         >
-          Omni<span>PDF</span> AI
+          Omni<span>PDF</span>
         </a>
         <ul className="nav-links">
           <li>
@@ -1045,7 +1045,7 @@ export default function App() {
       </main>
 
       <footer className="app-footer">
-        &copy; {new Date().getFullYear()} OmniPDF AI. Decoupled Cloud Architecture Blueprint.
+        &copy; {new Date().getFullYear()} OmniPDF. Decoupled Cloud Architecture Blueprint.
       </footer>
     </div>
   );

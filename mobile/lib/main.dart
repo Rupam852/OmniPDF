@@ -29,7 +29,7 @@ class OmniPdfApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'OmniPDF AI',
+      title: 'OmniPDF',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         brightness: Brightness.dark,
@@ -117,7 +117,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text(
-          'OmniPDF AI',
+          'OmniPDF',
           style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
         ),
         backgroundColor: const Color(0xFF0B1329),
@@ -290,9 +290,30 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
     'French',
     'German',
     'Hindi',
+    'Bengali',
+    'Marathi',
+    'Telugu',
+    'Tamil',
+    'Gujarati',
+    'Urdu',
+    'Kannada',
+    'Odia',
+    'Malayalam',
+    'Punjabi',
+    'Assamese',
+    'Chinese (Simplified)',
+    'Chinese (Traditional)',
     'Japanese',
+    'Korean',
+    'Russian',
+    'Arabic',
+    'Portuguese',
     'Italian',
-    'Portuguese'
+    'Turkish',
+    'Vietnamese',
+    'Dutch',
+    'Indonesian',
+    'Polish'
   ];
 
   @override
@@ -1314,7 +1335,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   size: 70, color: Color(0xFF3B82F6)),
               const SizedBox(height: 20),
               Text(
-                _isSignUp ? 'Sign up for OmniPDF AI' : 'Sign in to OmniPDF AI',
+                _isSignUp ? 'Sign up for OmniPDF' : 'Sign in to OmniPDF',
                 textAlign: TextAlign.center,
                 style:
                     const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
