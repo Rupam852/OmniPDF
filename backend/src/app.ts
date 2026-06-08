@@ -21,18 +21,8 @@ console.log("[OmniPDF Backend] Allowed Origins:", allowedOrigins.map(o => o.trim
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (like mobile apps or curl requests)
-      if (!origin) return callback(null, true);
-      
-      const cleanOrigin = origin.trim();
-      const cleanAllowed = allowedOrigins.map(o => o.trim());
-      
-      if (cleanAllowed.indexOf(cleanOrigin) !== -1 || process.env.NODE_ENV !== 'production') {
-        return callback(null, true);
-      }
-      
-      console.warn(`[CORS Blocked] Request from: ${cleanOrigin} is not allowed. Allowed list:`, cleanAllowed);
-      return callback(new Error('Blocked by CORS policy'));
+      // Dynamically allow the request origin to bypass preflight issues globally
+      callback(null, true);
     },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     credentials: true,
