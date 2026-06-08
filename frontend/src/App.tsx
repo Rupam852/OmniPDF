@@ -755,6 +755,30 @@ export default function App() {
         }
       }
 
+      // ── PDF TO JPG ───────────────────────────────────────────────────────────
+      else if (selectedTool.id === 'pdf-to-jpg') {
+        const result = await OmniPdfApi.runPdfTool('pdf-to-jpg', token || '', files[0]);
+        if (result.fileData) {
+          const base64ToZipBlobUrl = (base64: string): string => {
+            const byteCharacters = atob(base64);
+            const byteArray = new Uint8Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+              byteArray[i] = byteCharacters.charCodeAt(i);
+            }
+            const blob = new Blob([byteArray], { type: 'application/zip' });
+            return URL.createObjectURL(blob);
+          };
+          setProcessedResult({
+            toolName: selectedTool.name,
+            fileName: files[0].name,
+            downloadUrl: base64ToZipBlobUrl(result.fileData),
+            successMessage: result.message || 'PDF pages converted to JPEG successfully!',
+            actionText: 'Download ZIP Archive',
+            fileNameToDownload: result.fileName || `${files[0].name.replace(/\.[^/.]+$/, '')}_images.zip`,
+          });
+        }
+      }
+
       // ── AI SUMMARIZER ─────────────────────────────────────────────────────────
       else if (selectedTool.id === 'ai-summarizer') {
         const result = await OmniPdfApi.summarizePdf(token || '', files[0], options.geminiKey, options.summaryFormat);

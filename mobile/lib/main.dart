@@ -261,6 +261,7 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
 
   late final TextEditingController _keyController;
   late final TextEditingController _targetSizeController;
+  late final TextEditingController _protectPasswordController;
   String _targetUnit = 'KB';
   String _targetLanguage = 'Spanish';
   final List<String> _languages = [
@@ -278,12 +279,14 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
     super.initState();
     _keyController = TextEditingController(text: globalGeminiApiKey);
     _targetSizeController = TextEditingController(text: '500');
+    _protectPasswordController = TextEditingController();
   }
 
   @override
   void dispose() {
     _keyController.dispose();
     _targetSizeController.dispose();
+    _protectPasswordController.dispose();
     super.dispose();
   }
 
@@ -361,6 +364,16 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
       return;
     }
 
+    if (widget.tool['id'] == 'protect' && _protectPasswordController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('A password must be provided to protect this PDF.'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
     setState(() {
       _isProcessing = true;
       _progress = 0.1;
@@ -395,6 +408,10 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
       if (widget.tool['id'] == 'compress') {
         request.fields['targetSize'] = _targetSizeController.text.trim();
         request.fields['targetUnit'] = _targetUnit;
+      }
+
+      if (widget.tool['id'] == 'protect') {
+        request.fields['password'] = _protectPasswordController.text.trim();
       }
 
       setState(() {
@@ -872,6 +889,46 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
                             },
                           ),
                         ],
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
+
+              // Protect PDF configuration panel
+              if (widget.tool['id'] == 'protect') ...[
+                Card(
+                  color: const Color(0xFF1E293B),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(color: Colors.white.withOpacity(0.08)),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Protection Settings',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF60A5FA),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: _protectPasswordController,
+                          obscureText: true,
+                          decoration: const InputDecoration(
+                            labelText: 'PDF Password',
+                            labelStyle: TextStyle(fontSize: 13, color: Colors.grey),
+                            border: OutlineInputBorder(),
+                            prefixIcon: Icon(Icons.lock_rounded, size: 20),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          ),
+                        ),
                       ],
                     ),
                   ),

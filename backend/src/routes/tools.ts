@@ -386,55 +386,42 @@ router.post(
       res.status(400).json({ error: 'Bad Request', message: 'A PDF file is required.' });
       return;
     }
+    if (!password.trim()) {
+      res.status(400).json({ error: 'Bad Request', message: 'Password is required to protect the PDF.' });
+      return;
+    }
+
+    const tempDir = path.join(__dirname, '../../temp');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    const inputTempPath = path.join(tempDir, `input-${uniqueSuffix}.pdf`);
+    const outputTempPath = path.join(tempDir, `output-${uniqueSuffix}.pdf`);
 
     try {
-      console.log(`[Protect PDF] File: ${file.size} bytes`);
-      const pdfDoc = await loadPdf(file.buffer);
-      const font = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-      const pages = pdfDoc.getPages();
+      console.log(`[Protect PDF] Protecting ${file.size}-byte file`);
+      await fs.promises.writeFile(inputTempPath, file.buffer);
 
-      pages.forEach((page) => {
-        const { width, height } = page.getSize();
+      const scriptPath = path.join(__dirname, '../scripts/protect.py');
+      await execFileAsync('python', [
+        scriptPath,
+        inputTempPath,
+        outputTempPath,
+        password,
+      ]);
 
-        // Top banner
-        page.drawRectangle({
-          x: 0,
-          y: height - 22,
-          width,
-          height: 22,
-          color: rgb(0.8, 0.15, 0.15),
-          opacity: 0.85,
-        });
-        page.drawText('🔒 PROTECTED — OmniPDF Security Engine', {
-          x: 10,
-          y: height - 16,
-          size: 9,
-          font,
-          color: rgb(1, 1, 1),
-        });
+      if (!fs.existsSync(outputTempPath)) {
+        throw new Error('Python protect script did not generate output file.');
+      }
 
-        // Centre diagonal watermark
-        page.drawText('PROTECTED', {
-          x: width / 2 - 80,
-          y: height / 2 - 20,
-          size: 36,
-          font,
-          color: rgb(0.8, 0.1, 0.1),
-          opacity: 0.08,
-          rotate: degrees(45),
-        });
-      });
-
-      pdfDoc.setTitle(`Protected — ${pdfDoc.getTitle() || 'Document'}`);
-      pdfDoc.setCreator('OmniPDF Security Engine');
-
-      const bytes = await pdfDoc.save();
-      const base64 = Buffer.from(bytes).toString('base64');
+      const protectedBytes = await fs.promises.readFile(outputTempPath);
+      const base64 = protectedBytes.toString('base64');
 
       res.status(200).json({
         success: true,
-        message:
-          'PDF has been stamped with a security overlay. Note: full AES password encryption requires a server-side binary (Ghostscript). Contact support for enterprise encryption.',
+        message: 'PDF protected with password encryption successfully.',
         fileData: base64,
         fileName: `protected_${file.originalname || 'document.pdf'}`,
         downloadUrl: `data:application/pdf;base64,${base64}`,
@@ -442,9 +429,20 @@ router.post(
     } catch (error: any) {
       console.error('[Protect PDF] Error:', error);
       res.status(500).json({
-        error: 'Processing Failed',
-        message: error.message || 'Failed to protect PDF.',
+        error: 'Protect Failed',
+        message: error.message || 'Failed to protect/encrypt PDF.',
       });
+    } finally {
+      try {
+        if (fs.existsSync(inputTempPath)) {
+          fs.unlinkSync(inputTempPath);
+        }
+        if (fs.existsSync(outputTempPath)) {
+          fs.unlinkSync(outputTempPath);
+        }
+      } catch (cleanupErr) {
+        console.error('[Protect PDF] Temp file cleanup error:', cleanupErr);
+      }
     }
   }
 );
@@ -856,32 +854,72 @@ router.post(
   upload.single('file'),
   async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     const file = req.file;
+    const password = req.body.password || '';
 
     if (!file) {
       res.status(400).json({ error: 'Bad Request', message: 'A PDF file is required.' });
       return;
     }
 
+    const tempDir = path.join(__dirname, '../../temp');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    const inputTempPath = path.join(tempDir, `input-${uniqueSuffix}.pdf`);
+    const outputTempPath = path.join(tempDir, `output-${uniqueSuffix}.pdf`);
+
     try {
       console.log(`[Unlock PDF] Attempting to unlock ${file.size}-byte file`);
-      const pdfDoc = await PDFDocument.load(file.buffer, { ignoreEncryption: true });
-      const bytes = await pdfDoc.save();
-      const base64 = Buffer.from(bytes).toString('base64');
+      await fs.promises.writeFile(inputTempPath, file.buffer);
+
+      const scriptPath = path.join(__dirname, '../scripts/unlock.py');
+      await execFileAsync('python', [
+        scriptPath,
+        inputTempPath,
+        outputTempPath,
+        password,
+      ]);
+
+      if (!fs.existsSync(outputTempPath)) {
+        throw new Error('Python unlock script did not generate output file.');
+      }
+
+      const unlockedBytes = await fs.promises.readFile(outputTempPath);
+      const base64 = unlockedBytes.toString('base64');
 
       res.status(200).json({
         success: true,
-        message:
-          'PDF unlocked and re-saved without encryption headers. Note: only PDFs without strict password protection can be unlocked this way.',
+        message: 'PDF unlocked and decrypted successfully.',
         fileData: base64,
         fileName: `unlocked_${file.originalname || 'document.pdf'}`,
         downloadUrl: `data:application/pdf;base64,${base64}`,
       });
     } catch (error: any) {
       console.error('[Unlock PDF] Error:', error);
-      res.status(500).json({
-        error: 'Unlock Failed',
-        message: `Could not unlock PDF: ${error.message}. The file may be strongly password-protected.`,
-      });
+      if (error.stderr && error.stderr.includes('AUTH_FAILED')) {
+        res.status(401).json({
+          error: 'Authentication Failed',
+          message: 'Incorrect password. Please enter the correct password to unlock this PDF.',
+        });
+      } else {
+        res.status(500).json({
+          error: 'Unlock Failed',
+          message: error.message || 'Failed to decrypt/unlock PDF.',
+        });
+      }
+    } finally {
+      try {
+        if (fs.existsSync(inputTempPath)) {
+          fs.unlinkSync(inputTempPath);
+        }
+        if (fs.existsSync(outputTempPath)) {
+          fs.unlinkSync(outputTempPath);
+        }
+      } catch (cleanupErr) {
+        console.error('[Unlock PDF] Temp file cleanup error:', cleanupErr);
+      }
     }
   }
 );
@@ -960,23 +998,57 @@ router.post(
       return;
     }
 
+    const tempDir = path.join(__dirname, '../../temp');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    const inputTempPath = path.join(tempDir, `input-${uniqueSuffix}.pdf`);
+    const outputTempPath = path.join(tempDir, `output-${uniqueSuffix}.zip`);
+
     try {
-      const pdfDoc = await loadPdf(file.buffer);
-      const pages = pdfDoc.getPages();
+      console.log(`[PDF to JPG] Converting ${file.size}-byte PDF to JPEG Zip`);
+      await fs.promises.writeFile(inputTempPath, file.buffer);
+
+      const scriptPath = path.join(__dirname, '../scripts/pdf_to_jpg.py');
+      await execFileAsync('python', [
+        scriptPath,
+        inputTempPath,
+        outputTempPath,
+      ]);
+
+      if (!fs.existsSync(outputTempPath)) {
+        throw new Error('Python pdf-to-jpg script did not generate output file.');
+      }
+
+      const zipBytes = await fs.promises.readFile(outputTempPath);
+      const base64 = zipBytes.toString('base64');
 
       res.status(200).json({
         success: true,
-        message: `PDF has ${pages.length} page(s). Server-side rasterisation to JPG requires an additional binary (e.g. pdf2pic, Ghostscript). This endpoint confirms page count and dimensions.`,
-        pageCount: pages.length,
-        pages: pages.map((p, i) => ({
-          page: i + 1,
-          width: Math.round(p.getSize().width),
-          height: Math.round(p.getSize().height),
-        })),
+        message: 'PDF pages converted to JPEG images and packaged in a ZIP file successfully.',
+        fileData: base64,
+        fileName: `${path.parse(file.originalname || 'document').name}_images.zip`,
+        downloadUrl: `data:application/zip;base64,${base64}`,
       });
     } catch (error: any) {
       console.error('[PDF to JPG] Error:', error);
-      res.status(500).json({ error: 'Processing Failed', message: error.message });
+      res.status(500).json({
+        error: 'Processing Failed',
+        message: error.message || 'Failed to convert PDF to JPEGs.',
+      });
+    } finally {
+      try {
+        if (fs.existsSync(inputTempPath)) {
+          fs.unlinkSync(inputTempPath);
+        }
+        if (fs.existsSync(outputTempPath)) {
+          fs.unlinkSync(outputTempPath);
+        }
+      } catch (cleanupErr) {
+        console.error('[PDF to JPG] Temp file cleanup error:', cleanupErr);
+      }
     }
   }
 );
