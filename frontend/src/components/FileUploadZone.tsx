@@ -198,6 +198,16 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
     <div className="omnipdf-upload-container" style={styles.container}>
       <h2 style={styles.header}>{toolName}</h2>
 
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple={allowMultiple}
+        accept={inputAccept}
+        onChange={handleFileInput}
+        style={{ display: 'none' }}
+        id="file-input-element"
+      />
+
       {/* File Drop Area */}
       {files.length === 0 ? (
         <div
@@ -212,15 +222,6 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
           onDrop={handleDrop}
           onClick={() => fileInputRef.current?.click()}
         >
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple={allowMultiple}
-            accept={inputAccept}
-            onChange={handleFileInput}
-            style={{ display: 'none' }}
-            id="file-input-element"
-          />
           <div style={styles.uploadIcon}>
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -238,7 +239,14 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
         <div style={styles.fileListContainer}>
           <div style={styles.fileListHeader}>
             <span>Selected Files ({files.length})</span>
-            <button onClick={clearFiles} style={styles.clearBtn}>Clear All</button>
+            <div style={{ display: 'flex', gap: '12px' }}>
+              {allowMultiple && (
+                <button onClick={() => fileInputRef.current?.click()} style={styles.addMoreBtn}>
+                  + Add Files
+                </button>
+              )}
+              <button onClick={clearFiles} style={styles.clearBtn}>Clear All</button>
+            </div>
           </div>
 
           <div style={styles.fileGrid}>
@@ -539,6 +547,7 @@ const styles: Record<string, React.CSSProperties> = {
   fileListContainer: { display: 'flex', flexDirection: 'column', gap: '16px' },
   fileListHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '14px', color: '#94a3b8' },
   clearBtn: { background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontWeight: 600, fontSize: '13px' },
+  addMoreBtn: { background: 'none', border: 'none', color: '#60a5fa', cursor: 'pointer', fontWeight: 600, fontSize: '13px' },
   fileGrid: { display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '200px', overflowY: 'auto' },
   fileCard: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', backgroundColor: '#1e293b', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.03)' },
   fileInfo: { display: 'flex', alignItems: 'center', overflow: 'hidden' },
