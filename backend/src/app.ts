@@ -14,7 +14,7 @@ app.use(helmet());
 // CORS Configuration - restrict origins in production
 const allowedOrigins = process.env.ALLOWED_ORIGINS 
   ? process.env.ALLOWED_ORIGINS.split(',') 
-  : ['http://localhost:3000', 'https://omnipdf.vercel.app'];
+  : ['http://localhost:3000', 'https://omnipdf.vercel.app', 'https://omnipdf-convertor.vercel.app'];
 
 app.use(
   cors({
