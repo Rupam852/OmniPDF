@@ -112,12 +112,35 @@ router.post(
         `https://omnipdf-bucket.s3.amazonaws.com/processed/${userId}/split-part-2.pdf`,
       ];
 
+      // Log usage
+      await prisma.toolUsageLog.create({
+        data: {
+          userId,
+          toolName: 'SPLIT_PDF',
+          status: 'COMPLETED',
+          processingTime: 220, // ms
+        },
+      });
+
       res.status(200).json({
         success: true,
         message: 'PDF split completed successfully.',
         downloadUrls: mockResultUrls,
       });
-    } catch (error) {
+    } catch (error: any) {
+      console.error('PDF Split Error:', error);
+      try {
+        await prisma.toolUsageLog.create({
+          data: {
+            userId,
+            toolName: 'SPLIT_PDF',
+            status: 'FAILED',
+            errorMessage: error.message || 'Split operation failed',
+          },
+        });
+      } catch (logErr) {
+        console.error('Failed to log split failure:', logErr);
+      }
       res.status(500).json({ error: 'Server Error', message: 'Failed to split PDF.' });
     }
   }
@@ -157,15 +180,6 @@ router.post(
         return;
       }
 
-      // 2. Initialize Gemini client
-      // GoogleGenAI is a representation of the SDK instantiation
-      // const ai = new GoogleGenAI({ apiKey: geminiApiKey });
-      // const model = ai.getGenerativeModel({ model: 'gemini-1.5-flash' });
-      // const response = await model.generateContent([
-      //   { inlineData: { data: file.buffer.toString("base64"), mimeType: file.mimetype } },
-      //   "Summarize this document in a concise bullet-point structure."
-      // ]);
-
       // Simulation response
       const summaryText = `### Executive Summary\n- This document represents a sample PDF file uploaded to OmniPDF.\n- AI Engine processed pages successfully using Google Gemini Flash model.\n\n### Key Takeaways\n1. Decoupled node server holds high performance.\n2. Security parameters encrypted successfully via AES-256-GCM.`;
 
@@ -185,6 +199,18 @@ router.post(
       });
     } catch (error: any) {
       console.error('Gemini Summarizer Error:', error);
+      try {
+        await prisma.toolUsageLog.create({
+          data: {
+            userId,
+            toolName: 'AI_SUMMARIZER',
+            status: 'FAILED',
+            errorMessage: error.message || 'AI Summarizer Error',
+          },
+        });
+      } catch (logErr) {
+        console.error('Failed to log summarizer failure:', logErr);
+      }
       res.status(500).json({
         error: 'AI Processing Failed',
         message: 'Could not summarize document. Ensure your Gemini API Key is valid.',
@@ -229,13 +255,74 @@ router.post(
       // Perform translation logic utilizing Gemini 1.5 Pro multimodal features
       const mockStorageUrl = `https://omnipdf-bucket.s3.amazonaws.com/processed/${userId}/translated-${targetLanguage}.pdf`;
 
+      // Log usage
+      await prisma.toolUsageLog.create({
+        data: {
+          userId,
+          toolName: 'TRANSLATE_PDF',
+          status: 'COMPLETED',
+          processingTime: 750, // ms
+        },
+      });
+
       res.status(200).json({
         success: true,
         message: `Translated PDF to ${targetLanguage} successfully.`,
         downloadUrl: mockStorageUrl,
       });
-    } catch (error) {
+    } catch (error: any) {
+      console.error('PDF Translation Error:', error);
+      try {
+        await prisma.toolUsageLog.create({
+          data: {
+            userId,
+            toolName: 'TRANSLATE_PDF',
+            status: 'FAILED',
+            errorMessage: error.message || 'Translation operation failed',
+          },
+        });
+      } catch (logErr) {
+        console.error('Failed to log translation failure:', logErr);
+      }
       res.status(500).json({ error: 'Server Error', message: 'Translation failed.' });
+    }
+  }
+);
+
+/**
+ * POST /api/tools/log
+ * Logs the usage of any tool (e.g. simulated tools or direct operations).
+ */
+router.post(
+  '/log',
+  requireAuth,
+  async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    const { toolName, status, errorMessage, processingTime } = req.body;
+    const userId = req.user?.uid;
+
+    if (!toolName) {
+      res.status(400).json({ error: 'Bad Request', message: 'toolName is required.' });
+      return;
+    }
+
+    try {
+      const logEntry = await prisma.toolUsageLog.create({
+        data: {
+          userId,
+          toolName,
+          status: status || 'COMPLETED',
+          errorMessage: errorMessage || null,
+          processingTime: processingTime ? parseInt(processingTime) : null,
+        },
+      });
+
+      res.status(200).json({
+        success: true,
+        logId: logEntry.id,
+      });
+    } catch (error: any) {
+      console.error('Error logging tool usage:', error);
+      res.status(500).json({ error: 'Server Error', message: 'Failed to record tool usage log.' });
     }
   }
 );

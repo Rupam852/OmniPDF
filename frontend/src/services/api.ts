@@ -150,4 +150,28 @@ export const OmniPdfApi = {
     }
     return data;
   },
+
+  /**
+   * Log tool usage database persistence
+   */
+  async logToolUsage(
+    token: string,
+    toolName: string,
+    status = 'COMPLETED',
+    processingTime?: number,
+    errorMessage?: string
+  ): Promise<{ success: boolean; logId: string }> {
+    const headers = await getHeaders(token);
+    const response = await fetch(`${API_BASE_URL}/tools/log`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ toolName, status, processingTime, errorMessage }),
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to log tool usage');
+    }
+    return data;
+  },
 };

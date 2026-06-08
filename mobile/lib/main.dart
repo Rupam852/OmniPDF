@@ -1,6 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  try {
+    await Firebase.initializeApp();
+  } catch (e) {
+    debugPrint("Firebase init error: $e");
+  }
   runApp(const OmniPdfApp());
 }
 
@@ -38,6 +49,15 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
+  @override
+  void initState() {
+    super.initState();
+    FirebaseAuth.instance.authStateChanges().listen((User? user) {
+      if (mounted) {
+        setState(() {});
+      }
+    });
+  }
   final List<Map<String, dynamic>> _tools = [
     {
       'id': 'merge',
@@ -103,15 +123,40 @@ class _DashboardScreenState extends State<DashboardScreen> {
               );
             },
           ),
-          IconButton(
-            icon: const Icon(Icons.account_circle, color: Colors.grey),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const LoginScreen()),
-              );
-            },
-          ),
+          if (FirebaseAuth.instance.currentUser != null) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8.0),
+              child: Center(
+                child: Text(
+                  FirebaseAuth.instance.currentUser!.email ?? '',
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.logout_rounded, color: Colors.redAccent),
+              onPressed: () async {
+                await FirebaseAuth.instance.signOut();
+                try {
+                  await GoogleSignIn().signOut();
+                } catch (_) {}
+                setState(() {});
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Logged out successfully!')),
+                );
+              },
+            ),
+          ] else
+            IconButton(
+              icon: const Icon(Icons.login_rounded, color: Colors.blueAccent),
+              onPressed: () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const LoginScreen()),
+                );
+                setState(() {});
+              },
+            ),
         ],
       ),
       body: SingleChildScrollView(
@@ -233,6 +278,21 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
   bool _hasFile = false;
 
   void _runOperation() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please log in first to use tools!'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const LoginScreen()),
+      );
+      return;
+    }
+
     setState(() {
       _isProcessing = true;
       _progress = 0.0;
@@ -249,6 +309,32 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
           _isProcessing = false;
           _progress = 1.0;
         });
+
+        // Log tool usage to PostgreSQL via backend REST API
+        final token = await user.getIdToken();
+        final toolDbName = widget.tool['name'].toString().toUpperCase().replaceAll(' ', '_');
+        try {
+          final response = await http.post(
+            Uri.parse('https://omnipdf-backend.onrender.com/api/tools/log'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({
+              'toolName': toolDbName,
+              'status': 'COMPLETED',
+              'processingTime': 1500,
+            }),
+          );
+          if (response.statusCode == 200) {
+            debugPrint("Tool usage persisted to database: ${response.body}");
+          } else {
+            debugPrint("Failed to persist tool usage: ${response.statusCode} - ${response.body}");
+          }
+        } catch (e) {
+          debugPrint("Error logging tool run: $e");
+        }
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('${widget.tool['name']} completed and saved to Downloads folder successfully!'),
@@ -293,6 +379,19 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
             if (!_hasFile)
               ElevatedButton.icon(
                 onPressed: () {
+                  if (FirebaseAuth.instance.currentUser == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Please log in first to use tools!'),
+                        backgroundColor: Colors.orange,
+                      ),
+                    );
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const LoginScreen()),
+                    );
+                    return;
+                  }
                   setState(() {
                     _hasFile = true;
                   });
@@ -405,68 +504,254 @@ class SettingsScreen extends StatelessWidget {
   }
 }
 
-class LoginScreen extends StatelessWidget {
+class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
+
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  bool _isSignUp = false;
+  bool _isLoading = false;
+  String? _errorMessage;
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleAuth() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+
+    if (email.isEmpty || password.isEmpty) {
+      setState(() {
+        _errorMessage = 'Email and Password cannot be empty.';
+      });
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      if (_isSignUp) {
+        await FirebaseAuth.instance.createUserWithEmailAndPassword(
+          email: email,
+          password: password,
+        );
+      } else {
+        await FirebaseAuth.instance.signInWithEmailAndPassword(
+          email: email,
+          password: password,
+        );
+      }
+      if (mounted) {
+        Navigator.pop(context);
+      }
+    } on FirebaseAuthException catch (e) {
+      setState(() {
+        _errorMessage = e.message ?? 'Authentication failed.';
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'An unexpected error occurred.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _handleGoogleSignIn() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
+      if (googleUser == null) {
+        setState(() {
+          _isLoading = false;
+        });
+        return; // User canceled
+      }
+
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      final AuthCredential credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      await FirebaseAuth.instance.signInWithCredential(credential);
+      
+      if (mounted) {
+        Navigator.pop(context);
+      }
+    } on FirebaseAuthException catch (e) {
+      setState(() {
+        _errorMessage = e.message ?? 'Google Sign-in failed.';
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'An error occurred during Google Sign-in.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Authentication'),
+        title: Text(_isSignUp ? 'Create Account' : 'Authentication'),
         backgroundColor: const Color(0xFF0B1329),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.security_rounded, size: 70, color: Colors.blue),
-            const SizedBox(height: 20),
-            const Text(
-              'Sign in to OmniPDF AI',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 30),
-            const TextField(
-              decoration: InputDecoration(
-                labelText: 'Email Address',
-                border: OutlineInputBorder(),
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Icon(Icons.security_rounded, size: 70, color: Color(0xFF3B82F6)),
+              const SizedBox(height: 20),
+              Text(
+                _isSignUp ? 'Sign up for OmniPDF AI' : 'Sign in to OmniPDF AI',
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
-            ),
-            const SizedBox(height: 16),
-            const TextField(
-              obscureText: true,
-              decoration: InputDecoration(
-                labelText: 'Password',
-                border: OutlineInputBorder(),
+              const SizedBox(height: 10),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  TextButton(
+                    onPressed: () {
+                      setState(() {
+                        _isSignUp = false;
+                        _errorMessage = null;
+                      });
+                    },
+                    child: Text(
+                      'Login',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: !_isSignUp ? const Color(0xFF3B82F6) : Colors.grey,
+                      ),
+                    ),
+                  ),
+                  const Text('|', style: TextStyle(color: Colors.grey)),
+                  TextButton(
+                    onPressed: () {
+                      setState(() {
+                        _isSignUp = true;
+                        _errorMessage = null;
+                      });
+                    },
+                    child: Text(
+                      'Sign Up',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: _isSignUp ? const Color(0xFF3B82F6) : Colors.grey,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-              },
-              style: ElevatedButton.styleFrom(
-                minimumSize: const Size(double.infinity, 50),
-                backgroundColor: const Color(0xFF3B82F6),
-                foregroundColor: Colors.white,
+              const SizedBox(height: 20),
+              if (_errorMessage != null) ...[
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.1),
+                    border: Border.all(color: Colors.red.withOpacity(0.3)),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    _errorMessage!,
+                    style: const TextStyle(color: Colors.redAccent, fontSize: 13),
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
+              TextField(
+                controller: _emailController,
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(
+                  labelText: 'Email Address',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.email_outlined),
+                ),
               ),
-              child: const Text('Login'),
-            ),
-            const SizedBox(height: 16),
-            const Text('OR', style: TextStyle(color: Colors.grey)),
-            const SizedBox(height: 16),
-            OutlinedButton.icon(
-              onPressed: () {
-                Navigator.pop(context);
-              },
-              icon: const Icon(Icons.g_mobiledata_rounded, size: 30, color: Colors.red),
-              label: const Text('Sign in with Google'),
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size(double.infinity, 50),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _passwordController,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: 'Password',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.lock_outline),
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 24),
+              if (_isLoading)
+                const Center(child: CircularProgressIndicator())
+              else ...[
+                ElevatedButton(
+                  onPressed: _handleAuth,
+                  style: ElevatedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 50),
+                    backgroundColor: const Color(0xFF3B82F6),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  child: Text(_isSignUp ? 'Sign Up' : 'Login'),
+                ),
+                const SizedBox(height: 20),
+                const Row(
+                  children: [
+                    Expanded(child: Divider(color: Colors.grey)),
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 10),
+                      child: Text('OR', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                    ),
+                    Expanded(child: Divider(color: Colors.grey)),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                OutlinedButton.icon(
+                  onPressed: _handleGoogleSignIn,
+                  icon: Image.network(
+                    'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/24px-Google_%22G%22_logo.svg.png',
+                    height: 20,
+                    errorBuilder: (context, error, stackTrace) => const Icon(Icons.g_mobiledata_rounded, size: 24, color: Colors.red),
+                  ),
+                  label: const Text('Continue with Google'),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 50),
+                    side: BorderSide(color: Colors.white.withOpacity(0.15)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );
