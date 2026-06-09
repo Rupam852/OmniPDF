@@ -1071,57 +1071,6 @@ export default function App() {
               Download Android App
             </a>
           </div>
-
-          {/* Floating Dashboard Mockup */}
-          <div className="landing-mockup animate-fade-in delay-4">
-            <div className="mockup-header">
-              <span className="mockup-dot red"></span>
-              <span className="mockup-dot yellow"></span>
-              <span className="mockup-dot green"></span>
-              <span className="mockup-title">OMNIPDF_DASHBOARD_PREVIEW</span>
-            </div>
-            <div className="mockup-body">
-              <div className="mockup-card">
-                <div className="mockup-card-icon" style={{ backgroundColor: 'rgba(249, 115, 22, 0.15)', color: '#f97316' }}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M12 5v14M5 12h14" />
-                  </svg>
-                </div>
-                <div className="mockup-card-info">
-                  <div className="mockup-card-title">Merging Documents</div>
-                  <div className="mockup-card-status">
-                    <div className="mockup-card-status-bar" style={{ backgroundColor: '#f97316' }}></div>
-                  </div>
-                </div>
-              </div>
-              <div className="mockup-card">
-                <div className="mockup-card-icon" style={{ backgroundColor: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6' }}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M4 14h6v8H4zm10-12h6v8h-6zM4 2h6v8H4zm10 12h6v8h-6z" />
-                  </svg>
-                </div>
-                <div className="mockup-card-info">
-                  <div className="mockup-card-title">Compressing Layout</div>
-                  <div className="mockup-card-status">
-                    <div className="mockup-card-status-bar" style={{ backgroundColor: '#3b82f6' }}></div>
-                  </div>
-                </div>
-              </div>
-              <div className="mockup-card">
-                <div className="mockup-card-icon" style={{ backgroundColor: 'rgba(139, 92, 246, 0.15)', color: '#8b5cf6' }}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-                  </svg>
-                </div>
-                <div className="mockup-card-info">
-                  <div className="mockup-card-title">AI Summarizer Active</div>
-                  <div className="mockup-card-status">
-                    <div className="mockup-card-status-bar" style={{ backgroundColor: '#8b5cf6' }}></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
         </main>
 
         {/* Quick Tools Directory */}
@@ -1198,7 +1147,10 @@ export default function App() {
         </section>
 
         <footer className="landing-footer">
-          &copy; {new Date().getFullYear()} OmniPDF. Designed for extreme productivity.
+          <p>&copy; {new Date().getFullYear()} OmniPDF. Designed for extreme productivity.</p>
+          <p style={{ marginTop: '8px', color: '#64748b', fontSize: '13px' }}>
+            Support: <a href="mailto:omnipdfadminsupport@gmail.com" style={{ color: '#3b82f6', textDecoration: 'none' }}>omnipdfadminsupport@gmail.com</a>
+          </p>
         </footer>
 
         {showPrivacyModal && (

@@ -1820,7 +1820,7 @@ h1, h2, h3, h4, h5, h6 {
   flex-wrap: wrap;
   gap: 20px;
   justify-content: center;
-  margin-bottom: 80px;
+  margin-bottom: 40px;
 }
 
 .landing-features {
@@ -2052,7 +2052,7 @@ h1, h2, h3, h4, h5, h6 {
   font-size: 15px;
   color: #64748b;
   text-align: center;
-  margin-bottom: 60px;
+  margin-bottom: 30px;
   max-width: 580px;
   margin-left: auto;
   margin-right: auto;
@@ -2066,7 +2066,7 @@ h1, h2, h3, h4, h5, h6 {
   justify-content: center;
   width: 100%;
   max-width: 1100px;
-  margin-bottom: 100px;
+  margin-bottom: 60px;
 }
 
 .landing-step-card {
@@ -2130,7 +2130,7 @@ h1, h2, h3, h4, h5, h6 {
   flex-wrap: wrap;
   gap: 12px;
   justify-content: center;
-  margin-bottom: 100px;
+  margin-bottom: 60px;
 }
 
 .directory-badge {
