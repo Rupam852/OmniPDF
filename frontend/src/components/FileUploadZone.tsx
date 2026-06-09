@@ -1,4 +1,11 @@
 import React, { useState, useRef, DragEvent, useEffect } from 'react';
+import * as pdfjs from 'pdfjs-dist';
+
+// Point the worker at the bundled worker file
+pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.min.mjs',
+  import.meta.url
+).href;
 
 interface FileUploadZoneProps {
   toolName: string;
@@ -45,6 +52,8 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
   const [extractPageRanges, setExtractPageRanges] = useState('');
   // Organize
   const [pageOrder, setPageOrder] = useState('');
+  const [pageCount, setPageCount] = useState<number | null>(null);
+  const [organizeMode, setOrganizeMode] = useState<'reverse' | 'normal' | 'custom'>('reverse');
   // Page numbers
   const [pageNumPosition, setPageNumPosition] = useState('bottom-center');
   const [pageNumStart, setPageNumStart] = useState<number>(1);
@@ -61,6 +70,25 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
       setTargetUnit('KB');
     }
   }, [files, compressionPercent, toolId]);
+
+  useEffect(() => {
+    const detectPages = async () => {
+      if (files.length > 0 && files[0].type === 'application/pdf') {
+        try {
+          const arrayBuffer = await files[0].arrayBuffer();
+          const loadingTask = pdfjs.getDocument({ data: new Uint8Array(arrayBuffer) });
+          const pdfDoc = await loadingTask.promise;
+          setPageCount(pdfDoc.numPages);
+        } catch (error) {
+          console.error('Error detecting PDF page count:', error);
+          setPageCount(null);
+        }
+      } else {
+        setPageCount(null);
+      }
+    };
+    detectPages();
+  }, [files]);
 
   const handleDrag = (e: DragEvent) => {
     e.preventDefault();
@@ -171,7 +199,7 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
         // Remove/Extract
         pageNumbers, extractPageRanges,
         // Organize
-        pageOrder,
+        pageOrder: organizeMode === 'custom' ? pageOrder : organizeMode,
         // Page numbers
         position: pageNumPosition, startNumber: String(pageNumStart), prefix: pageNumPrefix,
         pgNumFontSize: '10',
@@ -418,11 +446,48 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
 
             {/* ORGANIZE PDF options */}
             {toolId === 'organize-pdf' && (
-              <div className="setting-group">
-                <label className="setting-label">New Page Order (e.g. "3,1,2" for 3-page PDF):</label>
-                <input type="text" placeholder="Leave empty to reverse pages" value={pageOrder} onChange={(e) => setPageOrder(e.target.value)} className="setting-input" />
-                <small className="setting-hint">Comma-separated 1-indexed page numbers in desired order. Empty = reverse all.</small>
-              </div>
+              <>
+                <div className="setting-group">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <label className="setting-label">Page Order Mode:</label>
+                    {pageCount !== null && (
+                      <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#60a5fa' }}>
+                        Detected {pageCount} pages
+                      </span>
+                    )}
+                  </div>
+                  <select
+                    value={organizeMode}
+                    onChange={(e) => setOrganizeMode(e.target.value as any)}
+                    className="setting-select"
+                  >
+                    <option value="reverse">
+                      {pageCount !== null ? `Down to Up (${pageCount} to 1)` : 'Down to Up (Reverse Pages)'}
+                    </option>
+                    <option value="normal">
+                      {pageCount !== null ? `Up to Down (1 to ${pageCount})` : 'Up to Down (Keep Original Order)'}
+                    </option>
+                    <option value="custom">Custom Page Order</option>
+                  </select>
+                </div>
+                {organizeMode === 'custom' && (
+                  <div className="setting-group" style={{ marginTop: '10px' }}>
+                    <label className="setting-label">
+                      New Page Order (e.g. "3,1,2" for {pageCount || 3}-page PDF):
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 3,1,2"
+                      value={pageOrder}
+                      onChange={(e) => setPageOrder(e.target.value)}
+                      className="setting-input"
+                    />
+                    <small className="setting-hint">
+                      Comma-separated 1-indexed page numbers in desired order.
+                    </small>
+                  </div>
+                )}
+              </>
             )}
 
             {/* PAGE NUMBERS options */}

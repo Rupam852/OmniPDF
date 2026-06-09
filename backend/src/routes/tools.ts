@@ -1205,9 +1205,13 @@ router.post(
       const totalPages = pdfDoc.getPageCount();
 
       let newOrder: number[];
-      if (!pageOrderRaw.trim()) {
+      const trimmedOrder = pageOrderRaw.trim().toLowerCase();
+      if (!trimmedOrder || trimmedOrder === 'reverse') {
         // Default: reverse pages
         newOrder = Array.from({ length: totalPages }, (_, i) => totalPages - 1 - i);
+      } else if (trimmedOrder === 'normal') {
+        // Keep original order
+        newOrder = Array.from({ length: totalPages }, (_, i) => i);
       } else {
         newOrder = pageOrderRaw
           .split(',')

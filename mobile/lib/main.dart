@@ -397,6 +397,8 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
   double _watermarkOpacity = 0.15;
   String _pageNumPosition = 'bottom-center';
   String _rotateAngle = '90';
+  String _organizeMode = 'reverse'; // 'reverse', 'normal', 'custom'
+  int? _pageCount;
 
   final List<String> _languages = [
     'Spanish', 'French', 'German', 'Hindi', 'Bengali', 'Marathi',
@@ -443,6 +445,79 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
     super.dispose();
   }
 
+  void _detectPageCount() async {
+    if (widget.tool['id'] != 'organize-pdf' || _pickedFiles.isEmpty) {
+      setState(() {
+        _pageCount = null;
+      });
+      return;
+    }
+    final file = _pickedFiles.first;
+    try {
+      List<int>? bytes;
+      if (file.bytes != null) {
+        bytes = file.bytes;
+      } else if (file.path != null) {
+        final ioFile = File(file.path!);
+        if (await ioFile.exists()) {
+          bytes = await ioFile.readAsBytes();
+        }
+      }
+      if (bytes != null) {
+        final count = _parsePdfPageCount(bytes);
+        setState(() {
+          _pageCount = count;
+        });
+      } else {
+        setState(() {
+          _pageCount = null;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading PDF for page detection: $e');
+      setState(() {
+        _pageCount = null;
+      });
+    }
+  }
+
+  int? _parsePdfPageCount(List<int> bytes) {
+    try {
+      final content = String.fromCharCodes(bytes);
+      
+      // Look for "/Type /Pages /Count N" or similar
+      final regExp = RegExp(r'\/Type\s*\/Pages[\s\S]*?\/Count\s*(\d+)');
+      final match = regExp.firstMatch(content);
+      if (match != null) {
+        return int.tryParse(match.group(1) ?? '');
+      }
+      
+      // Sometimes /Count N comes before /Type /Pages
+      final regExpReverse = RegExp(r'\/Count\s*(\d+)[\s\S]*?\/Type\s*\/Pages');
+      final matchReverse = regExpReverse.firstMatch(content);
+      if (matchReverse != null) {
+        return int.tryParse(matchReverse.group(1) ?? '');
+      }
+      
+      // Fallback: search for all /Count N and find the maximum number
+      final fallbackRegExp = RegExp(r'\/Count\s*(\d+)');
+      final matches = fallbackRegExp.allMatches(content);
+      if (matches.isNotEmpty) {
+        int maxCount = 0;
+        for (final m in matches) {
+          final val = int.tryParse(m.group(1) ?? '');
+          if (val != null && val > maxCount) {
+            maxCount = val;
+          }
+        }
+        if (maxCount > 0) return maxCount;
+      }
+    } catch (e) {
+      debugPrint('Error parsing PDF page count: $e');
+    }
+    return null;
+  }
+
   void _pickFiles() async {
     try {
       final isJpgToPdf = widget.tool['id'] == 'jpg-to-pdf';
@@ -481,6 +556,7 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
               _pickedFiles = [validFiles.first];
             }
           });
+          _detectPageCount();
         }
       }
     } catch (e) {
@@ -625,7 +701,9 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
       }
 
       if (widget.tool['id'] == 'organize-pdf') {
-        request.fields['pageOrder'] = _organizePagesController.text.trim();
+        request.fields['pageOrder'] = _organizeMode == 'custom'
+            ? _organizePagesController.text.trim()
+            : _organizeMode;
       }
 
       setState(() {
@@ -1005,6 +1083,7 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
                       _responseDataBase64 = null;
                       _processedFiles = [];
                     });
+                    _detectPageCount();
                   },
                   style: OutlinedButton.styleFrom(
                     minimumSize: const Size(double.infinity, 50),
@@ -1587,20 +1666,68 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Organize Page Order',
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF60A5FA)),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Organize Page Order',
+                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF60A5FA)),
+                          ),
+                          if (_pageCount != null)
+                            Text(
+                              'Detected $_pageCount pages',
+                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF60A5FA)),
+                            ),
+                        ],
                       ),
                       const SizedBox(height: 12),
-                      TextField(
-                        controller: _organizePagesController,
+                      DropdownButtonFormField<String>(
+                        value: _organizeMode,
+                        dropdownColor: const Color(0xFF0B1329),
                         decoration: const InputDecoration(
-                          labelText: 'New Page Order (comma-separated, e.g. 3,1,2)',
-                          hintText: 'Leave empty to reverse pages',
+                          labelText: 'Page Order Mode',
                           border: OutlineInputBorder(),
                           contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                         ),
+                        items: [
+                          DropdownMenuItem(
+                            value: 'reverse',
+                            child: Text(_pageCount != null
+                                ? 'Down to Up ($_pageCount to 1)'
+                                : 'Down to Up (Reverse Pages)'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'normal',
+                            child: Text(_pageCount != null
+                                ? 'Up to Down (1 to $_pageCount)'
+                                : 'Up to Down (Keep Original Order)'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'custom',
+                            child: const Text('Custom Page Order'),
+                          ),
+                        ],
+                        onChanged: (val) {
+                          if (val != null) {
+                            setState(() {
+                              _organizeMode = val;
+                            });
+                          }
+                        },
                       ),
+                      if (_organizeMode == 'custom') ...[
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: _organizePagesController,
+                          decoration: InputDecoration(
+                            labelText: _pageCount != null
+                                ? 'Custom Page Order (e.g. 3,1,2 for $_pageCount-page PDF)'
+                                : 'Custom Page Order (comma-separated, e.g. 3,1,2)',
+                            border: const OutlineInputBorder(),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -1654,6 +1781,7 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
                               setState(() {
                                 _pickedFiles.remove(platformFile);
                               });
+                              _detectPageCount();
                             },
                           )
                         ],
