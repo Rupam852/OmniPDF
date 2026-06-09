@@ -655,6 +655,11 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
                         background: 'rgba(59, 130, 246, 0.15)',
                         color: '#60a5fa',
                         border: '1px solid rgba(59, 130, 246, 0.3)',
+                        padding: '6px 12px',
+                        borderRadius: '6px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
                       }}
                     >
                       📷 Scan Page
@@ -690,44 +695,10 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
                       
                       <div className="item-details">
                         <span className="item-name" title={file.name}>{file.name}</span>
-                        <span className="item-meta">
-                          {sizeMB} MB {rotation > 0 ? `| 🔄 rotated ${rotation}°` : ''}
-                        </span>
+                        <span className="item-meta">{sizeMB} MB</span>
                       </div>
 
                       <div className="item-actions" onClick={(e) => e.stopPropagation()}>
-                        <button 
-                          type="button" 
-                          onClick={() => rotateFile(file.name)} 
-                          className="item-action-btn rotate-btn"
-                          title="Rotate"
-                        >
-                          🔄 Rotate
-                        </button>
-                        
-                        {allowMultiple && (
-                          <div className="item-reorder-actions">
-                            <button 
-                              type="button" 
-                              disabled={index === 0}
-                              onClick={() => moveFile(index, 'left')} 
-                              className="item-reorder-btn"
-                              title="Move Up"
-                            >
-                              ▲
-                            </button>
-                            <button 
-                              type="button" 
-                              disabled={index === files.length - 1}
-                              onClick={() => moveFile(index, 'right')} 
-                              className="item-reorder-btn"
-                              title="Move Down"
-                            >
-                              ▼
-                            </button>
-                          </div>
-                        )}
-
                         <button 
                           type="button" 
                           onClick={() => removeFile(index)} 
