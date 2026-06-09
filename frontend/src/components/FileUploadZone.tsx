@@ -797,15 +797,33 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
                       id="watermark-text-input"
                     />
                   </div>
-                  <div className="setting-row" style={{ marginTop: '10px' }}>
-                    <div className="setting-col">
-                      <label className="setting-label">Font Size:</label>
-                      <input type="number" min="12" max="80" value={watermarkFontSize} onChange={(e) => setWatermarkFontSize(parseInt(e.target.value, 10) || 40)} className="setting-input" />
+                  <div className="setting-group" style={{ marginTop: '10px' }}>
+                    <label className="setting-label">Font Size:</label>
+                    <input type="number" min="12" max="80" value={watermarkFontSize} onChange={(e) => setWatermarkFontSize(parseInt(e.target.value, 10) || 40)} className="setting-input" />
+                  </div>
+                  <div className="setting-group" style={{ marginTop: '10px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <label className="setting-label" style={{ marginBottom: 0 }}>Opacity:</label>
+                      <span style={{ fontSize: '13px', fontWeight: '600', color: '#3b82f6' }}>{Math.round(opacity * 100)}%</span>
                     </div>
-                    <div className="setting-col">
-                      <label className="setting-label">Opacity (0.05–1):</label>
-                      <input type="number" min="0.05" max="1" step="0.05" value={opacity} onChange={(e) => setOpacity(parseFloat(e.target.value))} className="setting-input" />
-                    </div>
+                    <input
+                      type="range"
+                      min="0.05"
+                      max="1"
+                      step="0.05"
+                      value={opacity}
+                      onChange={(e) => setOpacity(parseFloat(e.target.value))}
+                      style={{
+                        width: '100%',
+                        accentColor: '#3b82f6',
+                        cursor: 'pointer',
+                        marginTop: '8px',
+                        height: '6px',
+                        borderRadius: '3px',
+                        background: '#1e293b',
+                        outline: 'none',
+                      }}
+                    />
                   </div>
                   <div className="setting-group" style={{ marginTop: '10px' }}>
                     <label className="setting-label">Position Placement:</label>
