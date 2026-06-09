@@ -1156,12 +1156,12 @@ h1, h2, h3, h4, h5, h6 {
   top: 100%;
   left: 0;
   right: 0;
-  background-color: var(--bg-card);
+  background-color: #0b1329;
   border-bottom: 1px solid var(--border-color);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
   padding: 30px 40px;
   display: none;
-  z-index: 99;
+  z-index: 1000;
   animation: fadeIn 0.15s ease-out;
 }
 
@@ -1180,13 +1180,13 @@ h1, h2, h3, h4, h5, h6 {
   left: 50%;
   transform: translateX(-50%);
   width: 440px;
-  background-color: var(--bg-card);
+  background-color: #0b1329;
   border: 1px solid var(--border-color);
   border-radius: 0 0 12px 12px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
   padding: 24px;
   display: none;
-  z-index: 99;
+  z-index: 1000;
   animation: fadeIn 0.15s ease-out;
 }
 
