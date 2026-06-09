@@ -1337,208 +1337,163 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* Preview Card Grid */
-.preview-card-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 20px;
+/* Preview File List Layout */
+.preview-file-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   margin-top: 20px;
 }
 
-.preview-card-wrapper {
-  position: relative;
+.preview-list-item {
   display: flex;
-  flex-direction: column;
   align-items: center;
-}
-
-.preview-card {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 3/4;
-  background: #0f172a;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  gap: 16px;
+  padding: 14px 20px;
+  background: rgba(15, 23, 42, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  display: flex;
-  flex-direction: column;
   cursor: pointer;
-}
-
-.preview-card:hover {
-  transform: translateY(-4px);
-  border-color: rgba(96, 165, 250, 0.4);
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.4);
-}
-
-.preview-thumbnail-container {
-  flex: 1;
-  width: 100%;
-  overflow: hidden;
-  background: #090d16;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
-  transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  overflow: hidden;
+}
+
+.preview-list-item:hover {
+  background: rgba(15, 23, 42, 0.7);
+  border-color: rgba(96, 165, 250, 0.25);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.25);
+}
+
+.selected-list-item {
+  background: rgba(59, 130, 246, 0.08) !important;
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.25) !important;
+}
+
+.item-index-badge {
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 22px;
+  height: 22px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 50%;
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
 }
 
-.preview-thumbnail {
-  width: 100%;
-  height: 100%;
-  background-size: contain;
-  background-position: center;
-  background-repeat: no-repeat;
+.selected-list-item .item-index-badge {
+  background: #3b82f6;
+  color: #ffffff;
 }
 
-.preview-placeholder {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 100%;
-}
-
-.file-badge {
-  padding: 8px 16px;
+.item-file-badge {
+  padding: 6px 12px;
   border-radius: 6px;
   font-weight: 800;
-  font-size: 14px;
+  font-size: 11px;
   color: #ffffff;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  text-transform: uppercase;
+  flex-shrink: 0;
+  letter-spacing: 0.03em;
 }
 
-.preview-card-footer {
-  padding: 8px 12px;
-  background: rgba(15, 23, 42, 0.9);
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+.item-details {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
+  min-width: 0; /* allows text truncation */
+  text-align: left;
 }
 
-.preview-card-name {
-  font-size: 11px;
-  color: #e2e8f0;
+.item-name {
+  font-size: 13px;
   font-weight: 600;
+  color: #f1f5f9;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.preview-card-size {
-  font-size: 9px;
+.item-meta {
+  font-size: 11px;
   color: #64748b;
 }
 
-/* Index Number Badge */
-.card-index-badge {
-  position: absolute;
-  top: -8px;
-  left: -8px;
-  width: 24px;
-  height: 24px;
-  background: #3b82f6;
-  border: 2px solid #080d1a;
-  border-radius: 50%;
-  color: #fff;
-  font-size: 11px;
-  font-weight: 700;
+.item-actions {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-  z-index: 5;
-}
-
-/* Card Action Overlay */
-.preview-card-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(8, 13, 26, 0.85);
-  backdrop-filter: blur(4px);
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
   align-items: center;
   gap: 10px;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.2s ease;
-  padding: 12px;
-  z-index: 10;
+  flex-shrink: 0;
 }
 
-.preview-card:hover .preview-card-overlay {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.card-action-btn {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  color: #f8fafc;
-  padding: 6px 12px;
+.item-action-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #cbd5e1;
+  padding: 6px 14px;
   border-radius: 6px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
-  width: 100%;
-  text-align: center;
   transition: all 0.2s;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 6px;
+  gap: 5px;
 }
 
-.card-action-btn:hover {
-  background: #3b82f6;
-  border-color: #3b82f6;
+.item-action-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
   color: #ffffff;
 }
 
-.delete-card-btn {
-  background: rgba(239, 68, 68, 0.15);
+.item-action-btn.delete-btn {
+  background: rgba(239, 68, 68, 0.1);
   border-color: rgba(239, 68, 68, 0.25);
   color: #fca5a5;
 }
 
-.delete-card-btn:hover {
+.item-action-btn.delete-btn:hover {
   background: #ef4444;
   border-color: #ef4444;
   color: #ffffff;
 }
 
-.reorder-actions {
+.item-reorder-actions {
   display: flex;
-  gap: 6px;
-  width: 100%;
+  flex-direction: column;
+  gap: 2px;
 }
 
-.reorder-arrow-btn {
-  flex: 1;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: #cbd5e1;
-  padding: 5px 0;
-  border-radius: 6px;
+.item-reorder-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #94a3b8;
+  border-radius: 4px;
+  font-size: 9px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.15s;
 }
 
-.reorder-arrow-btn:hover:not(:disabled) {
+.item-reorder-btn:hover:not(:disabled) {
   background: #3b82f6;
-  color: #fff;
+  color: #ffffff;
   border-color: #3b82f6;
 }
 
-.reorder-arrow-btn:disabled {
-  opacity: 0.3;
+.item-reorder-btn:disabled {
+  opacity: 0.25;
   cursor: not-allowed;
 }
 

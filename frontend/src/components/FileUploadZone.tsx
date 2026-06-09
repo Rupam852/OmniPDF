@@ -668,88 +668,79 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
                   <button onClick={clearFiles} className="clear-btn">Clear All</button>
                 </div>
               </div>
-              <div className="preview-card-grid">
+              <div className="preview-file-list">
                 {files.map((file, index) => {
                   const rotation = fileRotations[file.name] || 0;
                   const sizeMB = (file.size / 1024 / 1024).toFixed(2);
                   const fileColor = getFileColor(file);
                   const fileExt = getFileExtension(file);
+                  const isSelected = selectedPreviewIndex === index;
 
                   return (
-                    <div key={index} className="preview-card-wrapper">
-                      <div 
-                        className={`preview-card ${selectedPreviewIndex === index ? 'selected-preview-card' : ''}`}
-                        onClick={() => setSelectedPreviewIndex(index)}
-                      >
-                        <div 
-                          className="preview-thumbnail-container"
-                          style={{ transform: `rotate(${rotation}deg)` }}
-                        >
-                          <div className="preview-placeholder">
-                            <div className="file-badge" style={{ backgroundColor: fileColor }}>
-                              {fileExt.toUpperCase() || 'FILE'}
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="preview-card-footer">
-                          <span className="preview-card-name" title={file.name}>
-                            {file.name}
-                          </span>
-                          <span className="preview-card-size">
-                            {sizeMB} MB
-                          </span>
-                        </div>
-
-                        {/* Card Overlay Actions */}
-                        <div className="preview-card-overlay">
-                          <button 
-                            type="button" 
-                            onClick={(e) => { e.stopPropagation(); rotateFile(file.name); }} 
-                            className="card-action-btn"
-                            title="Rotate"
-                          >
-                            🔄 Rotate
-                          </button>
-                          
-                          {allowMultiple && (
-                            <div className="reorder-actions">
-                              <button 
-                                type="button" 
-                                disabled={index === 0}
-                                onClick={(e) => { e.stopPropagation(); moveFile(index, 'left'); }} 
-                                className="reorder-arrow-btn"
-                                title="Move Left"
-                              >
-                                ◀
-                              </button>
-                              <button 
-                                type="button" 
-                                disabled={index === files.length - 1}
-                                onClick={(e) => { e.stopPropagation(); moveFile(index, 'right'); }} 
-                                className="reorder-arrow-btn"
-                                title="Move Right"
-                              >
-                                ▶
-                              </button>
-                            </div>
-                          )}
-
-                          <button 
-                            type="button" 
-                            onClick={(e) => { e.stopPropagation(); removeFile(index); }} 
-                            className="card-action-btn delete-card-btn"
-                            title="Remove File"
-                          >
-                            ❌ Delete
-                          </button>
-                        </div>
+                    <div 
+                      key={index} 
+                      className={`preview-list-item ${isSelected ? 'selected-list-item' : ''}`}
+                      onClick={() => setSelectedPreviewIndex(index)}
+                    >
+                      <div className="item-index-badge">{index + 1}</div>
+                      
+                      <div className="item-file-badge" style={{ backgroundColor: fileColor }}>
+                        {fileExt.toUpperCase() || 'FILE'}
                       </div>
-                      <div className="card-index-badge">{index + 1}</div>
+                      
+                      <div className="item-details">
+                        <span className="item-name" title={file.name}>{file.name}</span>
+                        <span className="item-meta">
+                          {sizeMB} MB {rotation > 0 ? `| 🔄 rotated ${rotation}°` : ''}
+                        </span>
+                      </div>
+
+                      <div className="item-actions" onClick={(e) => e.stopPropagation()}>
+                        <button 
+                          type="button" 
+                          onClick={() => rotateFile(file.name)} 
+                          className="item-action-btn rotate-btn"
+                          title="Rotate"
+                        >
+                          🔄 Rotate
+                        </button>
+                        
+                        {allowMultiple && (
+                          <div className="item-reorder-actions">
+                            <button 
+                              type="button" 
+                              disabled={index === 0}
+                              onClick={() => moveFile(index, 'left')} 
+                              className="item-reorder-btn"
+                              title="Move Up"
+                            >
+                              ▲
+                            </button>
+                            <button 
+                              type="button" 
+                              disabled={index === files.length - 1}
+                              onClick={() => moveFile(index, 'right')} 
+                              className="item-reorder-btn"
+                              title="Move Down"
+                            >
+                              ▼
+                            </button>
+                          </div>
+                        )}
+
+                        <button 
+                          type="button" 
+                          onClick={() => removeFile(index)} 
+                          className="item-action-btn delete-btn"
+                          title="Remove File"
+                        >
+                          ❌ Delete
+                        </button>
+                      </div>
                     </div>
                   );
                 })}
-            </div>
+              </div>
           </div>
 
           <div className="changes-sidebar">
