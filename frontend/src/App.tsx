@@ -17,6 +17,7 @@ interface Tool {
 
 export default function App() {
   const [showLandingPage, setShowLandingPage] = useState<boolean>(true);
+  const [showPrivacyModal, setShowPrivacyModal] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<string>('All');
   const [selectedTool, setSelectedTool] = useState<Tool | null>(null);
   const [user, setUser] = useState<User | null>(null);
@@ -973,6 +974,62 @@ export default function App() {
           <a href="#" className="landing-nav-logo" onClick={(e) => e.preventDefault()}>
             Omni<span>PDF</span>
           </a>
+          <ul className="landing-nav-links">
+            <li>
+              <a 
+                href="#features" 
+                className="landing-nav-link" 
+                onClick={(e) => { 
+                  e.preventDefault(); 
+                  document.getElementById('features-section')?.scrollIntoView({ behavior: 'smooth' }); 
+                }}
+              >
+                Features
+              </a>
+            </li>
+            <li>
+              <a 
+                href="#how-it-works" 
+                className="landing-nav-link" 
+                onClick={(e) => { 
+                  e.preventDefault(); 
+                  document.getElementById('steps-section')?.scrollIntoView({ behavior: 'smooth' }); 
+                }}
+              >
+                How it Works
+              </a>
+            </li>
+            <li>
+              <a 
+                href="#privacy" 
+                className="landing-nav-link" 
+                onClick={(e) => { 
+                  e.preventDefault(); 
+                  setShowPrivacyModal(true); 
+                }}
+              >
+                Privacy Policy
+              </a>
+            </li>
+            <li>
+              <a 
+                href="https://drive.google.com/file/d/1pum6bxn_ERFrn64J5wGnx7-tHFBWzUDg/view?usp=sharing" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="landing-nav-btn"
+              >
+                Download APK
+              </a>
+            </li>
+            <li>
+              <button 
+                onClick={() => setShowLandingPage(false)} 
+                className="landing-nav-btn primary"
+              >
+                Open Web App
+              </button>
+            </li>
+          </ul>
         </nav>
 
         <main className="landing-hero">
@@ -1092,7 +1149,7 @@ export default function App() {
         {/* How It Works Stepper */}
         <h2 className="landing-section-title animate-fade-in delay-2">Streamlined PDF Workflow</h2>
         <p className="landing-section-subtitle animate-fade-in delay-3">Create, optimize, and manage files in three effortless steps</p>
-        <div className="landing-steps animate-fade-in delay-4">
+        <div id="steps-section" className="landing-steps animate-fade-in delay-4">
           <div className="landing-step-card">
             <div className="landing-step-num">1</div>
             <h4 className="landing-step-title">Select Any Tool</h4>
@@ -1110,7 +1167,7 @@ export default function App() {
           </div>
         </div>
 
-        <section className="landing-features animate-fade-in delay-5">
+        <section id="features-section" className="landing-features animate-fade-in delay-5">
           <div className="landing-feature-card">
             <div className="landing-feature-icon" style={{ backgroundColor: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6' }}>
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -1143,6 +1200,36 @@ export default function App() {
         <footer className="landing-footer">
           &copy; {new Date().getFullYear()} OmniPDF. Designed for extreme productivity.
         </footer>
+
+        {showPrivacyModal && (
+          <div className="privacy-modal-overlay" onClick={() => setShowPrivacyModal(false)}>
+            <div className="privacy-modal-content" onClick={(e) => e.stopPropagation()}>
+              <div className="privacy-modal-header">
+                <h3>OmniPDF Privacy Policy</h3>
+                <button className="close-modal-btn" onClick={() => setShowPrivacyModal(false)}>&times;</button>
+              </div>
+              <div className="privacy-modal-body">
+                <p><strong>Last Updated: June 2026</strong></p>
+                <p>At OmniPDF, privacy is our top priority. We believe that your documents should remain entirely yours. Here is how we ensure your data safety:</p>
+                
+                <h4>1. Direct Browser Processing</h4>
+                <p>Tools like PDF Compression, watermarking, and minor rendering are processed directly in your local web browser using webassembly/javascript. Your files never touch a server.</p>
+                
+                <h4>2. Encrypted Server Pipelines</h4>
+                <p>For operations requiring cloud helpers (e.g. OCR and AI summarization), your files are uploaded via highly secure SSL/TLS channels, processed in isolated temporary memory, and instantly deleted from disk upon operation success.</p>
+                
+                <h4>3. Zero Retention & Tracking</h4>
+                <p>We do not store, keep, track, or share your documents under any circumstances. Once you close your browser tab or complete download, the file cache is purged.</p>
+
+                <h4>4. Android App Safety</h4>
+                <p>The OmniPDF Android application processes operations locally or via the exact same secure server pipelines without requiring intrusive permissions (like contacts or location details).</p>
+              </div>
+              <div className="privacy-modal-footer">
+                <button className="shine-btn shine-btn-primary" style={{ padding: '10px 24px', fontSize: '14px' }} onClick={() => setShowPrivacyModal(false)}>I Understand</button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
