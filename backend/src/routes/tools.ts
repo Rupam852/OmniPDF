@@ -10,6 +10,8 @@ import {
   PDFStream,
   StandardFonts,
 } from 'pdf-lib';
+import fontkit from '@pdf-lib/fontkit';
+import https from 'https';
 import { AuthenticatedRequest } from '../middleware/auth';
 import { processingLimiter } from '../middleware/rateLimiter';
 import { execFile } from 'child_process';
@@ -77,8 +79,77 @@ async function loadPdf(buffer: Buffer): Promise<PDFDocument> {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// UNICODE FONT LOADER & CACHING FOR PDF TRANSLATION
+// ─────────────────────────────────────────────────────────────────────────────
+
+const languageFontUrls: Record<string, string> = {
+  'Hindi': 'https://raw.githubusercontent.com/notofonts/noto-fonts/main/hinted/ttf/NotoSansDevanagari/NotoSansDevanagari-Regular.ttf',
+  'Marathi': 'https://raw.githubusercontent.com/notofonts/noto-fonts/main/hinted/ttf/NotoSansDevanagari/NotoSansDevanagari-Regular.ttf',
+  'Bengali': 'https://raw.githubusercontent.com/notofonts/noto-fonts/main/hinted/ttf/NotoSansBengali/NotoSansBengali-Regular.ttf',
+  'Assamese': 'https://raw.githubusercontent.com/notofonts/noto-fonts/main/hinted/ttf/NotoSansBengali/NotoSansBengali-Regular.ttf',
+  'Telugu': 'https://raw.githubusercontent.com/notofonts/noto-fonts/main/hinted/ttf/NotoSansTelugu/NotoSansTelugu-Regular.ttf',
+  'Tamil': 'https://raw.githubusercontent.com/notofonts/noto-fonts/main/hinted/ttf/NotoSansTamil/NotoSansTamil-Regular.ttf',
+  'Gujarati': 'https://raw.githubusercontent.com/notofonts/noto-fonts/main/hinted/ttf/NotoSansGujarati/NotoSansGujarati-Regular.ttf',
+  'Urdu': 'https://raw.githubusercontent.com/notofonts/noto-fonts/main/hinted/ttf/NotoSansArabic/NotoSansArabic-Regular.ttf',
+  'Arabic': 'https://raw.githubusercontent.com/notofonts/noto-fonts/main/hinted/ttf/NotoSansArabic/NotoSansArabic-Regular.ttf',
+  'Kannada': 'https://raw.githubusercontent.com/notofonts/noto-fonts/main/hinted/ttf/NotoSansKannada/NotoSansKannada-Regular.ttf',
+  'Odia': 'https://raw.githubusercontent.com/notofonts/noto-fonts/main/hinted/ttf/NotoSansOriya/NotoSansOriya-Regular.ttf',
+  'Malayalam': 'https://raw.githubusercontent.com/notofonts/noto-fonts/main/hinted/ttf/NotoSansMalayalam/NotoSansMalayalam-Regular.ttf',
+  'Punjabi': 'https://raw.githubusercontent.com/notofonts/noto-fonts/main/hinted/ttf/NotoSansGurmukhi/NotoSansGurmukhi-Regular.ttf',
+  'Chinese (Simplified)': 'https://raw.githubusercontent.com/notofonts/noto-cjk/main/Sans/OTF/SimplifiedChinese/NotoSansCJKsc-Regular.otf',
+  'Chinese (Traditional)': 'https://raw.githubusercontent.com/notofonts/noto-cjk/main/Sans/OTF/TraditionalChinese/NotoSansCJKtc-Regular.otf',
+  'Japanese': 'https://raw.githubusercontent.com/notofonts/noto-cjk/main/Sans/OTF/Japanese/NotoSansCJKjp-Regular.otf',
+  'Korean': 'https://raw.githubusercontent.com/notofonts/noto-cjk/main/Sans/OTF/Korean/NotoSansCJKkr-Regular.otf',
+  'Russian': 'https://raw.githubusercontent.com/notofonts/noto-fonts/main/hinted/ttf/NotoSans/NotoSans-Regular.ttf',
+  'Vietnamese': 'https://raw.githubusercontent.com/notofonts/noto-fonts/main/hinted/ttf/NotoSans/NotoSans-Regular.ttf',
+  'Polish': 'https://raw.githubusercontent.com/notofonts/noto-fonts/main/hinted/ttf/NotoSans/NotoSans-Regular.ttf',
+  'Turkish': 'https://raw.githubusercontent.com/notofonts/noto-fonts/main/hinted/ttf/NotoSans/NotoSans-Regular.ttf',
+};
+
+const fontCache: Record<string, Promise<Buffer>> = {};
+
+function downloadFont(url: string): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const request = https.get(url, (response) => {
+      // Follow HTTP redirects (301, 302)
+      if (response.statusCode && response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+        resolve(downloadFont(response.headers.location));
+        return;
+      }
+      if (response.statusCode !== 200) {
+        reject(new Error(`Failed to download font: Status Code ${response.statusCode}`));
+        return;
+      }
+      const chunks: Buffer[] = [];
+      response.on('data', (chunk) => chunks.push(chunk));
+      response.on('end', () => {
+        resolve(Buffer.concat(chunks));
+      });
+    });
+    request.on('error', (err) => reject(err));
+  });
+}
+
+function getFontBuffer(language: string): Promise<Buffer> {
+  const url = languageFontUrls[language];
+  if (!url) {
+    return Promise.reject(new Error(`No font URL mapped for language: ${language}`));
+  }
+  if (!fontCache[language]) {
+    console.log(`[Font Loader] Fetching font for ${language} from ${url}`);
+    fontCache[language] = downloadFont(url).catch((err) => {
+      // Clear cache on error so subsequent requests can retry download
+      delete fontCache[language];
+      throw err;
+    });
+  }
+  return fontCache[language];
+}
+
 /**
  * Wraps text to fit within maxWidth characters per line (rough approximation).
+ * Handles long character streams (like CJK or long words/links) safely by character wrapping.
  */
 function wrapText(text: string, maxCharsPerLine: number): string[] {
   const lines: string[] = [];
@@ -91,12 +162,25 @@ function wrapText(text: string, maxCharsPerLine: number): string[] {
     const words = para.split(' ');
     let currentLine = '';
     for (const word of words) {
-      const test = currentLine ? `${currentLine} ${word}` : word;
-      if (test.length > maxCharsPerLine) {
-        if (currentLine) lines.push(currentLine);
-        currentLine = word;
+      if (word.length > maxCharsPerLine) {
+        if (currentLine) {
+          lines.push(currentLine);
+          currentLine = '';
+        }
+        let remaining = word;
+        while (remaining.length > maxCharsPerLine) {
+          lines.push(remaining.substring(0, maxCharsPerLine));
+          remaining = remaining.substring(maxCharsPerLine);
+        }
+        currentLine = remaining;
       } else {
-        currentLine = test;
+        const test = currentLine ? `${currentLine} ${word}` : word;
+        if (test.length > maxCharsPerLine) {
+          if (currentLine) lines.push(currentLine);
+          currentLine = word;
+        } else {
+          currentLine = test;
+        }
       }
     }
     if (currentLine) lines.push(currentLine);
@@ -125,12 +209,29 @@ async function createSafeFallbackPdf(title: string): Promise<string> {
 }
 
 /**
- * Creates a multi-page PDF from plain text.
+ * Creates a multi-page PDF from plain text, optionally embedding a custom font for target script.
  */
-async function createPdfFromText(text: string, title: string): Promise<string> {
+async function createPdfFromText(text: string, title: string, language?: string): Promise<string> {
   try {
     const pdfDoc = await PDFDocument.create();
-    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    
+    // Register fontkit to support dynamic OTF/TTF loading
+    pdfDoc.registerFontkit(fontkit);
+
+    let font;
+    if (language && languageFontUrls[language]) {
+      try {
+        console.log(`[createPdfFromText] Embedding custom font for ${language}`);
+        const fontBuffer = await getFontBuffer(language);
+        font = await pdfDoc.embedFont(fontBuffer);
+      } catch (err) {
+        console.error(`[createPdfFromText] Failed to load custom font for ${language}, falling back to Helvetica:`, err);
+        font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+      }
+    } else {
+      font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    }
+
     const titleFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
     const pageWidth = 595; // A4
@@ -1229,7 +1330,8 @@ router.post(
 
       const translatedPdfBase64 = await createPdfFromText(
         translatedText,
-        `TRANSLATED PDF — ${targetLanguage.toUpperCase()}`
+        `TRANSLATED PDF — ${targetLanguage.toUpperCase()}`,
+        targetLanguage
       );
 
       res.status(200).json({
