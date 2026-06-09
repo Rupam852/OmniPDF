@@ -1731,18 +1731,18 @@ h1, h2, h3, h4, h5, h6 {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 40px 20px;
+  padding: 20px clamp(20px, 4vw, 60px);
   box-sizing: border-box;
   overflow-x: hidden;
 }
 
 .landing-nav {
   width: 100%;
-  max-width: 1100px;
+  max-width: 1400px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 80px;
+  margin-bottom: 40px;
 }
 
 .landing-nav-logo {
