@@ -63,6 +63,76 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Camera Scanner states and refs
+  const [isCameraActive, setIsCameraActive] = useState(false);
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
+  const [stream, setStream] = useState<MediaStream | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  const startCamera = async () => {
+    try {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+      const newStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: facingMode }
+      });
+      setStream(newStream);
+      setIsCameraActive(true);
+      if (videoRef.current) {
+        videoRef.current.srcObject = newStream;
+      }
+    } catch (err) {
+      console.error('Failed to start camera:', err);
+      setErrorMessage('Could not access the camera. Please ensure camera permissions are granted.');
+    }
+  };
+
+  const stopCamera = () => {
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+      setStream(null);
+    }
+    setIsCameraActive(false);
+  };
+
+  const capturePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      const context = canvas.getContext('2d');
+      if (context) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        
+        canvas.toBlob((blob) => {
+          if (blob) {
+            const index = files.length + 1;
+            const file = new File([blob], `scan_page_${index}.jpg`, { type: 'image/jpeg' });
+            setFiles(prev => [...prev, file]);
+          }
+        }, 'image/jpeg', 0.95);
+      }
+    }
+  };
+
+  const toggleFacingMode = () => {
+    setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
+  };
+
+  useEffect(() => {
+    if (isCameraActive) {
+      startCamera();
+    }
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [facingMode, isCameraActive]);
+
   useEffect(() => {
     if (files.length > 0 && toolId === 'compress') {
       const targetBytes = files[0].size * (compressionPercent / 100);
@@ -245,8 +315,113 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
         id="file-input-element"
       />
 
+      {/* Camera Live Feed */}
+      {toolId === 'scan-to-pdf' && isCameraActive && (
+        <div className="camera-scanner-container" style={{
+          background: 'rgba(15, 23, 42, 0.8)',
+          borderRadius: '16px',
+          border: '1px solid rgba(255, 255, 255, 0.08)',
+          padding: '24px',
+          marginBottom: '20px',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '16px',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
+          backdropFilter: 'blur(10px)',
+        }}>
+          <h3 style={{ margin: 0, fontSize: '16px', color: '#60a5fa', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ display: 'inline-block', width: '8px', height: '8px', background: '#22c55e', borderRadius: '50%' }} />
+            Live Document Scanner
+          </h3>
+          <div style={{
+            position: 'relative',
+            width: '100%',
+            maxWidth: '480px',
+            aspectRatio: '4/3',
+            background: '#000',
+            borderRadius: '12px',
+            overflow: 'hidden',
+            boxShadow: 'inset 0 0 20px rgba(0,0,0,0.8)',
+            border: '2px solid rgba(96, 165, 250, 0.2)',
+          }}>
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+              }}
+            />
+            <canvas ref={canvasRef} style={{ display: 'none' }} />
+          </div>
+          <div style={{ display: 'flex', gap: '16px', alignItems: 'center', marginTop: '8px' }}>
+            <button
+              type="button"
+              onClick={capturePhoto}
+              style={{
+                background: '#ef4444',
+                color: '#fff',
+                border: 'none',
+                width: '56px',
+                height: '56px',
+                borderRadius: '50%',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 0 15px rgba(239, 68, 68, 0.4)',
+                transition: 'all 0.2s',
+              }}
+              title="Capture Scan Page"
+            >
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <circle cx="12" cy="12" r="3" />
+                <path d="M19 10h.01M21 19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              onClick={toggleFacingMode}
+              style={{
+                background: 'rgba(255, 255, 255, 0.08)',
+                color: '#fff',
+                border: '1px solid rgba(255,255,255,0.1)',
+                padding: '8px 16px',
+                borderRadius: '20px',
+                cursor: 'pointer',
+                fontSize: '13px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+            >
+              🔄 Flip Camera
+            </button>
+            <button
+              type="button"
+              onClick={stopCamera}
+              style={{
+                background: 'rgba(239, 68, 68, 0.15)',
+                color: '#f87171',
+                border: '1px solid rgba(239, 68, 68, 0.2)',
+                padding: '8px 16px',
+                borderRadius: '20px',
+                cursor: 'pointer',
+                fontSize: '13px',
+              }}
+            >
+              Close Scanner
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* File Drop Area */}
-      {files.length === 0 ? (
+      {files.length === 0 && (!isCameraActive || toolId !== 'scan-to-pdf') ? (
         <div
           className="drop-zone"
           style={{
@@ -271,12 +446,53 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
           </p>
           <p className="sub-text">{supportText}</p>
           {allowMultiple && <p className="sub-text">You can select multiple files</p>}
+          {toolId === 'scan-to-pdf' && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setIsCameraActive(true); }}
+              style={{
+                marginTop: '16px',
+                background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+                color: '#fff',
+                border: 'none',
+                padding: '10px 24px',
+                borderRadius: '24px',
+                fontSize: '14px',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                boxShadow: '0 4px 14px rgba(59, 130, 246, 0.4)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+              }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                <circle cx="12" cy="13" r="4" />
+              </svg>
+              Scan with Camera
+            </button>
+          )}
         </div>
       ) : (
         <div className="file-list-container">
           <div className="file-list-header">
             <span>Selected Files ({files.length})</span>
-            <div style={{ display: 'flex', gap: '12px' }}>
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+              {toolId === 'scan-to-pdf' && (
+                <button
+                  type="button"
+                  onClick={() => setIsCameraActive(true)}
+                  className="add-more-btn"
+                  style={{
+                    background: 'rgba(59, 130, 246, 0.15)',
+                    color: '#60a5fa',
+                    border: '1px solid rgba(59, 130, 246, 0.3)',
+                  }}
+                >
+                  📷 Scan Page
+                </button>
+              )}
               {allowMultiple && (
                 <button onClick={() => fileInputRef.current?.click()} className="add-more-btn">
                   + Add Files

@@ -503,7 +503,7 @@ export default function App() {
     const NOT_IMPLEMENTED_TOOLS = [
       'ocr', 'crop', 'edit-pdf', 'pdf-forms', 'sign', 'redact', 'compare',
       'word-to-pdf', 'powerpoint-to-pdf', 'excel-to-pdf', 'html-to-pdf',
-      'pdf-to-word', 'pdf-to-powerpoint', 'pdf-to-excel', 'pdf-to-pdfa', 'scan-to-pdf'
+      'pdf-to-word', 'pdf-to-powerpoint', 'pdf-to-excel', 'pdf-to-pdfa'
     ];
 
     if (NOT_IMPLEMENTED_TOOLS.includes(selectedTool.id)) {
@@ -753,6 +753,21 @@ export default function App() {
             successMessage: result.message || 'Images converted to PDF!',
             actionText: 'Download PDF',
             fileNameToDownload: result.fileName || `images_to_pdf_${Date.now()}.pdf`,
+          });
+        }
+      }
+
+      // ── SCAN TO PDF ───────────────────────────────────────────────────────────
+      else if (selectedTool.id === 'scan-to-pdf') {
+        const result = await OmniPdfApi.mergeImages(token || '', files);
+        if (result.fileData) {
+          setProcessedResult({
+            toolName: selectedTool.name,
+            fileName: files.map(f => f.name).join(', '),
+            downloadUrl: base64ToBlobUrl(result.fileData),
+            successMessage: result.message || 'Scanned pages compiled to PDF successfully!',
+            actionText: 'Download Scanned PDF',
+            fileNameToDownload: result.fileName || `scanned_${Date.now()}.pdf`,
           });
         }
       }
@@ -1182,10 +1197,10 @@ export default function App() {
             <FileUploadZone
               toolName={selectedTool.name}
               toolId={selectedTool.id}
-              allowMultiple={selectedTool.id === 'merge' || selectedTool.id === 'jpg-to-pdf'}
+              allowMultiple={selectedTool.id === 'merge' || selectedTool.id === 'jpg-to-pdf' || selectedTool.id === 'scan-to-pdf'}
               isIntelligence={selectedTool.category === 'intelligence'}
               acceptedMimeTypes={
-                selectedTool.id === 'jpg-to-pdf'
+                selectedTool.id === 'jpg-to-pdf' || selectedTool.id === 'scan-to-pdf'
                   ? ['image/jpeg', 'image/jpg', 'image/png']
                   : ['application/pdf']
               }
