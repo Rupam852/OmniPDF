@@ -968,6 +968,42 @@ export default function App() {
     }
   };
 
+  const renderSuccessBigPreview = (url: string, fileName: string) => {
+    const dotIndex = fileName.lastIndexOf('.');
+    const ext = dotIndex !== -1 ? fileName.substring(dotIndex + 1).toLowerCase() : '';
+    
+    if (ext === 'pdf') {
+      return (
+        <iframe
+          src={`${url}#toolbar=0`}
+          title="Output PDF Preview"
+          className="large-pdf-preview"
+        />
+      );
+    } else if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) {
+      return (
+        <img
+          src={url}
+          alt="Output Image Preview"
+          className="large-image-preview"
+        />
+      );
+    } else {
+      const fileColor = '#64748b';
+      return (
+        <div className="large-placeholder-preview">
+          <div className="large-file-badge" style={{ backgroundColor: fileColor }}>
+            {ext.toUpperCase()}
+          </div>
+          <p className="large-file-name">{fileName}</p>
+          <p className="large-file-meta">
+            Preview not supported for this file type.
+          </p>
+        </div>
+      );
+    }
+  };
+
   return (
     <div className="app-wrapper">
       {/* Navigation Bar */}
@@ -1230,7 +1266,24 @@ export default function App() {
       {/* Main Container */}
       <main className="app-main">
         {processedResult ? (
-          <div className="success-container">
+          <div className="success-layout-vertical">
+            {processedResult.downloadUrl && (
+              <div className="big-dynamic-preview-container">
+                <div className="big-preview-header">
+                  <span className="big-preview-title">
+                    🔍 Live Preview: {processedResult.fileNameToDownload || processedResult.fileName}
+                  </span>
+                  <span className="big-preview-subtitle">
+                    Processed Output Document
+                  </span>
+                </div>
+                <div className="big-preview-content">
+                  {renderSuccessBigPreview(processedResult.downloadUrl, processedResult.fileNameToDownload || processedResult.fileName)}
+                </div>
+              </div>
+            )}
+
+            <div className="success-container">
             <div className="success-icon-wrapper">
               <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5">
                 <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
@@ -1320,6 +1373,7 @@ export default function App() {
               </button>
             </div>
           </div>
+        </div>
         ) : selectedTool ? (
           <div>
             <button onClick={() => { setSelectedTool(null); setProcessedResult(null); }} className="back-btn">

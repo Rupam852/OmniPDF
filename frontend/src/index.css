@@ -1656,5 +1656,15 @@ h1, h2, h3, h4, h5, h6 {
   transform: translateY(-2px) scale(1.01);
 }
 
+.success-layout-vertical {
+  width: 100%;
+  max-width: 800px;
+  margin: 20px auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+
 
 
