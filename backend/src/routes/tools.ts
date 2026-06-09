@@ -107,53 +107,90 @@ function wrapText(text: string, maxCharsPerLine: number): string[] {
 /**
  * Creates a multi-page PDF from plain text.
  */
-async function createPdfFromText(text: string, title: string): Promise<string> {
-  const pdfDoc = await PDFDocument.create();
-  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-  const titleFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-
-  const pageWidth = 595; // A4
-  const pageHeight = 842;
-  const margin = 50;
-  const contentWidth = pageWidth - margin * 2;
-  const fontSize = 11;
-  const titleFontSize = 14;
-  const lineHeight = 18;
-
-  const wrappedLines = wrapText(text, Math.floor(contentWidth / 6.5));
-
-  let page = pdfDoc.addPage([pageWidth, pageHeight]);
-  let y = pageHeight - margin;
-
-  // Draw title
-  page.drawText(title, {
-    x: margin,
-    y,
-    size: titleFontSize,
-    font: titleFont,
-    color: rgb(0.1, 0.4, 0.8),
-  });
-  y -= lineHeight * 2;
-
-  for (const line of wrappedLines) {
-    if (y < margin + lineHeight) {
-      page = pdfDoc.addPage([pageWidth, pageHeight]);
-      y = pageHeight - margin;
-    }
-    if (line) {
-      page.drawText(line, {
-        x: margin,
-        y,
-        size: fontSize,
-        font,
-        color: rgb(0.1, 0.1, 0.1),
-      });
-    }
-    y -= lineHeight;
+async function createSafeFallbackPdf(title: string): Promise<string> {
+  try {
+    const pdfDoc = await PDFDocument.create();
+    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const page = pdfDoc.addPage([595, 842]);
+    page.drawText(title, { x: 50, y: 750, size: 14, font, color: rgb(0.1, 0.4, 0.8) });
+    page.drawText('This document contains Unicode characters (e.g., Bengali, Hindi, CJK, Arabic)', { x: 50, y: 700, size: 11, font, color: rgb(0.2, 0.2, 0.2) });
+    page.drawText('that cannot be encoded in standard PDF Helvetica fonts.', { x: 50, y: 680, size: 11, font, color: rgb(0.2, 0.2, 0.2) });
+    page.drawText('Please view and copy the full, formatted translation directly from the app screen.', { x: 50, y: 650, size: 11, font, color: rgb(0.1, 0.5, 0.2) });
+    const bytes = await pdfDoc.save();
+    return Buffer.from(bytes).toString('base64');
+  } catch (e) {
+    console.error('Failed to create safe fallback PDF:', e);
+    return '';
   }
+}
 
-  const bytes = await pdfDoc.save();
-  return Buffer.from(bytes).toString('base64');
+/**
+ * Creates a multi-page PDF from plain text.
+ */
+async function createPdfFromText(text: string, title: string): Promise<string> {
+  try {
+    const pdfDoc = await PDFDocument.create();
+    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const titleFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+    const pageWidth = 595; // A4
+    const pageHeight = 842;
+    const margin = 50;
+    const contentWidth = pageWidth - margin * 2;
+    const fontSize = 11;
+    const titleFontSize = 14;
+    const lineHeight = 18;
+
+    const wrappedLines = wrapText(text, Math.floor(contentWidth / 6.5));
+
+    let page = pdfDoc.addPage([pageWidth, pageHeight]);
+    let y = pageHeight - margin;
+
+    // Draw title
+    page.drawText(title, {
+      x: margin,
+      y,
+      size: titleFontSize,
+      font: titleFont,
+      color: rgb(0.1, 0.4, 0.8),
+    });
+    y -= lineHeight * 2;
+
+    for (const line of wrappedLines) {
+      if (y < margin + lineHeight) {
+        page = pdfDoc.addPage([pageWidth, pageHeight]);
+        y = pageHeight - margin;
+      }
+      if (line) {
+        try {
+          page.drawText(line, {
+            x: margin,
+            y,
+            size: fontSize,
+            font,
+            color: rgb(0.1, 0.1, 0.1),
+          });
+        } catch (e) {
+          // Replace non-WinAnsi characters with '?' to prevent encoding crashes
+          const sanitizedLine = line.replace(/[^\x00-\x7F]/g, '?');
+          page.drawText(sanitizedLine, {
+            x: margin,
+            y,
+            size: fontSize,
+            font,
+            color: rgb(0.1, 0.1, 0.1),
+          });
+        }
+      }
+      y -= lineHeight;
+    }
+
+    const bytes = await pdfDoc.save();
+    return Buffer.from(bytes).toString('base64');
+  } catch (globalError) {
+    console.error('[createPdfFromText] Failed, generating safe fallback PDF:', globalError);
+    return await createSafeFallbackPdf(title);
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
