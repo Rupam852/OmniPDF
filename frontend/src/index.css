@@ -1556,4 +1556,105 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
+/* Big Dynamic Preview Box CSS */
+.tool-workspace-layout-vertical {
+  width: 100%;
+  max-width: 1200px;
+  margin: 20px auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.big-dynamic-preview-container {
+  background: rgba(22, 30, 49, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(10px);
+}
+
+.big-preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding-bottom: 12px;
+  margin-bottom: 16px;
+}
+
+.big-preview-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.big-preview-subtitle {
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.big-preview-content {
+  background: #030712;
+  border-radius: 12px;
+  overflow: hidden;
+  height: 480px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.large-pdf-preview {
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+.large-image-preview {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.large-placeholder-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  color: #94a3b8;
+  padding: 40px;
+  text-align: center;
+}
+
+.large-file-badge {
+  padding: 16px 32px;
+  border-radius: 10px;
+  font-size: 22px;
+  font-weight: 800;
+  color: #ffffff;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+}
+
+.large-file-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: #f1f5f9;
+}
+
+.large-file-meta {
+  font-size: 13px;
+  color: #64748b;
+}
+
+.selected-preview-card {
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 15px rgba(59, 130, 246, 0.4) !important;
+  transform: translateY(-2px) scale(1.01);
+}
+
+
 

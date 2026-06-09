@@ -71,9 +71,12 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
   const [files, setFiles] = useState<File[]>([]);
   const [filePreviews, setFilePreviews] = useState<Record<string, string>>({});
   const [fileRotations, setFileRotations] = useState<Record<string, number>>({});
+  const [selectedPreviewIndex, setSelectedPreviewIndex] = useState<number>(0);
+  const [bigPreviewUrls, setBigPreviewUrls] = useState<Record<string, string>>({});
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
 
   // ─── Tool-specific option states ─────────────────────────────────────────
   const [targetSize, setTargetSize] = useState<number>(500);
@@ -219,30 +222,56 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
   useEffect(() => {
     const loadPreviews = async () => {
       const newPreviews = { ...filePreviews };
+      const newBigUrls = { ...bigPreviewUrls };
       let updated = false;
 
       for (const file of files) {
-        if (newPreviews[file.name]) continue;
-
-        if (file.type === 'application/pdf') {
-          const dataUrl = await renderPdfPageToDataUrl(file);
-          if (dataUrl) {
-            newPreviews[file.name] = dataUrl;
+        // PDF.js thumbnail
+        if (!newPreviews[file.name]) {
+          if (file.type === 'application/pdf') {
+            const dataUrl = await renderPdfPageToDataUrl(file);
+            if (dataUrl) {
+              newPreviews[file.name] = dataUrl;
+              updated = true;
+            }
+          } else if (file.type.startsWith('image/')) {
+            newPreviews[file.name] = URL.createObjectURL(file);
             updated = true;
           }
-        } else if (file.type.startsWith('image/')) {
-          newPreviews[file.name] = URL.createObjectURL(file);
+        }
+
+        // Big preview object URL
+        if (!newBigUrls[file.name]) {
+          newBigUrls[file.name] = URL.createObjectURL(file);
           updated = true;
         }
       }
 
       if (updated) {
         setFilePreviews(newPreviews);
+        setBigPreviewUrls(newBigUrls);
       }
     };
 
     loadPreviews();
   }, [files]);
+
+  useEffect(() => {
+    return () => {
+      Object.values(bigPreviewUrls).forEach(url => {
+        try {
+          URL.revokeObjectURL(url);
+        } catch (e) {}
+      });
+    };
+  }, [bigPreviewUrls]);
+
+  useEffect(() => {
+    if (selectedPreviewIndex >= files.length && files.length > 0) {
+      setSelectedPreviewIndex(files.length - 1);
+    }
+  }, [files, selectedPreviewIndex]);
+
 
   const rotateFile = (fileName: string) => {
     setFileRotations(prev => {
@@ -431,6 +460,44 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
     ? 'Supports JPG and PNG images up to 10MB each'
     : 'Supports PDFs up to 10MB';
 
+  const renderBigPreview = (file: File) => {
+    if (!file) return null;
+    const ext = getFileExtension(file);
+    const cachedUrl = bigPreviewUrls[file.name];
+    if (!cachedUrl) return null;
+
+    if (ext === 'pdf') {
+      return (
+        <iframe
+          src={`${cachedUrl}#toolbar=0`}
+          title="PDF Preview"
+          className="large-pdf-preview"
+        />
+      );
+    } else if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) {
+      return (
+        <img
+          src={cachedUrl}
+          alt="Image Preview"
+          className="large-image-preview"
+        />
+      );
+    } else {
+      const fileColor = getFileColor(file);
+      return (
+        <div className="large-placeholder-preview">
+          <div className="large-file-badge" style={{ backgroundColor: fileColor }}>
+            {ext.toUpperCase()}
+          </div>
+          <p className="large-file-name">{file.name}</p>
+          <p className="large-file-meta">
+            Size: {(file.size / 1024 / 1024).toFixed(2)} MB | Preview not supported for this file type.
+          </p>
+        </div>
+      );
+    }
+  };
+
   return (
     <div className="omnipdf-upload-container">
       <h2 className="upload-header">{toolName}</h2>
@@ -605,45 +672,66 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
           )}
         </div>
       ) : (
-        <div className="tool-workspace-layout">
-          <div className="workspace-main-panel">
-            <div className="file-list-header">
-              <span>Selected Files ({files.length})</span>
-              <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                {toolId === 'scan-to-pdf' && (
-                  <button
-                    type="button"
-                    onClick={() => setIsCameraActive(true)}
-                    className="add-more-btn"
-                    style={{
-                      background: 'rgba(59, 130, 246, 0.15)',
-                      color: '#60a5fa',
-                      border: '1px solid rgba(59, 130, 246, 0.3)',
-                    }}
-                  >
-                    📷 Scan Page
-                  </button>
-                )}
-                {allowMultiple && (
-                  <button onClick={() => fileInputRef.current?.click()} className="add-more-btn">
-                    + Add Files
-                  </button>
-                )}
-                <button onClick={clearFiles} className="clear-btn">Clear All</button>
+        <div className="tool-workspace-layout-vertical">
+          {/* Big Preview Box spanning across the top */}
+          {files.length > 0 && files[selectedPreviewIndex] && (
+            <div className="big-dynamic-preview-container">
+              <div className="big-preview-header">
+                <span className="big-preview-title">
+                  🔍 Live Preview: {files[selectedPreviewIndex].name}
+                </span>
+                <span className="big-preview-subtitle">
+                  Click any file below to change preview
+                </span>
+              </div>
+              <div className="big-preview-content">
+                {renderBigPreview(files[selectedPreviewIndex])}
               </div>
             </div>
+          )}
 
-            <div className="preview-card-grid">
-              {files.map((file, index) => {
-                const rotation = fileRotations[file.name] || 0;
-                const previewUrl = filePreviews[file.name];
-                const sizeMB = (file.size / 1024 / 1024).toFixed(2);
-                const fileColor = getFileColor(file);
-                const fileExt = getFileExtension(file);
+          <div className="tool-workspace-layout">
+            <div className="workspace-main-panel">
+              <div className="file-list-header">
+                <span>Selected Files ({files.length})</span>
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                  {toolId === 'scan-to-pdf' && (
+                    <button
+                      type="button"
+                      onClick={() => setIsCameraActive(true)}
+                      className="add-more-btn"
+                      style={{
+                        background: 'rgba(59, 130, 246, 0.15)',
+                        color: '#60a5fa',
+                        border: '1px solid rgba(59, 130, 246, 0.3)',
+                      }}
+                    >
+                      📷 Scan Page
+                    </button>
+                  )}
+                  {allowMultiple && (
+                    <button onClick={() => fileInputRef.current?.click()} className="add-more-btn">
+                      + Add Files
+                    </button>
+                  )}
+                  <button onClick={clearFiles} className="clear-btn">Clear All</button>
+                </div>
+              </div>
 
-                return (
-                  <div key={index} className="preview-card-wrapper">
-                    <div className="preview-card">
+              <div className="preview-card-grid">
+                {files.map((file, index) => {
+                  const rotation = fileRotations[file.name] || 0;
+                  const previewUrl = filePreviews[file.name];
+                  const sizeMB = (file.size / 1024 / 1024).toFixed(2);
+                  const fileColor = getFileColor(file);
+                  const fileExt = getFileExtension(file);
+
+                  return (
+                    <div key={index} className="preview-card-wrapper">
+                      <div 
+                        className={`preview-card ${selectedPreviewIndex === index ? 'selected-preview-card' : ''}`}
+                        onClick={() => setSelectedPreviewIndex(index)}
+                      >
                       <div 
                         className="preview-thumbnail-container"
                         style={{ transform: `rotate(${rotation}deg)` }}
@@ -1130,6 +1218,7 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
             )}
           </div>
         </div>
+      </div>
       )}
 
       {errorMessage && (
