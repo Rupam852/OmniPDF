@@ -626,7 +626,7 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
       ) : (
         <div className="tool-workspace-layout-vertical">
           {/* Big Preview Box spanning across the top */}
-          {files.length > 0 && files[selectedPreviewIndex] && (
+          {files.length > 0 && files[selectedPreviewIndex] && toolId !== 'unlock' && toolId !== 'protect' && (
             <div className="big-dynamic-preview-container">
               <div className="big-preview-header">
                 <span className="big-preview-title">

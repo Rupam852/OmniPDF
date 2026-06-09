@@ -1268,7 +1268,7 @@ export default function App() {
       <main className="app-main">
         {processedResult ? (
           <div className="success-layout-vertical">
-            {processedResult.downloadUrl && (
+            {processedResult.downloadUrl && selectedTool?.id !== 'unlock' && selectedTool?.id !== 'protect' && (
               <div className="big-dynamic-preview-container">
                 <div className="big-preview-header">
                   <span className="big-preview-title">
