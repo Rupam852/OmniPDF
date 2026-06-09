@@ -1550,48 +1550,62 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
         title: Text(widget.tool['name']),
         backgroundColor: const Color(0xFF0B1329),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          children: [
-            if (_pickedFiles.isEmpty) ...[
-              const SizedBox(height: 20),
-              Icon(
-                widget.tool['icon'],
-                size: 80,
-                color: widget.tool['color'],
-              ),
-              const SizedBox(height: 20),
-              Text(
-                widget.tool['name'],
-                style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                widget.tool['desc'],
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.grey, fontSize: 13),
-              ),
-              const SizedBox(height: 30),
-              ElevatedButton.icon(
-                onPressed: _pickFiles,
-                icon: const Icon(Icons.file_upload_outlined),
-                label: Text(widget.tool['id'] == 'merge' || widget.tool['id'] == 'jpg-to-pdf'
-                    ? (widget.tool['id'] == 'jpg-to-pdf' ? 'Pick Images' : 'Pick PDF Documents')
-                    : 'Pick PDF Document'),
-                style: ElevatedButton.styleFrom(
-                  minimumSize: const Size(220, 52),
-                  backgroundColor: const Color(0xFF3B82F6),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      body: _pickedFiles.isEmpty
+          ? Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 40.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Icon(
+                      widget.tool['icon'],
+                      size: 80,
+                      color: widget.tool['color'],
+                    ),
+                    const SizedBox(height: 24),
+                    Text(
+                      widget.tool['name'],
+                      style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      widget.tool['desc'],
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.grey,
+                        fontSize: 14,
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 36),
+                    ElevatedButton.icon(
+                      onPressed: _pickFiles,
+                      icon: const Icon(Icons.file_upload_outlined),
+                      label: Text(widget.tool['id'] == 'merge' || widget.tool['id'] == 'jpg-to-pdf'
+                          ? (widget.tool['id'] == 'jpg-to-pdf' ? 'Pick Images' : 'Pick PDF Documents')
+                          : 'Pick PDF Document'),
+                      style: ElevatedButton.styleFrom(
+                        minimumSize: const Size(240, 54),
+                        backgroundColor: const Color(0xFF3B82F6),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        elevation: 4,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ] else ...[
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            )
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(20.0),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
                     'Selected Files (${_pickedFiles.length})',
@@ -2325,10 +2339,9 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
                   ),
                   child: Text('⚡ ${widget.tool['name']}'),
                 ),
-            ]
-          ],
-        ),
-      ),
+                ],
+              ),
+            ),
     );
   }
 }
