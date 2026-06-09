@@ -853,21 +853,6 @@ export default function App() {
         });
       }
 
-      // ── TRANSLATE ─────────────────────────────────────────────────────────────
-      else if (selectedTool.id === 'translate') {
-        const result = await OmniPdfApi.translatePdf(token || '', files[0], options.targetLanguage || 'Spanish', options.geminiKey);
-        if (result.fileData) {
-          setProcessedResult({
-            toolName: selectedTool.name,
-            fileName: files[0].name,
-            downloadUrl: base64ToBlobUrl(result.fileData),
-            successMessage: result.message || `PDF translated to ${options.targetLanguage || 'Spanish'} successfully!`,
-            actionText: 'Download Translated PDF',
-            fileNameToDownload: makeFileName(files[0].name, `_translated_${options.targetLanguage || 'Spanish'}`),
-          });
-        }
-      }
-
       // ── OCR PDF ──────────────────────────────────────────────────────────────
       else if (selectedTool.id === 'ocr') {
         const result = await OmniPdfApi.ocrPdf(token || '', files[0], options.geminiKey);
@@ -900,7 +885,7 @@ export default function App() {
       }
 
       // ── GENERIC PYTHON RUNNER TOOLS ──────────────────────────────────────────
-      else if (['word-to-pdf', 'powerpoint-to-pdf', 'excel-to-pdf', 'html-to-pdf', 'pdf-to-word', 'pdf-to-powerpoint', 'pdf-to-excel', 'pdf-to-pdfa', 'crop', 'edit-pdf', 'pdf-forms', 'sign', 'redact'].includes(selectedTool.id)) {
+      else if (['word-to-pdf', 'powerpoint-to-pdf', 'excel-to-pdf', 'html-to-pdf', 'pdf-to-word', 'pdf-to-powerpoint', 'pdf-to-excel', 'pdf-to-pdfa', 'crop', 'pdf-forms', 'sign', 'redact'].includes(selectedTool.id)) {
         const endpoint = selectedTool.id;
         
         // Map clean output suffixes and mime types
@@ -914,7 +899,6 @@ export default function App() {
           'pdf-to-excel': { suffix: '.xlsx', mime: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', action: 'Download Excel Workbook', msg: 'PDF converted to Excel successfully!' },
           'pdf-to-pdfa': { suffix: '.pdf', mime: 'application/pdf', action: 'Download PDF/A', msg: 'PDF converted to PDF/A archive successfully!' },
           'crop': { suffix: '.pdf', mime: 'application/pdf', action: 'Download Cropped PDF', msg: 'PDF margins cropped successfully!' },
-          'edit-pdf': { suffix: '.pdf', mime: 'application/pdf', action: 'Download Edited PDF', msg: 'PDF edited successfully using Gemini AI!' },
           'pdf-forms': { suffix: '.pdf', mime: 'application/pdf', action: 'Download Flattened PDF', msg: 'Interactive PDF form fields flattened successfully!' },
           'sign': { suffix: '.pdf', mime: 'application/pdf', action: 'Download Signed PDF', msg: 'PDF signed successfully!' },
           'redact': { suffix: '.pdf', mime: 'application/pdf', action: 'Download Redacted PDF', msg: 'Selected text has been permanently redacted!' },
@@ -1362,7 +1346,7 @@ export default function App() {
               allowMultiple={selectedTool.id === 'merge' || selectedTool.id === 'jpg-to-pdf' || selectedTool.id === 'scan-to-pdf' || selectedTool.id === 'compress' || selectedTool.id === 'compare'}
               isIntelligence={
                 selectedTool.category === 'intelligence' ||
-                ['ocr', 'edit-pdf', 'pdf-to-word', 'pdf-to-powerpoint', 'pdf-to-excel'].includes(selectedTool.id)
+                ['ocr', 'pdf-to-word', 'pdf-to-powerpoint', 'pdf-to-excel'].includes(selectedTool.id)
               }
               acceptedMimeTypes={
                 selectedTool.id === 'jpg-to-pdf' || selectedTool.id === 'scan-to-pdf'

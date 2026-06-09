@@ -102,31 +102,6 @@ export const OmniPdfApi = {
   },
 
   /**
-   * Execute Translate PDF operation
-   */
-  async translatePdf(token: string, file: File, targetLanguage: string, geminiKey?: string): Promise<ToolResult> {
-    const headers = await getHeaders(token, true);
-    if (geminiKey) {
-      headers['x-gemini-key'] = geminiKey;
-    }
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('targetLanguage', targetLanguage);
-
-    const response = await fetch(`${API_BASE_URL}/tools/translate`, {
-      method: 'POST',
-      headers,
-      body: formData,
-    });
-
-    const data = await response.json();
-    if (!response.ok) {
-      throw new Error(data.message || 'PDF Translation failed');
-    }
-    return data;
-  },
-
-  /**
    * Execute OCR PDF operation
    */
   async ocrPdf(token: string, file: File, geminiKey?: string): Promise<ToolResult> {

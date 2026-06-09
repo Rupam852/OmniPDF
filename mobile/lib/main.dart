@@ -67,6 +67,10 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
+  bool _isSearching = false;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+
   @override
   void initState() {
     super.initState();
@@ -75,6 +79,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
         setState(() {});
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
   
   final List<Map<String, dynamic>> _tools = [
@@ -289,13 +299,51 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'OmniPDF',
-          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
-        ),
+        title: _isSearching
+            ? TextField(
+                controller: _searchController,
+                autofocus: true,
+                style: const TextStyle(color: Colors.white, fontSize: 16),
+                decoration: const InputDecoration(
+                  hintText: 'Search tools...',
+                  hintStyle: TextStyle(color: Colors.grey),
+                  border: InputBorder.none,
+                ),
+                onChanged: (val) {
+                  setState(() {
+                    _searchQuery = val;
+                  });
+                },
+              )
+            : const Text(
+                'OmniPDF',
+                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+              ),
         backgroundColor: const Color(0xFF0B1329),
         elevation: 0,
         actions: [
+          if (_isSearching)
+            IconButton(
+              icon: const Icon(Icons.clear, color: Colors.grey),
+              onPressed: () {
+                _searchController.clear();
+                setState(() {
+                  _searchQuery = '';
+                });
+              },
+            ),
+          IconButton(
+            icon: Icon(_isSearching ? Icons.close : Icons.search, color: Colors.blueAccent),
+            onPressed: () {
+              setState(() {
+                _isSearching = !_isSearching;
+                if (!_isSearching) {
+                  _searchController.clear();
+                  _searchQuery = '';
+                }
+              });
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.settings, color: Colors.blueAccent),
             onPressed: () {
@@ -341,6 +389,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     final double cellWidth = (screenWidth - totalSpacing) / crossAxisCount;
                     // Safe dynamic aspect ratio calculation based on width and text scaling
                     final double childAspectRatio = (cellWidth / (115 + 58 * textScale)).clamp(0.70, 1.25);
+
+                    final filteredTools = _tools.where((tool) {
+                      final name = (tool['name'] as String).toLowerCase();
+                      final desc = (tool['desc'] as String).toLowerCase();
+                      final query = _searchQuery.toLowerCase();
+                      return name.contains(query) || desc.contains(query);
+                    }).toList();
+
+                    if (filteredTools.isEmpty) {
+                      return Center(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 40.0),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.search_off_rounded, size: 64, color: Colors.grey.withOpacity(0.5)),
+                              const SizedBox(height: 16),
+                              Text(
+                                'No tools found matching "$_searchQuery"',
+                                style: const TextStyle(color: Colors.grey, fontSize: 14),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }
   
                     return GridView.builder(
                       shrinkWrap: true,
@@ -351,9 +425,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         mainAxisSpacing: 14,
                         childAspectRatio: childAspectRatio,
                       ),
-                      itemCount: _tools.length,
+                      itemCount: filteredTools.length,
                       itemBuilder: (context, index) {
-                        final tool = _tools[index];
+                        final tool = filteredTools[index];
                         return Container(
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
@@ -748,7 +822,7 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
     }
 
     final apiKey = _keyController.text.trim();
-    final isAiRequired = ['ai_summarizer', 'translate', 'ocr', 'edit-pdf'].contains(widget.tool['id']);
+    final isAiRequired = ['ai_summarizer', 'ocr'].contains(widget.tool['id']);
 
     if (isAiRequired && apiKey.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -923,7 +997,6 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
         'protect': 'protect',
         'unlock': 'unlock',
         'ai_summarizer': 'ai-summarizer',
-        'translate': 'translate',
         'watermark': 'watermark',
         'page-numbers': 'page-numbers',
         'rotate': 'rotate',
@@ -1095,7 +1168,6 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
               'compress': 'Download Compressed PDF',
               'protect': 'Download Protected PDF',
               'unlock': 'Download Unlocked PDF',
-              'translate': 'Download Translated PDF',
               'watermark': 'Download Watermarked PDF',
               'page-numbers': 'Download Numbered PDF',
               'rotate': 'Download Rotated PDF',
@@ -1114,7 +1186,6 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
               'pdf-to-excel': 'Download Excel Sheet',
               'pdf-to-pdfa': 'Download PDF/A Archive',
               'crop': 'Download Cropped PDF',
-              'edit-pdf': 'Download Edited PDF',
               'pdf-forms': 'Download Flattened PDF',
               'sign': 'Download Signed PDF',
               'redact': 'Download Redacted PDF',
@@ -1252,7 +1323,7 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isAiRequired = ['ai_summarizer', 'translate', 'ocr', 'edit-pdf'].contains(widget.tool['id']);
+    final isAiRequired = ['ai_summarizer', 'ocr'].contains(widget.tool['id']);
     final isAiOptional = ['pdf-to-word', 'pdf-to-powerpoint', 'pdf-to-excel'].contains(widget.tool['id']);
 
     if (_isCompleted) {
@@ -1420,8 +1491,6 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
                             ext = '.pdf';
                           } else if (widget.tool['id'] == 'crop') {
                             suffix = '_cropped';
-                          } else if (widget.tool['id'] == 'edit-pdf') {
-                            suffix = '_edited';
                           } else if (widget.tool['id'] == 'pdf-forms') {
                             suffix = '_flattened';
                           } else if (widget.tool['id'] == 'sign') {
@@ -2329,7 +2398,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 8),
             const Text(
-              'Provide your own Gemini API key. The key is stored locally in memory and sent via secure headers to run AI Summarizer, Translate, and OCR PDF tools.',
+              'Provide your own Gemini API key. The key is stored locally in memory and sent via secure headers to run AI Summarizer and OCR PDF tools.',
               style: TextStyle(color: Colors.grey),
             ),
             const SizedBox(height: 30),
