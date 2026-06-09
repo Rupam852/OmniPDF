@@ -524,6 +524,7 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
   bool _saveKeyPermanently = true;
 
   bool _isOptionsExpanded = false;
+  bool _obscurePassword = true;
 
 
 
@@ -1881,13 +1882,25 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
                               const SizedBox(height: 8),
                               TextField(
                                 controller: _protectPasswordController,
-                                obscureText: true,
-                                decoration: const InputDecoration(
+                                obscureText: _obscurePassword,
+                                decoration: InputDecoration(
                                   labelText: 'Password to Encrypt PDF',
-                                  labelStyle: TextStyle(fontSize: 12, color: Colors.grey),
-                                  border: OutlineInputBorder(),
-                                  prefixIcon: Icon(Icons.lock_rounded, size: 18),
-                                  contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                  labelStyle: const TextStyle(fontSize: 12, color: Colors.grey),
+                                  border: const OutlineInputBorder(),
+                                  prefixIcon: const Icon(Icons.lock_rounded, size: 18),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                  suffixIcon: IconButton(
+                                    icon: Icon(
+                                      _obscurePassword ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                                      size: 18,
+                                      color: Colors.grey,
+                                    ),
+                                    onPressed: () {
+                                      setState(() {
+                                        _obscurePassword = !_obscurePassword;
+                                      });
+                                    },
+                                  ),
                                 ),
                               ),
                               const SizedBox(height: 16),
@@ -1902,13 +1915,25 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
                               const SizedBox(height: 8),
                               TextField(
                                 controller: _protectPasswordController,
-                                obscureText: true,
-                                decoration: const InputDecoration(
+                                obscureText: _obscurePassword,
+                                decoration: InputDecoration(
                                   labelText: 'PDF Password to Unlock',
-                                  labelStyle: TextStyle(fontSize: 12, color: Colors.grey),
-                                  border: OutlineInputBorder(),
-                                  prefixIcon: Icon(Icons.lock_open_rounded, size: 18),
-                                  contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                  labelStyle: const TextStyle(fontSize: 12, color: Colors.grey),
+                                  border: const OutlineInputBorder(),
+                                  prefixIcon: const Icon(Icons.lock_open_rounded, size: 18),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                  suffixIcon: IconButton(
+                                    icon: Icon(
+                                      _obscurePassword ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                                      size: 18,
+                                      color: Colors.grey,
+                                    ),
+                                    onPressed: () {
+                                      setState(() {
+                                        _obscurePassword = !_obscurePassword;
+                                      });
+                                    },
+                                  ),
                                 ),
                               ),
                               const SizedBox(height: 16),

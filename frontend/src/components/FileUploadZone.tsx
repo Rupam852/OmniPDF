@@ -79,6 +79,7 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
   const [pageNumPrefix, setPageNumPrefix] = useState('');
   // Protect / Unlock
   const [pdfPassword, setPdfPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   // Crop
   const [cropLeft, setCropLeft] = useState<number>(10);
   const [cropTop, setCropTop] = useState<number>(10);
@@ -949,14 +950,47 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
               {toolId === 'protect' && (
                 <div className="setting-group">
                   <label className="setting-label">Password to Encrypt PDF:</label>
-                  <input
-                    type="password"
-                    placeholder="Enter encryption password..."
-                    value={pdfPassword}
-                    onChange={(e) => setPdfPassword(e.target.value)}
-                    className="setting-input"
-                    id="protect-password-input"
-                  />
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      placeholder="Enter encryption password..."
+                      value={pdfPassword}
+                      onChange={(e) => setPdfPassword(e.target.value)}
+                      className="setting-input"
+                      id="protect-password-input"
+                      style={{ paddingRight: '40px' }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      style={{
+                        position: 'absolute',
+                        right: '12px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        color: '#64748b',
+                        display: 'flex',
+                        alignItems: 'center',
+                        padding: 0
+                      }}
+                      title={showPassword ? "Hide Password" : "Show Password"}
+                    >
+                      {showPassword ? (
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                          <line x1="1" y1="1" x2="23" y2="23" />
+                        </svg>
+                      ) : (
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                          <circle cx="12" cy="12" r="3" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
                   <small className="setting-hint">⚠️ Note: Make sure to remember this password; it will be required to open the PDF. Uses strong AES-256 encryption.</small>
                 </div>
               )}
@@ -965,14 +999,47 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
               {toolId === 'unlock' && (
                 <div className="setting-group">
                   <label className="setting-label">PDF Password to Unlock:</label>
-                  <input
-                    type="password"
-                    placeholder="Enter password to unlock PDF..."
-                    value={pdfPassword}
-                    onChange={(e) => setPdfPassword(e.target.value)}
-                    className="setting-input"
-                    id="unlock-password-input"
-                  />
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      placeholder="Enter password to unlock PDF..."
+                      value={pdfPassword}
+                      onChange={(e) => setPdfPassword(e.target.value)}
+                      className="setting-input"
+                      id="unlock-password-input"
+                      style={{ paddingRight: '40px' }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      style={{
+                        position: 'absolute',
+                        right: '12px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        color: '#64748b',
+                        display: 'flex',
+                        alignItems: 'center',
+                        padding: 0
+                      }}
+                      title={showPassword ? "Hide Password" : "Show Password"}
+                    >
+                      {showPassword ? (
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                          <line x1="1" y1="1" x2="23" y2="23" />
+                        </svg>
+                      ) : (
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                          <circle cx="12" cy="12" r="3" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
                   <small className="setting-hint">⚠️ Note: Enter the password that was used to protect this PDF document.</small>
                 </div>
               )}

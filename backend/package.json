@@ -4,7 +4,7 @@
   "description": "Modular PDF utility backend for OmniPDF AI",
   "main": "dist/app.js",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && node copy-scripts.js",
     "start": "node dist/app.js",
     "dev": "ts-node-dev --respawn --transpile-only src/app.ts"
   },
