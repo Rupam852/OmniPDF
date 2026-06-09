@@ -483,6 +483,49 @@ export default function App() {
     }
   ];
 
+  // Sync selectedTool and processedResult with URL hash for persistent routes & back-button gesture support
+  useEffect(() => {
+    if (selectedTool) {
+      const targetHash = processedResult ? `${selectedTool.id}-success` : selectedTool.id;
+      if (window.location.hash !== `#${targetHash}`) {
+        window.location.hash = targetHash;
+      }
+    } else {
+      if (window.location.hash !== '') {
+        window.history.pushState(null, '', window.location.pathname + window.location.search);
+        window.dispatchEvent(new HashChangeEvent('hashchange'));
+      }
+    }
+  }, [selectedTool, processedResult]);
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      const currentHash = window.location.hash.replace('#', '');
+      if (!currentHash) {
+        setSelectedTool(null);
+        setProcessedResult(null);
+      } else {
+        const isSuccess = currentHash.endsWith('-success');
+        const toolId = isSuccess ? currentHash.slice(0, -8) : currentHash;
+        const matched = tools.find(t => t.id === toolId);
+        
+        if (matched) {
+          setSelectedTool(matched);
+          if (!isSuccess) {
+            setProcessedResult(null);
+          }
+        } else {
+          setSelectedTool(null);
+          setProcessedResult(null);
+        }
+      }
+    };
+
+    handleHashChange();
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
   const filteredTools = tools.filter(tool => {
     if (activeTab === 'All') return true;
     if (activeTab === 'Workflows') return tool.category === 'workflow';

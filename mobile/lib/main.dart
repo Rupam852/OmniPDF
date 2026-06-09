@@ -865,118 +865,158 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
     final isAiTool = widget.tool['id'] == 'ai_summarizer' || widget.tool['id'] == 'translate';
 
     if (_isCompleted) {
-      return Scaffold(
-        appBar: AppBar(
-          title: Text(widget.tool['name']),
-          backgroundColor: const Color(0xFF0B1329),
-        ),
-        body: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.green.withOpacity(0.12),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.check_circle_outline_rounded,
-                    color: Colors.green,
-                    size: 80,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  '${widget.tool['name']} Completed!',
-                  style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  _successMessage,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                      fontSize: 15,
-                      color: Color(0xFFCBD5E1),
-                      fontWeight: FontWeight.w500),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Processed File(s): ${_pickedFiles.map((f) => f.name).join(', ')}',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
-                ),
-                const SizedBox(height: 30),
-                if (_summaryText != null) ...[
-                  Card(
-                    color: const Color(0xFF1E293B),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      side: BorderSide(color: Colors.white.withOpacity(0.08)),
+      return PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, result) {
+          if (didPop) return;
+          setState(() {
+            _isCompleted = false;
+            _pickedFiles = [];
+            _progress = 0.0;
+            _summaryText = null;
+            _responseDataBase64 = null;
+            _processedFiles = [];
+          });
+          _detectPageCount();
+        },
+        child: Scaffold(
+          appBar: AppBar(
+            title: Text(widget.tool['name']),
+            backgroundColor: const Color(0xFF0B1329),
+          ),
+          body: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.green.withOpacity(0.12),
+                      shape: BoxShape.circle,
                     ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'AI Summary Result',
-                            style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF60A5FA)),
-                          ),
-                          const SizedBox(height: 12),
-                          ConstrainedBox(
-                            constraints: const BoxConstraints(maxHeight: 200),
-                            child: SingleChildScrollView(
-                              child: Text(
-                                _summaryText!,
-                                style: const TextStyle(
-                                    color: Color(0xFFE2E8F0),
-                                    fontSize: 13,
-                                    height: 1.5),
-                              ),
+                    child: const Icon(
+                      Icons.check_circle_outline_rounded,
+                      color: Colors.green,
+                      size: 80,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    '${widget.tool['name']} Completed!',
+                    style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    _successMessage,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                        fontSize: 15,
+                        color: Color(0xFFCBD5E1),
+                        fontWeight: FontWeight.w500),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Processed File(s): ${_pickedFiles.map((f) => f.name).join(', ')}',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 30),
+                  if (_summaryText != null) ...[
+                    Card(
+                      color: const Color(0xFF1E293B),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(color: Colors.white.withOpacity(0.08)),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'AI Summary Results',
+                              style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF60A5FA)),
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: 12),
+                            Text(
+                              _summaryText!,
+                              style: const TextStyle(
+                                  fontSize: 13,
+                                  height: 1.5,
+                                  color: Color(0xFFE2E8F0)),
+                            ),
+                            const SizedBox(height: 16),
+                            ElevatedButton.icon(
+                              onPressed: () {
+                                Clipboard.setData(
+                                    ClipboardData(text: _summaryText!));
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Summary copied to clipboard!'),
+                                    backgroundColor: Colors.green,
+                                  ),
+                                );
+                              },
+                              icon: const Icon(Icons.copy, size: 16),
+                              label: const Text('Copy to Clipboard'),
+                              style: ElevatedButton.styleFrom(
+                                  minimumSize: const Size(double.infinity, 36)),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      Clipboard.setData(ClipboardData(text: _summaryText!));
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Summary copied to clipboard!'),
-                          backgroundColor: Colors.green,
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.copy_rounded),
-                    label: const Text('Copy Summary Text'),
-                    style: ElevatedButton.styleFrom(
-                      minimumSize: const Size(double.infinity, 50),
-                      backgroundColor: Colors.blueAccent,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8)),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  if (_responseDataBase64 != null) ...[
+                    const SizedBox(height: 20),
+                  ],
+                  if (_responseDataBase64 != null &&
+                      widget.tool['id'] != 'pdf-to-jpg') ...[
                     ElevatedButton.icon(
                       onPressed: () {
-                        _saveBase64File(_responseDataBase64!, 'summary_${_pickedFiles[0].name}.pdf');
+                        String outputName = 'processed_${DateTime.now().millisecondsSinceEpoch}.pdf';
+                        if (_pickedFiles.isNotEmpty) {
+                          final original = _pickedFiles[0].name;
+                          final dotIdx = original.lastIndexOf('.');
+                          final base = dotIdx != -1 ? original.substring(0, dotIdx) : original;
+                          String suffix = '_processed';
+                          String ext = '.pdf';
+                          if (widget.tool['id'] == 'merge') {
+                            suffix = '_merged';
+                          } else if (widget.tool['id'] == 'compress') {
+                            suffix = '_compressed';
+                          } else if (widget.tool['id'] == 'protect') {
+                            suffix = '_protected';
+                          } else if (widget.tool['id'] == 'rotate') {
+                            suffix = '_rotated';
+                          } else if (widget.tool['id'] == 'watermark') {
+                            suffix = '_watermarked';
+                          } else if (widget.tool['id'] == 'remove-pages') {
+                            suffix = '_pages_removed';
+                          } else if (widget.tool['id'] == 'extract-pages') {
+                            suffix = '_extracted';
+                          } else if (widget.tool['id'] == 'organize-pdf') {
+                            suffix = '_organized';
+                          } else if (widget.tool['id'] == 'repair') {
+                            suffix = '_repaired';
+                          } else if (widget.tool['id'] == 'pdf-to-jpg') {
+                            suffix = '_images';
+                            ext = '.zip';
+                          } else if (widget.tool['id'] == 'jpg-to-pdf') {
+                            suffix = '_converted';
+                          }
+                          outputName = '$base$suffix$ext';
+                        }
+                        _saveBase64File(_responseDataBase64!, outputName);
                       },
                       icon: const Icon(Icons.file_download_rounded),
-                      label: const Text('Download Summary PDF'),
+                      label: Text(_actionText),
                       style: ElevatedButton.styleFrom(
                         minimumSize: const Size(double.infinity, 50),
                         backgroundColor: Colors.green,
@@ -987,121 +1027,59 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
                     ),
                     const SizedBox(height: 20),
                   ],
-                ] else if (_processedFiles.isNotEmpty) ...[
-                  const Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'Download Split Parts:',
-                      style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  ..._processedFiles.map((f) {
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 8.0),
-                      child: ElevatedButton.icon(
-                        onPressed: () {
-                          _saveBase64File(f['fileData'], f['fileName']);
-                        },
-                        icon: const Icon(Icons.file_download_rounded),
-                        label: Text('Download ${f['fileName']}'),
-                        style: ElevatedButton.styleFrom(
-                          minimumSize: const Size(double.infinity, 45),
-                          backgroundColor: Colors.green,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8)),
+                  if (widget.tool['id'] == 'pdf-to-jpg' &&
+                      _processedFiles.isNotEmpty) ...[
+                    ..._processedFiles.map((f) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12.0),
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            _saveBase64File(f['fileData'], f['fileName']);
+                          },
+                          icon: const Icon(Icons.file_download_rounded),
+                          label: Text('Download ${f['fileName']}'),
+                          style: ElevatedButton.styleFrom(
+                            minimumSize: const Size(double.infinity, 48),
+                            backgroundColor: Colors.blueAccent,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8)),
+                          ),
                         ),
-                      ),
-                    );
-                  }),
-                  const SizedBox(height: 20),
-                ] else if (_responseDataBase64 != null) ...[
-                  ElevatedButton.icon(
+                      );
+                    }).toList(),
+                    const SizedBox(height: 20),
+                  ],
+                  OutlinedButton(
                     onPressed: () {
-                      String outputName = 'processed_document.pdf';
-                      if (_pickedFiles.isNotEmpty) {
-                        final original = _pickedFiles[0].name;
-                        final dotIdx = original.lastIndexOf('.');
-                        final base = dotIdx != -1 ? original.substring(0, dotIdx) : original;
-                        
-                        String suffix = '_processed';
-                        String ext = '.pdf';
-                        if (widget.tool['id'] == 'merge') {
-                          suffix = '_merged';
-                        } else if (widget.tool['id'] == 'compress') {
-                          suffix = '_compressed';
-                        } else if (widget.tool['id'] == 'protect') {
-                          suffix = '_protected';
-                        } else if (widget.tool['id'] == 'unlock') {
-                          suffix = '_unlocked';
-                        } else if (widget.tool['id'] == 'translate') {
-                          suffix = '_translated_$_targetLanguage';
-                        } else if (widget.tool['id'] == 'watermark') {
-                          suffix = '_watermarked';
-                        } else if (widget.tool['id'] == 'page-numbers') {
-                          suffix = '_numbered';
-                        } else if (widget.tool['id'] == 'rotate') {
-                          suffix = '_rotated';
-                        } else if (widget.tool['id'] == 'remove-pages') {
-                          suffix = '_pages_removed';
-                        } else if (widget.tool['id'] == 'extract-pages') {
-                          suffix = '_extracted';
-                        } else if (widget.tool['id'] == 'organize-pdf') {
-                          suffix = '_organized';
-                        } else if (widget.tool['id'] == 'repair') {
-                          suffix = '_repaired';
-                        } else if (widget.tool['id'] == 'pdf-to-jpg') {
-                          suffix = '_images';
-                          ext = '.zip';
-                        } else if (widget.tool['id'] == 'jpg-to-pdf') {
-                          suffix = '_converted';
-                        }
-                        outputName = '$base$suffix$ext';
-                      }
-                      _saveBase64File(_responseDataBase64!, outputName);
+                      setState(() {
+                        _isCompleted = false;
+                        _pickedFiles = [];
+                        _progress = 0.0;
+                        _summaryText = null;
+                        _responseDataBase64 = null;
+                        _processedFiles = [];
+                      });
+                      _detectPageCount();
                     },
-                    icon: const Icon(Icons.file_download_rounded),
-                    label: Text(_actionText),
-                    style: ElevatedButton.styleFrom(
+                    style: OutlinedButton.styleFrom(
                       minimumSize: const Size(double.infinity, 50),
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
+                      side: BorderSide(color: Colors.white.withOpacity(0.15)),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8)),
                     ),
+                    child: const Text('Process Another File'),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 12),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                    },
+                    child: const Text('Back to Dashboard',
+                        style: TextStyle(color: Colors.blueAccent)),
+                  ),
                 ],
-                OutlinedButton(
-                  onPressed: () {
-                    setState(() {
-                      _isCompleted = false;
-                      _pickedFiles = [];
-                      _progress = 0.0;
-                      _summaryText = null;
-                      _responseDataBase64 = null;
-                      _processedFiles = [];
-                    });
-                    _detectPageCount();
-                  },
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size(double.infinity, 50),
-                    side: BorderSide(color: Colors.white.withOpacity(0.15)),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8)),
-                  ),
-                  child: const Text('Process Another File'),
-                ),
-                const SizedBox(height: 12),
-                TextButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                  },
-                  child: const Text('Back to Dashboard',
-                      style: TextStyle(color: Colors.blueAccent)),
-                ),
-              ],
+              ),
             ),
           ),
         ),
