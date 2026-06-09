@@ -1273,10 +1273,11 @@ h1, h2, h3, h4, h5, h6 {
 
 .tool-workspace-layout {
   display: flex;
+  flex-direction: column;
   gap: 24px;
   max-width: 1300px;
   margin: 30px auto;
-  align-items: flex-start;
+  align-items: stretch;
   font-family: var(--font-body);
 }
 
@@ -1292,7 +1293,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .changes-sidebar {
-  width: 320px;
+  width: 100%;
   background: rgba(15, 23, 42, 0.85);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
@@ -1300,8 +1301,6 @@ h1, h2, h3, h4, h5, h6 {
   border-radius: 20px;
   padding: 24px;
   box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5);
-  position: sticky;
-  top: 100px;
   display: flex;
   flex-direction: column;
   gap: 20px;
