@@ -523,31 +523,9 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
   int? _pageCount;
   bool _saveKeyPermanently = true;
 
-  final Map<String, double> _fileRotations = {};
   bool _isOptionsExpanded = false;
 
-  void _rotateFile(String fileName) {
-    setState(() {
-      final current = _fileRotations[fileName] ?? 0.0;
-      final next = (current + 90.0) % 360.0;
-      _fileRotations[fileName] = next;
-      
-      // If it's the rotate tool, sync options
-      if (widget.tool['id'] == 'rotate') {
-        _rotateAngle = next.toInt().toString();
-      }
-    });
-  }
 
-  void _moveFile(int index, String direction) {
-    final newIndex = direction == 'up' ? index - 1 : index + 1;
-    if (newIndex < 0 || newIndex >= _pickedFiles.length) return;
-    setState(() {
-      final temp = _pickedFiles[index];
-      _pickedFiles[index] = _pickedFiles[newIndex];
-      _pickedFiles[newIndex] = temp;
-    });
-  }
 
   final List<String> _languages = [
     'Spanish', 'French', 'German', 'Hindi', 'Bengali', 'Marathi',
@@ -1640,149 +1618,120 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
               ),
               const SizedBox(height: 12),
 
-              GridView.builder(
+              ListView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                  childAspectRatio: 0.74,
-                ),
                 itemCount: _pickedFiles.length,
                 itemBuilder: (context, index) {
                   final platformFile = _pickedFiles[index];
                   final sizeMB = (platformFile.size / (1024 * 1024)).toStringAsFixed(2);
-                  final rotation = _fileRotations[platformFile.name] ?? 0.0;
-                  final isImage = widget.tool['id'] == 'jpg-to-pdf';
+                  final dotIdx = platformFile.name.lastIndexOf('.');
+                  final fileExt = dotIdx != -1 ? platformFile.name.substring(dotIdx + 1).toUpperCase() : 'FILE';
 
-                  return Stack(
-                    children: [
-                      Card(
-                        color: const Color(0xFF1E293B),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          side: BorderSide(color: Colors.white.withOpacity(0.08)),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Expanded(
-                              child: Container(
-                                decoration: const BoxDecoration(
-                                  color: Color(0xFF0F172A),
-                                  borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                  Color fileColor = const Color(0xFF64748B); // Slate
+                  if (fileExt == 'PDF') {
+                    fileColor = const Color(0xFFEF4444); // Red
+                  } else if (fileExt == 'DOCX' || fileExt == 'DOC') {
+                    fileColor = const Color(0xFF2563EB); // Blue
+                  } else if (fileExt == 'PPTX' || fileExt == 'PPT') {
+                    fileColor = const Color(0xFFEA580C); // Orange
+                  } else if (fileExt == 'XLSX' || fileExt == 'XLS') {
+                    fileColor = const Color(0xFF16A34A); // Green
+                  } else if (fileExt == 'HTML' || fileExt == 'HTM') {
+                    fileColor = const Color(0xFFCA8A04); // Yellow
+                  }
+
+                  return Card(
+                    color: const Color(0xFF1E293B),
+                    margin: const EdgeInsets.only(bottom: 8),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide(color: Colors.white.withOpacity(0.08)),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      child: Row(
+                        children: [
+                          // Sequence Number Badge
+                          Container(
+                            width: 24,
+                            height: 24,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.08),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Center(
+                              child: Text(
+                                '${index + 1}',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF94A3B8),
                                 ),
-                                child: Center(
-                                  child: AnimatedRotation(
-                                    turns: rotation / 360.0,
-                                    duration: const Duration(milliseconds: 300),
-                                    child: Container(
-                                      padding: const EdgeInsets.all(12),
-                                      decoration: BoxDecoration(
-                                        color: (widget.tool['color'] as Color).withOpacity(0.1),
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: Icon(
-                                        isImage ? Icons.image_outlined : Icons.picture_as_pdf_rounded,
-                                        color: widget.tool['color'],
-                                        size: 38,
-                                      ),
-                                    ),
-                                  ),
-                                ),
                               ),
                             ),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    platformFile.name,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    '$sizeMB MB',
-                                    style: const TextStyle(fontSize: 9, color: Colors.grey),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.02),
-                                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
-                              ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                                children: [
-                                  IconButton(
-                                    icon: const Icon(Icons.rotate_right_rounded, size: 16, color: Colors.blueAccent),
-                                    onPressed: () => _rotateFile(platformFile.name),
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints(),
-                                    style: const ButtonStyle(tapTargetSize: MaterialTapTargetSize.shrinkWrap),
-                                  ),
-                                  if (['merge', 'jpg-to-pdf', 'compress'].contains(widget.tool['id'])) ...[
-                                    IconButton(
-                                      icon: const Icon(Icons.arrow_upward_rounded, size: 14, color: Colors.grey),
-                                      onPressed: index > 0 ? () => _moveFile(index, 'up') : null,
-                                      padding: EdgeInsets.zero,
-                                      constraints: const BoxConstraints(),
-                                      style: const ButtonStyle(tapTargetSize: MaterialTapTargetSize.shrinkWrap),
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(Icons.arrow_downward_rounded, size: 14, color: Colors.grey),
-                                      onPressed: index < _pickedFiles.length - 1 ? () => _moveFile(index, 'down') : null,
-                                      padding: EdgeInsets.zero,
-                                      constraints: const BoxConstraints(),
-                                      style: const ButtonStyle(tapTargetSize: MaterialTapTargetSize.shrinkWrap),
-                                    ),
-                                  ],
-                                  IconButton(
-                                    icon: const Icon(Icons.delete_outline_rounded, size: 16, color: Colors.redAccent),
-                                    onPressed: () {
-                                      setState(() {
-                                        _pickedFiles.remove(platformFile);
-                                      });
-                                      _detectPageCount();
-                                    },
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints(),
-                                    style: const ButtonStyle(tapTargetSize: MaterialTapTargetSize.shrinkWrap),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Positioned(
-                        top: 6,
-                        left: 6,
-                        child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: const BoxDecoration(
-                            color: Colors.blueAccent,
-                            shape: BoxShape.circle,
                           ),
-                          constraints: const BoxConstraints(
-                            minWidth: 20,
-                            minHeight: 20,
-                          ),
-                          child: Center(
+                          const SizedBox(width: 12),
+                          // File Type Format Badge
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: fileColor,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
                             child: Text(
-                              '${index + 1}',
-                              style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white),
+                              fileExt,
+                              style: const TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
                             ),
                           ),
-                        ),
+                          const SizedBox(width: 12),
+                          // File Details (Name & Size)
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  platformFile.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFFF1F5F9),
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '$sizeMB MB',
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          // Delete button on the far right
+                          IconButton(
+                            icon: const Icon(
+                              Icons.delete_outline_rounded,
+                              size: 20,
+                              color: Colors.redAccent,
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                _pickedFiles.remove(platformFile);
+                              });
+                              _detectPageCount();
+                            },
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   );
                 },
               ),
