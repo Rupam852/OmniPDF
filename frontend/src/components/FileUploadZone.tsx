@@ -29,7 +29,7 @@ const renderPdfPageToDataUrl = async (file: File): Promise<string> => {
     const pdfDoc = await loadingTask.promise;
     const page = await pdfDoc.getPage(1);
     
-    const viewport = page.getViewport({ scale: 0.4 });
+    const viewport = page.getViewport({ scale: 0.8 });
     const canvas = document.createElement('canvas');
     const context = canvas.getContext('2d');
     if (!context) return '';
@@ -467,12 +467,20 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
     if (!cachedUrl) return null;
 
     if (ext === 'pdf') {
+      const pdfThumbnail = filePreviews[file.name];
+      if (pdfThumbnail) {
+        return (
+          <img
+            src={pdfThumbnail}
+            alt="PDF Page 1 Preview"
+            className="large-image-preview"
+          />
+        );
+      }
       return (
-        <iframe
-          src={`${cachedUrl}#toolbar=0`}
-          title="PDF Preview"
-          className="large-pdf-preview"
-        />
+        <div className="large-placeholder-preview">
+          <p>Loading PDF Preview...</p>
+        </div>
       );
     } else if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) {
       return (

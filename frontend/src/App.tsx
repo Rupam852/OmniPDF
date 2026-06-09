@@ -4,6 +4,13 @@ import { OmniPdfApi } from './services/api';
 import { auth } from './services/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { compressPdfInBrowser } from './services/compressPdf';
+import * as pdfjs from 'pdfjs-dist';
+
+pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.min.mjs',
+  import.meta.url
+).href;
+
 
 interface Tool {
   id: string;
@@ -31,6 +38,8 @@ export default function App() {
     files?: { fileName: string; downloadUrl: string; }[];
   } | null>(null);
 
+  const [successPdfPreviewUrl, setSuccessPdfPreviewUrl] = useState<string | null>(null);
+
   // Auth State Listener
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -38,6 +47,50 @@ export default function App() {
     });
     return () => unsubscribe();
   }, []);
+
+  // Success PDF Render Effect
+  useEffect(() => {
+    const renderSuccessPdf = async () => {
+      if (!processedResult || !processedResult.downloadUrl) {
+        setSuccessPdfPreviewUrl(null);
+        return;
+      }
+      const fileName = processedResult.fileNameToDownload || processedResult.fileName || '';
+      const dotIndex = fileName.lastIndexOf('.');
+      const ext = dotIndex !== -1 ? fileName.substring(dotIndex + 1).toLowerCase() : '';
+      
+      if (ext === 'pdf') {
+        try {
+          const loadingTask = pdfjs.getDocument({ url: processedResult.downloadUrl });
+          const pdfDoc = await loadingTask.promise;
+          const page = await pdfDoc.getPage(1);
+          
+          const viewport = page.getViewport({ scale: 0.8 });
+          const canvas = document.createElement('canvas');
+          const context = canvas.getContext('2d');
+          if (context) {
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+            await page.render({
+              canvasContext: context,
+              viewport: viewport,
+              canvas: canvas
+            }).promise;
+            
+            setSuccessPdfPreviewUrl(canvas.toDataURL('image/jpeg', 0.85));
+          }
+        } catch (e) {
+          console.error('Error rendering success PDF preview:', e);
+          setSuccessPdfPreviewUrl(null);
+        }
+      } else {
+        setSuccessPdfPreviewUrl(null);
+      }
+    };
+    
+    renderSuccessPdf();
+  }, [processedResult]);
+
 
   const tabs = [
     'All',
@@ -973,12 +1026,19 @@ export default function App() {
     const ext = dotIndex !== -1 ? fileName.substring(dotIndex + 1).toLowerCase() : '';
     
     if (ext === 'pdf') {
+      if (successPdfPreviewUrl) {
+        return (
+          <img
+            src={successPdfPreviewUrl}
+            alt="Output PDF Page 1 Preview"
+            className="large-image-preview"
+          />
+        );
+      }
       return (
-        <iframe
-          src={`${url}#toolbar=0`}
-          title="Output PDF Preview"
-          className="large-pdf-preview"
-        />
+        <div className="large-placeholder-preview">
+          <p>Loading PDF Preview...</p>
+        </div>
       );
     } else if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) {
       return (
