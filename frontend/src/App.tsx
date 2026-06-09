@@ -568,21 +568,48 @@ export default function App() {
 
       // ── COMPRESS ─────────────────────────────────────────────────────────────
       else if (selectedTool.id === 'compress') {
-        const result = await compressPdfInBrowser(
-          files[0],
-          options.targetSize || 500,
-          options.targetUnit || 'KB'
-        );
-        const blob = new Blob([result.bytes as any], { type: 'application/pdf' });
-        const downloadUrl = URL.createObjectURL(blob);
-        setProcessedResult({
-          toolName: selectedTool.name,
-          fileName: files[0].name,
-          downloadUrl: downloadUrl,
-          successMessage: result.message || 'PDF compressed successfully!',
-          actionText: 'Download Compressed PDF',
-          fileNameToDownload: makeFileName(files[0].name, '_compressed'),
-        });
+        const compressedList: { fileName: string; downloadUrl: string }[] = [];
+        let totalOriginal = 0;
+        let totalCompressed = 0;
+
+        for (const file of files) {
+          const result = await compressPdfInBrowser(
+            file,
+            options.targetSize || 500,
+            options.targetUnit || 'KB'
+          );
+          const blob = new Blob([result.bytes as any], { type: 'application/pdf' });
+          const downloadUrl = URL.createObjectURL(blob);
+          
+          compressedList.push({
+            fileName: makeFileName(file.name, '_compressed'),
+            downloadUrl: downloadUrl,
+          });
+
+          totalOriginal += result.originalSize;
+          totalCompressed += result.compressedSize;
+        }
+
+        const reductionPct = (((totalOriginal - totalCompressed) / totalOriginal) * 100).toFixed(1);
+
+        if (compressedList.length === 1) {
+          setProcessedResult({
+            toolName: selectedTool.name,
+            fileName: files[0].name,
+            downloadUrl: compressedList[0].downloadUrl,
+            successMessage: `PDF compressed successfully! Reduced from ${(totalOriginal / 1024).toFixed(1)} KB → ${(totalCompressed / 1024).toFixed(1)} KB (${reductionPct}% reduction).`,
+            actionText: 'Download Compressed PDF',
+            fileNameToDownload: compressedList[0].fileName,
+          });
+        } else {
+          setProcessedResult({
+            toolName: selectedTool.name,
+            fileName: `${files.length} PDFs`,
+            files: compressedList,
+            successMessage: `Successfully compressed ${files.length} PDFs! Total reduction: ${(totalOriginal / 1024).toFixed(1)} KB → ${(totalCompressed / 1024).toFixed(1)} KB (${reductionPct}% reduction).`,
+            actionText: 'Download Compressed PDFs',
+          });
+        }
       }
 
       // ── PROTECT ──────────────────────────────────────────────────────────────
@@ -1197,7 +1224,7 @@ export default function App() {
             <FileUploadZone
               toolName={selectedTool.name}
               toolId={selectedTool.id}
-              allowMultiple={selectedTool.id === 'merge' || selectedTool.id === 'jpg-to-pdf' || selectedTool.id === 'scan-to-pdf'}
+              allowMultiple={selectedTool.id === 'merge' || selectedTool.id === 'jpg-to-pdf' || selectedTool.id === 'scan-to-pdf' || selectedTool.id === 'compress'}
               isIntelligence={selectedTool.category === 'intelligence'}
               acceptedMimeTypes={
                 selectedTool.id === 'jpg-to-pdf' || selectedTool.id === 'scan-to-pdf'

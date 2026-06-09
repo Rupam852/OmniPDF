@@ -195,6 +195,14 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
     if (!allowMultiple) {
       setFiles([valid[0]]);
     } else {
+      const currentCount = files.length;
+      const incomingCount = valid.length;
+      const totalCount = currentCount + incomingCount;
+      const limit = toolId === 'compress' ? 10 : 100;
+      if (totalCount > limit) {
+        setErrorMessage(`Maximum upload limit is ${limit} files for this tool.`);
+        return;
+      }
       setFiles(prev => [...prev, ...valid]);
     }
     setErrorMessage(null);
@@ -547,7 +555,7 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <label className="setting-label">Target Size (Compression Level):</label>
                   <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#60a5fa' }}>
-                    {compressionPercent}% of original ({((files[0]?.size || 0) * (compressionPercent / 100) / 1024).toFixed(0)} KB)
+                    {compressionPercent}% of original ({((files.reduce((acc, f) => acc + f.size, 0)) * (compressionPercent / 100) / 1024).toFixed(0)} KB total)
                   </span>
                 </div>
                 <input
