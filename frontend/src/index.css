@@ -1160,9 +1160,13 @@ h1, h2, h3, h4, h5, h6 {
   border-bottom: 1px solid var(--border-color);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
   padding: 30px 40px;
-  display: none;
   z-index: 1000;
-  animation: fadeIn 0.15s ease-out;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(12px);
+  transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+              visibility 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .mega-dropdown-grid {
@@ -1178,16 +1182,19 @@ h1, h2, h3, h4, h5, h6 {
   position: absolute;
   top: 100%;
   left: 50%;
-  transform: translateX(-50%);
+  transform: translateX(-50%) translateY(12px);
   width: 440px;
   background-color: #0b1329;
   border: 1px solid var(--border-color);
   border-radius: 0 0 12px 12px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
   padding: 24px;
-  display: none;
   z-index: 1000;
-  animation: fadeIn 0.15s ease-out;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+              visibility 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* Invisible hover bridge to prevent losing hover state when moving cursor down to the dropdown */
@@ -1265,10 +1272,17 @@ h1, h2, h3, h4, h5, h6 {
   height: 16px;
 }
 
-/* Hover States to trigger dropdowns */
-.nav-item-dropdown:hover .mega-dropdown,
+/* Hover States to trigger dropdowns with smooth animation transitions */
+.nav-item-dropdown:hover .mega-dropdown {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
 .nav-item-dropdown:hover .normal-dropdown {
-  display: block;
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
 }
 
 .nav-item-dropdown:hover .dropdown-indicator {
@@ -1278,6 +1292,8 @@ h1, h2, h3, h4, h5, h6 {
 /* Responsive Hide for Dropdowns on mobile */
 @media (max-width: 768px) {
   .mega-dropdown, .normal-dropdown {
+    opacity: 0 !important;
+    visibility: hidden !important;
     display: none !important;
   }
 }

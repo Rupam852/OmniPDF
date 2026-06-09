@@ -319,149 +319,154 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 10),
-              const Text(
-                'Every tool you need to work with PDFs',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.white,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 10),
+                const Text(
+                  'Every tool you need to work with PDFs',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Select any modular utility below to start processing:',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey,
+                const SizedBox(height: 8),
+                const Text(
+                  'Select any modular utility below to start processing:',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 24),
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final double screenWidth = constraints.maxWidth;
-                  final double textScale = MediaQuery.of(context).textScaleFactor;
-                  final double cellWidth = (screenWidth - 14) / 2;
-                  // Safe dynamic aspect ratio calculation based on width and text scaling
-                  final double childAspectRatio = (cellWidth / (105 + 62 * textScale)).clamp(0.60, 0.95);
-
-                  return GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 14,
-                      mainAxisSpacing: 14,
-                      childAspectRatio: childAspectRatio,
-                    ),
-                    itemCount: _tools.length,
-                    itemBuilder: (context, index) {
-                      final tool = _tools[index];
-                      return Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              const Color(0xFF0F172A).withOpacity(0.9),
-                              const Color(0xFF0B1329).withOpacity(0.95),
-                            ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: Colors.white.withOpacity(0.06)),
-                          boxShadow: [
-                            BoxShadow(
-                              color: (tool['color'] as Color).withOpacity(0.04),
-                              blurRadius: 12,
-                              spreadRadius: 1,
-                              offset: const Offset(0, 4),
+                const SizedBox(height: 24),
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final double screenWidth = constraints.maxWidth;
+                    final double textScale = MediaQuery.of(context).textScaleFactor;
+                    final int crossAxisCount = screenWidth > 900 ? 4 : (screenWidth > 600 ? 3 : 2);
+                    final double totalSpacing = (crossAxisCount - 1) * 14.0;
+                    final double cellWidth = (screenWidth - totalSpacing) / crossAxisCount;
+                    // Safe dynamic aspect ratio calculation based on width and text scaling
+                    final double childAspectRatio = (cellWidth / (115 + 58 * textScale)).clamp(0.70, 1.25);
+  
+                    return GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: crossAxisCount,
+                        crossAxisSpacing: 14,
+                        mainAxisSpacing: 14,
+                        childAspectRatio: childAspectRatio,
+                      ),
+                      itemCount: _tools.length,
+                      itemBuilder: (context, index) {
+                        final tool = _tools[index];
+                        return Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                const Color(0xFF0F172A).withOpacity(0.9),
+                                const Color(0xFF0B1329).withOpacity(0.95),
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
                             ),
-                          ],
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(20),
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(20),
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => ToolRunnerScreen(tool: tool),
-                                  ),
-                                );
-                              },
-                              child: Padding(
-                                padding: const EdgeInsets.all(16.0),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(10),
-                                      decoration: BoxDecoration(
-                                        color: (tool['color'] as Color).withOpacity(0.12),
-                                        borderRadius: BorderRadius.circular(10),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: (tool['color'] as Color).withOpacity(0.1),
-                                            blurRadius: 8,
-                                            spreadRadius: 1,
-                                          )
-                                        ]
-                                      ),
-                                      child: Icon(
-                                        tool['icon'],
-                                        color: tool['color'],
-                                        size: 26,
-                                      ),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: Colors.white.withOpacity(0.06)),
+                            boxShadow: [
+                              BoxShadow(
+                                color: (tool['color'] as Color).withOpacity(0.04),
+                                blurRadius: 12,
+                                spreadRadius: 1,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(20),
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(20),
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => ToolRunnerScreen(tool: tool),
                                     ),
-                                    const SizedBox(height: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        mainAxisAlignment: MainAxisAlignment.end,
-                                        children: [
-                                          Text(
-                                            tool['name'],
-                                            style: const TextStyle(
-                                                fontSize: 15,
-                                                fontWeight: FontWeight.bold,
-                                                color: Colors.white),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            tool['desc'],
-                                            maxLines: 2,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: const TextStyle(
-                                              fontSize: 11,
-                                              color: Colors.grey,
+                                  );
+                                },
+                                child: Padding(
+                                  padding: const EdgeInsets.all(16.0),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(10),
+                                        decoration: BoxDecoration(
+                                          color: (tool['color'] as Color).withOpacity(0.12),
+                                          borderRadius: BorderRadius.circular(10),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: (tool['color'] as Color).withOpacity(0.1),
+                                              blurRadius: 8,
+                                              spreadRadius: 1,
+                                            )
+                                          ]
+                                        ),
+                                        child: Icon(
+                                          tool['icon'],
+                                          color: tool['color'],
+                                          size: 26,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          mainAxisAlignment: MainAxisAlignment.end,
+                                          children: [
+                                            Text(
+                                              tool['name'],
+                                              style: const TextStyle(
+                                                  fontSize: 15,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.white),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
                                             ),
-                                          ),
-                                        ],
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              tool['desc'],
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(
+                                                fontSize: 11,
+                                                color: Colors.grey,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                       ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                      );
-                    },
-                  );
-                },
-              ),
-            ],
+                        );
+                      },
+                    );
+                  },
+                ),
+                const SizedBox(height: 32),
+              ],
+            ),
           ),
         ),
       ),
