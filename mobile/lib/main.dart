@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // Global memory API key store for the active app session
 String globalGeminiApiKey = '';
@@ -20,6 +21,15 @@ void main() async {
   } catch (e) {
     debugPrint("Firebase init error: $e");
   }
+  
+  // Load saved API Key permanently from local storage
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    globalGeminiApiKey = prefs.getString('gemini_api_key') ?? '';
+  } catch (e) {
+    debugPrint("SharedPreferences load error: $e");
+  }
+  
   runApp(const OmniPdfApp());
 }
 
@@ -179,6 +189,111 @@ class _DashboardScreenState extends State<DashboardScreen> {
       'desc': 'Fix structural corruption in PDF files.',
       'color': const Color(0xFF84CC16),
       'icon': Icons.healing_rounded,
+    },
+    {
+      'id': 'ocr',
+      'name': 'OCR PDF',
+      'desc': 'Convert scanned PDF using Gemini AI. Requires Gemini Key.',
+      'color': const Color(0xFF10B981),
+      'icon': Icons.document_scanner_rounded,
+    },
+    {
+      'id': 'word-to-pdf',
+      'name': 'Word to PDF',
+      'desc': 'Convert DOCX files into PDF documents.',
+      'color': const Color(0xFF2563EB),
+      'icon': Icons.description_rounded,
+    },
+    {
+      'id': 'powerpoint-to-pdf',
+      'name': 'PowerPoint to PDF',
+      'desc': 'Convert PPTX slides into PDF documents.',
+      'color': const Color(0xFFEA580C),
+      'icon': Icons.slideshow_rounded,
+    },
+    {
+      'id': 'excel-to-pdf',
+      'name': 'Excel to PDF',
+      'desc': 'Convert XLSX spreadsheets into PDF.',
+      'color': const Color(0xFF16A34A),
+      'icon': Icons.table_chart_rounded,
+    },
+    {
+      'id': 'html-to-pdf',
+      'name': 'HTML to PDF',
+      'desc': 'Convert HTML pages into PDF documents.',
+      'color': const Color(0xFF0D9488),
+      'icon': Icons.html_rounded,
+    },
+    {
+      'id': 'pdf-to-word',
+      'name': 'PDF to Word',
+      'desc': 'Convert PDF to editable DOCX (AI optional).',
+      'color': const Color(0xFF3B82F6),
+      'icon': Icons.file_present_rounded,
+    },
+    {
+      'id': 'pdf-to-powerpoint',
+      'name': 'PDF to PowerPoint',
+      'desc': 'Convert PDF to editable PPTX (AI optional).',
+      'color': const Color(0xFFF97316),
+      'icon': Icons.present_to_all_rounded,
+    },
+    {
+      'id': 'pdf-to-excel',
+      'name': 'PDF to Excel',
+      'desc': 'Extract tables from PDF to XLSX (AI optional).',
+      'color': const Color(0xFF22C55E),
+      'icon': Icons.grid_on_rounded,
+    },
+    {
+      'id': 'pdf-to-pdfa',
+      'name': 'PDF to PDF/A',
+      'desc': 'Convert PDF to archive standard PDF/A.',
+      'color': const Color(0xFF64748B),
+      'icon': Icons.archive_rounded,
+    },
+    {
+      'id': 'crop',
+      'name': 'Crop PDF',
+      'desc': 'Crop page margins by a percentage.',
+      'color': const Color(0xFF06B6D4),
+      'icon': Icons.crop_rounded,
+    },
+    {
+      'id': 'edit-pdf',
+      'name': 'AI Edit PDF',
+      'desc': 'Edit your PDF content using AI instructions.',
+      'color': const Color(0xFF8B5CF6),
+      'icon': Icons.edit_note_rounded,
+    },
+    {
+      'id': 'pdf-forms',
+      'name': 'Flatten PDF Forms',
+      'desc': 'Flatten interactive PDF form fields.',
+      'color': const Color(0xFFF43F5E),
+      'icon': Icons.view_list_rounded,
+    },
+    {
+      'id': 'sign',
+      'name': 'Sign PDF',
+      'desc': 'Place a text signature on the last page.',
+      'color': const Color(0xFFEC4899),
+      'icon': Icons.draw_rounded,
+    },
+    {
+      'id': 'redact',
+      'name': 'Redact PDF',
+      'desc': 'Permanently blackout sensitive text.',
+      'color': const Color(0xFF1E293B),
+      'icon': Icons.visibility_off_rounded,
+    },
+    {
+      'id': 'compare',
+      'name': 'Compare PDF',
+      'desc': 'Diff two PDFs and generate report.',
+      'color': const Color(0xFF6366F1),
+      'icon': Icons.compare_arrows_rounded,
     },
   ];
 
@@ -390,6 +505,13 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
   late final TextEditingController _removePagesController;
   late final TextEditingController _extractPagesController;
   late final TextEditingController _organizePagesController;
+  late final TextEditingController _cropLeftController;
+  late final TextEditingController _cropTopController;
+  late final TextEditingController _cropRightController;
+  late final TextEditingController _cropBottomController;
+  late final TextEditingController _editPromptController;
+  late final TextEditingController _signatureTextController;
+  late final TextEditingController _redactTermController;
 
   String _targetLanguage = 'Spanish';
   double _compressionPercent = 50.0;
@@ -399,6 +521,33 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
   String _rotateAngle = '90';
   String _organizeMode = 'reverse'; // 'reverse', 'normal', 'custom'
   int? _pageCount;
+  bool _saveKeyPermanently = true;
+
+  final Map<String, double> _fileRotations = {};
+  bool _isOptionsExpanded = false;
+
+  void _rotateFile(String fileName) {
+    setState(() {
+      final current = _fileRotations[fileName] ?? 0.0;
+      final next = (current + 90.0) % 360.0;
+      _fileRotations[fileName] = next;
+      
+      // If it's the rotate tool, sync options
+      if (widget.tool['id'] == 'rotate') {
+        _rotateAngle = next.toInt().toString();
+      }
+    });
+  }
+
+  void _moveFile(int index, String direction) {
+    final newIndex = direction == 'up' ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= _pickedFiles.length) return;
+    setState(() {
+      final temp = _pickedFiles[index];
+      _pickedFiles[index] = _pickedFiles[newIndex];
+      _pickedFiles[newIndex] = temp;
+    });
+  }
 
   final List<String> _languages = [
     'Spanish', 'French', 'German', 'Hindi', 'Bengali', 'Marathi',
@@ -413,6 +562,7 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
   void initState() {
     super.initState();
     _keyController = TextEditingController(text: globalGeminiApiKey);
+    _saveKeyPermanently = true; // default to true to auto-save entered keys
     _targetSizeController = TextEditingController(text: '500');
     _protectPasswordController = TextEditingController();
     
@@ -425,6 +575,13 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
     _removePagesController = TextEditingController();
     _extractPagesController = TextEditingController();
     _organizePagesController = TextEditingController();
+    _cropLeftController = TextEditingController(text: '10');
+    _cropTopController = TextEditingController(text: '10');
+    _cropRightController = TextEditingController(text: '10');
+    _cropBottomController = TextEditingController(text: '10');
+    _editPromptController = TextEditingController(text: 'Fix formatting and layout');
+    _signatureTextController = TextEditingController(text: 'Signed by OmniPDF');
+    _redactTermController = TextEditingController();
   }
 
   @override
@@ -442,6 +599,13 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
     _removePagesController.dispose();
     _extractPagesController.dispose();
     _organizePagesController.dispose();
+    _cropLeftController.dispose();
+    _cropTopController.dispose();
+    _cropRightController.dispose();
+    _cropBottomController.dispose();
+    _editPromptController.dispose();
+    _signatureTextController.dispose();
+    _redactTermController.dispose();
     super.dispose();
   }
 
@@ -521,10 +685,28 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
   void _pickFiles() async {
     try {
       final isJpgToPdf = widget.tool['id'] == 'jpg-to-pdf';
+      List<String>? allowedExtensions = ['pdf'];
+      FileType fileType = FileType.custom;
+
+      if (isJpgToPdf) {
+        fileType = FileType.image;
+        allowedExtensions = null;
+      } else if (widget.tool['id'] == 'word-to-pdf') {
+        allowedExtensions = ['docx'];
+      } else if (widget.tool['id'] == 'powerpoint-to-pdf') {
+        allowedExtensions = ['pptx'];
+      } else if (widget.tool['id'] == 'excel-to-pdf') {
+        allowedExtensions = ['xlsx'];
+      } else if (widget.tool['id'] == 'html-to-pdf') {
+        allowedExtensions = ['html', 'htm'];
+      }
+
+      final bool allowMultiple = ['merge', 'jpg-to-pdf', 'compare', 'compress'].contains(widget.tool['id']);
+
       final result = await FilePicker.platform.pickFiles(
-        type: isJpgToPdf ? FileType.image : FileType.custom,
-        allowedExtensions: isJpgToPdf ? null : ['pdf'],
-        allowMultiple: widget.tool['id'] == 'merge' || widget.tool['id'] == 'jpg-to-pdf',
+        type: fileType,
+        allowedExtensions: allowedExtensions,
+        allowMultiple: allowMultiple,
       );
       if (!mounted) return;
       if (result != null && result.files.isNotEmpty) {
@@ -550,8 +732,33 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
 
         if (validFiles.isNotEmpty) {
           setState(() {
-            if (widget.tool['id'] == 'merge' || widget.tool['id'] == 'jpg-to-pdf') {
-              _pickedFiles.addAll(validFiles);
+            if (allowMultiple) {
+              if (widget.tool['id'] == 'compress' && _pickedFiles.length + validFiles.length > 10) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Maximum upload limit is 10 files for compression.'),
+                    backgroundColor: Colors.redAccent,
+                  ),
+                );
+                // add up to 10
+                final spaceLeft = 10 - _pickedFiles.length;
+                if (spaceLeft > 0) {
+                  _pickedFiles.addAll(validFiles.take(spaceLeft));
+                }
+              } else if (widget.tool['id'] == 'compare' && _pickedFiles.length + validFiles.length > 2) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Compare PDF tool accepts exactly 2 files.'),
+                    backgroundColor: Colors.redAccent,
+                  ),
+                );
+                final spaceLeft = 2 - _pickedFiles.length;
+                if (spaceLeft > 0) {
+                  _pickedFiles.addAll(validFiles.take(spaceLeft));
+                }
+              } else {
+                _pickedFiles.addAll(validFiles);
+              }
             } else {
               _pickedFiles = [validFiles.first];
             }
@@ -582,9 +789,9 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
     }
 
     final apiKey = _keyController.text.trim();
-    final isAiTool = widget.tool['id'] == 'ai_summarizer' || widget.tool['id'] == 'translate';
+    final isAiRequired = ['ai_summarizer', 'translate', 'ocr', 'edit-pdf'].contains(widget.tool['id']);
 
-    if (isAiTool && apiKey.isEmpty) {
+    if (isAiRequired && apiKey.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('A Google Gemini API key must be provided to use this tool.'),
@@ -592,6 +799,16 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
         ),
       );
       return;
+    }
+
+    if (_saveKeyPermanently && apiKey.isNotEmpty) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('gemini_api_key', apiKey);
+        globalGeminiApiKey = apiKey;
+      } catch (e) {
+        debugPrint('SharedPreferences save error: $e');
+      }
     }
 
     if (widget.tool['id'] == 'protect' && _protectPasswordController.text.trim().isEmpty) {
@@ -614,6 +831,130 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
       return;
     }
 
+    if (widget.tool['id'] == 'edit-pdf' && _editPromptController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter editing instructions for the AI.'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
+    if (widget.tool['id'] == 'redact' && _redactTermController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter a term to redact from the PDF.'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
+    if (widget.tool['id'] == 'compare' && _pickedFiles.length != 2) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select exactly two PDF files to compare.'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
+    // ── SEQUENTIAL MULTIPLE FILE COMPRESSION LOOP ──
+    if (widget.tool['id'] == 'compress' && _pickedFiles.length > 1) {
+      setState(() {
+        _isProcessing = true;
+        _progress = 0.1;
+        _isCompleted = false;
+        _responseDataBase64 = null;
+        _processedFiles = [];
+        _summaryText = null;
+      });
+
+      try {
+        final List<Map<String, dynamic>> results = [];
+        double totalOriginal = 0;
+        double totalCompressed = 0;
+
+        for (int i = 0; i < _pickedFiles.length; i++) {
+          final platformFile = _pickedFiles[i];
+          final uri = Uri.parse('https://omnipdf-backed.onrender.com/api/tools/compress');
+          var request = http.MultipartRequest('POST', uri);
+
+          final double originalSize = platformFile.size.toDouble();
+          final double targetBytes = originalSize * (_compressionPercent / 100.0);
+          final double targetKB = targetBytes / 1024.0;
+          request.fields['targetSize'] = targetKB.toStringAsFixed(1);
+          request.fields['targetUnit'] = 'KB';
+
+          if (platformFile.bytes != null) {
+            request.files.add(http.MultipartFile.fromBytes(
+              'file',
+              platformFile.bytes!,
+              filename: platformFile.name,
+            ));
+          } else if (platformFile.path != null) {
+            request.files.add(await http.MultipartFile.fromPath(
+              'file',
+              platformFile.path!,
+              filename: platformFile.name,
+            ));
+          }
+
+          var streamedResponse = await request.send();
+          var response = await http.Response.fromStream(streamedResponse);
+
+          if (response.statusCode == 200) {
+            final resData = jsonDecode(response.body);
+            final double compSize = resData['compressedSize'] != null
+                ? (resData['compressedSize'] as num).toDouble()
+                : originalSize * 0.5;
+            totalOriginal += originalSize;
+            totalCompressed += compSize;
+
+            final dotIdx = platformFile.name.lastIndexOf('.');
+            final base = dotIdx != -1 ? platformFile.name.substring(0, dotIdx) : platformFile.name;
+
+            results.add({
+              'fileName': '${base}_compressed.pdf',
+              'fileData': resData['fileData'],
+            });
+          } else {
+            throw Exception('Failed to compress ${platformFile.name}');
+          }
+
+          setState(() {
+            _progress = 0.1 + (0.8 * (i + 1) / _pickedFiles.length);
+          });
+        }
+
+        final reductionPct = (((totalOriginal - totalCompressed) / totalOriginal) * 100).toStringAsFixed(1);
+
+        setState(() {
+          _isProcessing = false;
+          _isCompleted = true;
+          _progress = 1.0;
+          _processedFiles = results;
+          _successMessage = 'Successfully compressed ${_pickedFiles.length} PDFs! Total reduction: ${(totalOriginal / 1024).toStringAsFixed(1)} KB → ${(totalCompressed / 1024).toStringAsFixed(1)} KB ($reductionPct% reduction).';
+          _actionText = 'Download Compressed PDFs';
+        });
+      } catch (e) {
+        setState(() {
+          _isProcessing = false;
+        });
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Compression Failed: $e'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+      return;
+    }
+
+    // ── STANDARD OPERATION REQUEST FLOW ──
     setState(() {
       _isProcessing = true;
       _progress = 0.1;
@@ -641,6 +982,7 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
         'repair': 'repair',
         'pdf-to-jpg': 'pdf-to-jpg',
         'jpg-to-pdf': 'jpg-to-pdf',
+        'ocr': 'ocr',
       };
 
       final endpoint = endpointMap[widget.tool['id']] ?? widget.tool['id'];
@@ -706,25 +1048,64 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
             : _organizeMode;
       }
 
+      if (widget.tool['id'] == 'crop') {
+        request.fields['left'] = _cropLeftController.text.trim().isEmpty ? '10' : _cropLeftController.text.trim();
+        request.fields['top'] = _cropTopController.text.trim().isEmpty ? '10' : _cropTopController.text.trim();
+        request.fields['right'] = _cropRightController.text.trim().isEmpty ? '10' : _cropRightController.text.trim();
+        request.fields['bottom'] = _cropBottomController.text.trim().isEmpty ? '10' : _cropBottomController.text.trim();
+      }
+
+      if (widget.tool['id'] == 'edit-pdf') {
+        request.fields['prompt'] = _editPromptController.text.trim().isEmpty ? 'Fix formatting and layout' : _editPromptController.text.trim();
+      }
+
+      if (widget.tool['id'] == 'sign') {
+        request.fields['signatureText'] = _signatureTextController.text.trim().isEmpty ? 'Signed by OmniPDF' : _signatureTextController.text.trim();
+      }
+
+      if (widget.tool['id'] == 'redact') {
+        request.fields['term'] = _redactTermController.text.trim();
+      }
+
       setState(() {
         _progress = 0.3;
       });
 
       // Add file(s)
-      final isMultiple = widget.tool['id'] == 'merge' || widget.tool['id'] == 'jpg-to-pdf';
-      for (var platformFile in _pickedFiles) {
-        if (platformFile.bytes != null) {
-          request.files.add(http.MultipartFile.fromBytes(
-            isMultiple ? 'files' : 'file',
-            platformFile.bytes!,
-            filename: platformFile.name,
-          ));
-        } else if (platformFile.path != null) {
-          request.files.add(await http.MultipartFile.fromPath(
-            isMultiple ? 'files' : 'file',
-            platformFile.path!,
-            filename: platformFile.name,
-          ));
+      if (widget.tool['id'] == 'compare') {
+        for (int i = 0; i < 2; i++) {
+          final platformFile = _pickedFiles[i];
+          final fieldName = 'file${i + 1}';
+          if (platformFile.bytes != null) {
+            request.files.add(http.MultipartFile.fromBytes(
+              fieldName,
+              platformFile.bytes!,
+              filename: platformFile.name,
+            ));
+          } else if (platformFile.path != null) {
+            request.files.add(await http.MultipartFile.fromPath(
+              fieldName,
+              platformFile.path!,
+              filename: platformFile.name,
+            ));
+          }
+        }
+      } else {
+        final isMultiple = widget.tool['id'] == 'merge' || widget.tool['id'] == 'jpg-to-pdf';
+        for (var platformFile in _pickedFiles) {
+          if (platformFile.bytes != null) {
+            request.files.add(http.MultipartFile.fromBytes(
+              isMultiple ? 'files' : 'file',
+              platformFile.bytes!,
+              filename: platformFile.name,
+            ));
+          } else if (platformFile.path != null) {
+            request.files.add(await http.MultipartFile.fromPath(
+              isMultiple ? 'files' : 'file',
+              platformFile.path!,
+              filename: platformFile.name,
+            ));
+          }
         }
       }
 
@@ -743,11 +1124,15 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
           _isCompleted = true;
           _progress = 1.0;
 
-          if (widget.tool['id'] == 'ai_summarizer') {
-            _summaryText = resData['summary'] ?? 'No summary returned.';
+          if (widget.tool['id'] == 'ai_summarizer' || widget.tool['id'] == 'ocr') {
+            _summaryText = resData['summary'] ?? 'No text returned.';
             _responseDataBase64 = resData['fileData'];
-            _successMessage = 'Your PDF has been summarized successfully using Gemini AI!';
-            _actionText = 'Download Summary PDF';
+            _successMessage = widget.tool['id'] == 'ocr'
+                ? 'Your PDF has been OCR-processed successfully!'
+                : 'Your PDF has been summarized successfully using Gemini AI!';
+            _actionText = widget.tool['id'] == 'ocr'
+                ? 'Download OCR PDF'
+                : 'Download Summary PDF';
           } else if (widget.tool['id'] == 'split') {
             if (resData['files'] != null) {
               _processedFiles = List<Map<String, dynamic>>.from(resData['files']);
@@ -774,6 +1159,20 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
               'repair': 'Download Repaired PDF',
               'pdf-to-jpg': 'Download Images ZIP',
               'jpg-to-pdf': 'Download Converted PDF',
+              'word-to-pdf': 'Download Converted PDF',
+              'powerpoint-to-pdf': 'Download Converted PDF',
+              'excel-to-pdf': 'Download Converted PDF',
+              'html-to-pdf': 'Download Converted PDF',
+              'pdf-to-word': 'Download Word Doc',
+              'pdf-to-powerpoint': 'Download PowerPoint',
+              'pdf-to-excel': 'Download Excel Sheet',
+              'pdf-to-pdfa': 'Download PDF/A Archive',
+              'crop': 'Download Cropped PDF',
+              'edit-pdf': 'Download Edited PDF',
+              'pdf-forms': 'Download Flattened PDF',
+              'sign': 'Download Signed PDF',
+              'redact': 'Download Redacted PDF',
+              'compare': 'Download Comparison Report',
             };
             _actionText = actionTextMap[widget.tool['id']] ?? 'Download Processed PDF';
           }
@@ -810,13 +1209,58 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
 
   Future<void> _saveBase64File(String base64Content, String defaultName) async {
     try {
+      final Uint8List bytes = base64Decode(base64Content);
+
+      if (Platform.isAndroid) {
+        // Try native MethodChannel first
+        try {
+          const channel = MethodChannel('com.omnipdf.app/download');
+          String mimeType = 'application/pdf';
+          if (defaultName.endsWith('.zip')) {
+            mimeType = 'application/zip';
+          } else if (defaultName.endsWith('.docx')) {
+            mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+          } else if (defaultName.endsWith('.pptx')) {
+            mimeType = 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+          } else if (defaultName.endsWith('.xlsx')) {
+            mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+          } else if (defaultName.endsWith('.jpg') || defaultName.endsWith('.jpeg')) {
+            mimeType = 'image/jpeg';
+          }
+
+          final String? savedPath = await channel.invokeMethod<String>('saveToDownloads', {
+            'bytes': bytes,
+            'fileName': defaultName,
+            'mimeType': mimeType,
+          });
+
+          if (savedPath != null) {
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Saved to: $savedPath'),
+                backgroundColor: Colors.green,
+                duration: const Duration(seconds: 5),
+                action: SnackBarAction(
+                  label: 'OK',
+                  textColor: Colors.white,
+                  onPressed: () {},
+                ),
+              ),
+            );
+            return; // Exit early if native save succeeded
+          }
+        } catch (nativeErr) {
+          debugPrint('Native MethodChannel save failed: $nativeErr. Falling back to legacy storage...');
+        }
+      }
+
+      // Legacy fallback (iOS and older Android/failing cases)
       if (Platform.isAndroid) {
         await Permission.storage.request();
       }
 
-      final Uint8List bytes = base64Decode(base64Content);
       Directory? dir;
-
       if (Platform.isAndroid) {
         dir = Directory('/storage/emulated/0/Download');
         if (!await dir.exists()) {
@@ -862,7 +1306,8 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isAiTool = widget.tool['id'] == 'ai_summarizer' || widget.tool['id'] == 'translate';
+    final isAiRequired = ['ai_summarizer', 'translate', 'ocr', 'edit-pdf'].contains(widget.tool['id']);
+    final isAiOptional = ['pdf-to-word', 'pdf-to-powerpoint', 'pdf-to-excel'].contains(widget.tool['id']);
 
     if (_isCompleted) {
       return PopScope(
@@ -976,8 +1421,7 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
                     ),
                     const SizedBox(height: 20),
                   ],
-                  if (_responseDataBase64 != null &&
-                      widget.tool['id'] != 'pdf-to-jpg') ...[
+                  if (_responseDataBase64 != null) ...[
                     ElevatedButton.icon(
                       onPressed: () {
                         String outputName = 'processed_${DateTime.now().millisecondsSinceEpoch}.pdf';
@@ -1010,6 +1454,37 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
                             ext = '.zip';
                           } else if (widget.tool['id'] == 'jpg-to-pdf') {
                             suffix = '_converted';
+                          } else if (widget.tool['id'] == 'word-to-pdf' ||
+                                     widget.tool['id'] == 'powerpoint-to-pdf' ||
+                                     widget.tool['id'] == 'excel-to-pdf' ||
+                                     widget.tool['id'] == 'html-to-pdf') {
+                            suffix = '_converted';
+                            ext = '.pdf';
+                          } else if (widget.tool['id'] == 'pdf-to-word') {
+                            suffix = '_converted';
+                            ext = '.docx';
+                          } else if (widget.tool['id'] == 'pdf-to-powerpoint') {
+                            suffix = '_converted';
+                            ext = '.pptx';
+                          } else if (widget.tool['id'] == 'pdf-to-excel') {
+                            suffix = '_converted';
+                            ext = '.xlsx';
+                          } else if (widget.tool['id'] == 'pdf-to-pdfa') {
+                            suffix = '_archive';
+                            ext = '.pdf';
+                          } else if (widget.tool['id'] == 'crop') {
+                            suffix = '_cropped';
+                          } else if (widget.tool['id'] == 'edit-pdf') {
+                            suffix = '_edited';
+                          } else if (widget.tool['id'] == 'pdf-forms') {
+                            suffix = '_flattened';
+                          } else if (widget.tool['id'] == 'sign') {
+                            suffix = '_signed';
+                          } else if (widget.tool['id'] == 'redact') {
+                            suffix = '_redacted';
+                          } else if (widget.tool['id'] == 'compare') {
+                            suffix = '_comparison';
+                            ext = '.pdf';
                           }
                           outputName = '$base$suffix$ext';
                         }
@@ -1095,625 +1570,28 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
         padding: const EdgeInsets.all(20.0),
         child: Column(
           children: [
-            const SizedBox(height: 20),
-            Icon(
-              widget.tool['icon'],
-              size: 80,
-              color: widget.tool['color'],
-            ),
-            const SizedBox(height: 20),
-            Text(
-              widget.tool['name'],
-              style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              widget.tool['desc'],
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.grey, fontSize: 13),
-            ),
-            const SizedBox(height: 30),
-
-            // AI Option settings panel
-            if (isAiTool) ...[
-              Card(
-                color: const Color(0xFF1E293B),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(color: Colors.white.withOpacity(0.08)),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'AI Option Settings',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF60A5FA),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: _keyController,
-                        obscureText: true,
-                        onChanged: (val) {
-                          globalGeminiApiKey = val.trim();
-                        },
-                        decoration: const InputDecoration(
-                          labelText: 'Google Gemini API Key',
-                          labelStyle:
-                              TextStyle(fontSize: 13, color: Colors.grey),
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.vpn_key_rounded, size: 20),
-                          contentPadding: EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 10),
-                        ),
-                      ),
-                      if (widget.tool['id'] == 'translate') ...[
-                        const SizedBox(height: 16),
-                        DropdownButtonFormField<String>(
-                          value: _targetLanguage,
-                          dropdownColor: const Color(0xFF0B1329),
-                          decoration: const InputDecoration(
-                            labelText: 'Target Language',
-                            labelStyle:
-                                TextStyle(fontSize: 13, color: Colors.grey),
-                            border: OutlineInputBorder(),
-                            prefixIcon:
-                                Icon(Icons.language_rounded, size: 20),
-                            contentPadding: EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 10),
-                          ),
-                          items: _languages.map((String lang) {
-                            return DropdownMenuItem<String>(
-                                value: lang, child: Text(lang));
-                          }).toList(),
-                          onChanged: (String? newVal) {
-                            if (newVal != null) {
-                              setState(() {
-                                _targetLanguage = newVal;
-                              });
-                            }
-                          },
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
+            if (_pickedFiles.isEmpty) ...[
+              const SizedBox(height: 20),
+              Icon(
+                widget.tool['icon'],
+                size: 80,
+                color: widget.tool['color'],
               ),
               const SizedBox(height: 20),
-            ],
-
-            // Protect PDF configuration panel
-            if (widget.tool['id'] == 'protect') ...[
-              Card(
-                color: const Color(0xFF1E293B),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(color: Colors.white.withOpacity(0.08)),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Protection Settings',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF60A5FA),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: _protectPasswordController,
-                        obscureText: true,
-                        decoration: const InputDecoration(
-                          labelText: 'Password to Encrypt PDF',
-                          labelStyle: TextStyle(fontSize: 13, color: Colors.grey),
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.lock_rounded, size: 20),
-                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+              Text(
+                widget.tool['name'],
+                style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white),
               ),
-              const SizedBox(height: 20),
-            ],
-
-            // Unlock PDF configuration panel
-            if (widget.tool['id'] == 'unlock') ...[
-              Card(
-                color: const Color(0xFF1E293B),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(color: Colors.white.withOpacity(0.08)),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Unlock Settings',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF60A5FA),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: _protectPasswordController,
-                        obscureText: true,
-                        decoration: const InputDecoration(
-                          labelText: 'PDF Password to Unlock',
-                          labelStyle: TextStyle(fontSize: 13, color: Colors.grey),
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.lock_open_rounded, size: 20),
-                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+              const SizedBox(height: 8),
+              Text(
+                widget.tool['desc'],
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.grey, fontSize: 13),
               ),
-              const SizedBox(height: 20),
-            ],
-
-            // Compress PDF configuration panel
-            if (widget.tool['id'] == 'compress') ...[
-              Card(
-                color: const Color(0xFF1E293B),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(color: Colors.white.withOpacity(0.08)),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Compression Level',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF60A5FA),
-                            ),
-                          ),
-                          Text(
-                            '${_compressionPercent.toInt()}% (${((_pickedFiles.isNotEmpty ? _pickedFiles[0].size : 0) * (_compressionPercent / 100) / 1024).toStringAsFixed(0)} KB)',
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF60A5FA),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Slider(
-                        min: 10.0,
-                        max: 90.0,
-                        divisions: 8,
-                        value: _compressionPercent,
-                        activeColor: Colors.blueAccent,
-                        inactiveColor: const Color(0xFF0F172A),
-                        onChanged: (double val) {
-                          setState(() {
-                            _compressionPercent = val;
-                          });
-                        },
-                      ),
-                      const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 8.0),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text('High (10%)', style: TextStyle(fontSize: 10, color: Colors.grey)),
-                            Text('Medium (50%)', style: TextStyle(fontSize: 10, color: Colors.grey)),
-                            Text('Low (90%)', style: TextStyle(fontSize: 10, color: Colors.grey)),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-            ],
-
-            // Split PDF configuration panel
-            if (widget.tool['id'] == 'split') ...[
-              Card(
-                color: const Color(0xFF1E293B),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(color: Colors.white.withOpacity(0.08)),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Split Settings',
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF60A5FA)),
-                      ),
-                      const SizedBox(height: 12),
-                      DropdownButtonFormField<String>(
-                        value: _splitMode,
-                        dropdownColor: const Color(0xFF0B1329),
-                        decoration: const InputDecoration(
-                          labelText: 'Split Mode',
-                          labelStyle: TextStyle(fontSize: 13, color: Colors.grey),
-                          border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        ),
-                        items: const [
-                          DropdownMenuItem(value: 'all', child: Text('Every Page (one PDF per page)')),
-                          DropdownMenuItem(value: 'half', child: Text('Split in Half (2 parts)')),
-                          DropdownMenuItem(value: 'range', child: Text('Custom Page Ranges')),
-                        ],
-                        onChanged: (val) {
-                          if (val != null) setState(() { _splitMode = val; });
-                        },
-                      ),
-                      if (_splitMode == 'range') ...[
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: _splitPageRangesController,
-                          decoration: const InputDecoration(
-                            labelText: 'Page Ranges (e.g. 1-3,4-6,7)',
-                            labelStyle: TextStyle(fontSize: 13, color: Colors.grey),
-                            border: OutlineInputBorder(),
-                            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-            ],
-
-            // Watermark PDF configuration panel
-            if (widget.tool['id'] == 'watermark') ...[
-              Card(
-                color: const Color(0xFF1E293B),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(color: Colors.white.withOpacity(0.08)),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Watermark Settings',
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF60A5FA)),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: _watermarkTextController,
-                        decoration: const InputDecoration(
-                          labelText: 'Watermark Text',
-                          border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: _watermarkFontSizeController,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'Font Size',
-                          border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text('Opacity', style: TextStyle(fontSize: 13, color: Colors.grey)),
-                          Text('${(_watermarkOpacity * 100).toInt()}%', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blueAccent)),
-                        ],
-                      ),
-                      Slider(
-                        min: 0.05,
-                        max: 1.0,
-                        value: _watermarkOpacity,
-                        onChanged: (val) {
-                          setState(() { _watermarkOpacity = val; });
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-            ],
-
-            // Page Numbers configuration panel
-            if (widget.tool['id'] == 'page-numbers') ...[
-              Card(
-                color: const Color(0xFF1E293B),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(color: Colors.white.withOpacity(0.08)),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Page Numbering Settings',
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF60A5FA)),
-                      ),
-                      const SizedBox(height: 12),
-                      DropdownButtonFormField<String>(
-                        value: _pageNumPosition,
-                        dropdownColor: const Color(0xFF0B1329),
-                        decoration: const InputDecoration(
-                          labelText: 'Position',
-                          border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        ),
-                        items: const [
-                          DropdownMenuItem(value: 'bottom-center', child: Text('Bottom Center')),
-                          DropdownMenuItem(value: 'bottom-left', child: Text('Bottom Left')),
-                          DropdownMenuItem(value: 'bottom-right', child: Text('Bottom Right')),
-                          DropdownMenuItem(value: 'top-center', child: Text('Top Center')),
-                          DropdownMenuItem(value: 'top-left', child: Text('Top Left')),
-                          DropdownMenuItem(value: 'top-right', child: Text('Top Right')),
-                        ],
-                        onChanged: (val) {
-                          if (val != null) setState(() { _pageNumPosition = val; });
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: _pageNumStartController,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'Start Number',
-                          border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: _pageNumPrefixController,
-                        decoration: const InputDecoration(
-                          labelText: 'Prefix (optional, e.g. "Page ")',
-                          border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-            ],
-
-            // Rotate PDF configuration panel
-            if (widget.tool['id'] == 'rotate') ...[
-              Card(
-                color: const Color(0xFF1E293B),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(color: Colors.white.withOpacity(0.08)),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Rotation Settings',
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF60A5FA)),
-                      ),
-                      const SizedBox(height: 12),
-                      DropdownButtonFormField<String>(
-                        value: _rotateAngle,
-                        dropdownColor: const Color(0xFF0B1329),
-                        decoration: const InputDecoration(
-                          labelText: 'Rotation Angle',
-                          border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        ),
-                        items: const [
-                          DropdownMenuItem(value: '90', child: Text('90° Clockwise')),
-                          DropdownMenuItem(value: '180', child: Text('180° Upside Down')),
-                          DropdownMenuItem(value: '270', child: Text('270° Counter-Clockwise')),
-                        ],
-                        onChanged: (val) {
-                          if (val != null) setState(() { _rotateAngle = val; });
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: _rotatePagesController,
-                        decoration: const InputDecoration(
-                          labelText: 'Pages to Rotate (e.g. all OR 1,3,5)',
-                          border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-            ],
-
-            // Remove Pages configuration panel
-            if (widget.tool['id'] == 'remove-pages') ...[
-              Card(
-                color: const Color(0xFF1E293B),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(color: Colors.white.withOpacity(0.08)),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Pages to Remove',
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF60A5FA)),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: _removePagesController,
-                        decoration: const InputDecoration(
-                          labelText: 'Page Numbers (comma-separated, e.g. 1,3,5)',
-                          border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-            ],
-
-            // Extract Pages configuration panel
-            if (widget.tool['id'] == 'extract-pages') ...[
-              Card(
-                color: const Color(0xFF1E293B),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(color: Colors.white.withOpacity(0.08)),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Pages to Extract',
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF60A5FA)),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: _extractPagesController,
-                        decoration: const InputDecoration(
-                          labelText: 'Page Ranges (comma-separated, e.g. 1-3,5,7-9)',
-                          border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-            ],
-
-            // Organize PDF configuration panel
-            if (widget.tool['id'] == 'organize-pdf') ...[
-              Card(
-                color: const Color(0xFF1E293B),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(color: Colors.white.withOpacity(0.08)),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Organize Page Order',
-                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF60A5FA)),
-                          ),
-                          if (_pageCount != null)
-                            Text(
-                              'Detected $_pageCount pages',
-                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF60A5FA)),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      DropdownButtonFormField<String>(
-                        value: _organizeMode,
-                        dropdownColor: const Color(0xFF0B1329),
-                        decoration: const InputDecoration(
-                          labelText: 'Page Order Mode',
-                          border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        ),
-                        items: [
-                          DropdownMenuItem(
-                            value: 'reverse',
-                            child: Text(_pageCount != null
-                                ? 'Down to Up ($_pageCount to 1)'
-                                : 'Down to Up (Reverse Pages)'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'normal',
-                            child: Text(_pageCount != null
-                                ? 'Up to Down (1 to $_pageCount)'
-                                : 'Up to Down (Keep Original Order)'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'custom',
-                            child: const Text('Custom Page Order'),
-                          ),
-                        ],
-                        onChanged: (val) {
-                          if (val != null) {
-                            setState(() {
-                              _organizeMode = val;
-                            });
-                          }
-                        },
-                      ),
-                      if (_organizeMode == 'custom') ...[
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: _organizePagesController,
-                          decoration: InputDecoration(
-                            labelText: _pageCount != null
-                                ? 'Custom Page Order (e.g. 3,1,2 for $_pageCount-page PDF)'
-                                : 'Custom Page Order (comma-separated, e.g. 3,1,2)',
-                            border: const OutlineInputBorder(),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-            ],
-
-            if (_pickedFiles.isEmpty)
+              const SizedBox(height: 30),
               ElevatedButton.icon(
                 onPressed: _pickFiles,
                 icon: const Icon(Icons.file_upload_outlined),
@@ -1726,58 +1604,729 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
-              )
-            else ...[
-              Column(
-                children: _pickedFiles.map((platformFile) {
-                  final sizeMB = ((platformFile.size) / (1024 * 1024)).toStringAsFixed(2);
-                  return Card(
-                    color: const Color(0xFF1E293B),
-                    margin: const EdgeInsets.only(bottom: 8),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      child: Row(
-                        children: [
-                          Icon(
-                            widget.tool['id'] == 'jpg-to-pdf'
-                                ? Icons.image_outlined
-                                : Icons.picture_as_pdf,
-                            color: widget.tool['id'] == 'jpg-to-pdf'
-                                ? Colors.amber
-                                : Colors.redAccent,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              '${platformFile.name} ($sizeMB MB)',
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.delete, color: Colors.redAccent),
-                            onPressed: () {
-                              setState(() {
-                                _pickedFiles.remove(platformFile);
-                              });
-                              _detectPageCount();
-                            },
-                          )
-                        ],
+              ),
+            ] else ...[
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Selected Files (${_pickedFiles.length})',
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  Row(
+                    children: [
+                      if (['merge', 'jpg-to-pdf', 'compress'].contains(widget.tool['id']))
+                        TextButton.icon(
+                          onPressed: _pickFiles,
+                          icon: const Icon(Icons.add, size: 16),
+                          label: const Text('Add', style: TextStyle(fontSize: 12)),
+                          style: TextButton.styleFrom(padding: EdgeInsets.zero),
+                        ),
+                      const SizedBox(width: 8),
+                      TextButton.icon(
+                        onPressed: () {
+                          setState(() {
+                            _pickedFiles.clear();
+                          });
+                          _detectPageCount();
+                        },
+                        icon: const Icon(Icons.clear, size: 16, color: Colors.redAccent),
+                        label: const Text('Clear', style: TextStyle(fontSize: 12, color: Colors.redAccent)),
+                        style: TextButton.styleFrom(padding: EdgeInsets.zero),
                       ),
-                    ),
-                  );
-                }).toList(),
+                    ],
+                  ),
+                ],
               ),
               const SizedBox(height: 12),
-              if (widget.tool['id'] == 'merge' || widget.tool['id'] == 'jpg-to-pdf') ...[
-                TextButton.icon(
-                  onPressed: _pickFiles,
-                  icon: const Icon(Icons.add),
-                  label: Text(widget.tool['id'] == 'jpg-to-pdf' ? 'Add More Images' : 'Add More Files'),
+
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  childAspectRatio: 0.74,
                 ),
-                const SizedBox(height: 12),
-              ],
+                itemCount: _pickedFiles.length,
+                itemBuilder: (context, index) {
+                  final platformFile = _pickedFiles[index];
+                  final sizeMB = (platformFile.size / (1024 * 1024)).toStringAsFixed(2);
+                  final rotation = _fileRotations[platformFile.name] ?? 0.0;
+                  final isImage = widget.tool['id'] == 'jpg-to-pdf';
+
+                  return Stack(
+                    children: [
+                      Card(
+                        color: const Color(0xFF1E293B),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          side: BorderSide(color: Colors.white.withOpacity(0.08)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Expanded(
+                              child: Container(
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFF0F172A),
+                                  borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                                ),
+                                child: Center(
+                                  child: AnimatedRotation(
+                                    turns: rotation / 360.0,
+                                    duration: const Duration(milliseconds: 300),
+                                    child: Container(
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: (widget.tool['color'] as Color).withOpacity(0.1),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Icon(
+                                        isImage ? Icons.image_outlined : Icons.picture_as_pdf_rounded,
+                                        color: widget.tool['color'],
+                                        size: 38,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    platformFile.name,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    '$sizeMB MB',
+                                    style: const TextStyle(fontSize: 9, color: Colors.grey),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.02),
+                                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.rotate_right_rounded, size: 16, color: Colors.blueAccent),
+                                    onPressed: () => _rotateFile(platformFile.name),
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(),
+                                    style: const ButtonStyle(tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                                  ),
+                                  if (['merge', 'jpg-to-pdf', 'compress'].contains(widget.tool['id'])) ...[
+                                    IconButton(
+                                      icon: const Icon(Icons.arrow_upward_rounded, size: 14, color: Colors.grey),
+                                      onPressed: index > 0 ? () => _moveFile(index, 'up') : null,
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(),
+                                      style: const ButtonStyle(tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.arrow_downward_rounded, size: 14, color: Colors.grey),
+                                      onPressed: index < _pickedFiles.length - 1 ? () => _moveFile(index, 'down') : null,
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(),
+                                      style: const ButtonStyle(tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                                    ),
+                                  ],
+                                  IconButton(
+                                    icon: const Icon(Icons.delete_outline_rounded, size: 16, color: Colors.redAccent),
+                                    onPressed: () {
+                                      setState(() {
+                                        _pickedFiles.remove(platformFile);
+                                      });
+                                      _detectPageCount();
+                                    },
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(),
+                                    style: const ButtonStyle(tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Positioned(
+                        top: 6,
+                        left: 6,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: const BoxDecoration(
+                            color: Colors.blueAccent,
+                            shape: BoxShape.circle,
+                          ),
+                          constraints: const BoxConstraints(
+                            minWidth: 20,
+                            minHeight: 20,
+                          ),
+                          child: Center(
+                            child: Text(
+                              '${index + 1}',
+                              style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
               const SizedBox(height: 20),
+
+              Card(
+                color: const Color(0xFF1E293B),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: BorderSide(color: Colors.white.withOpacity(0.08)),
+                ),
+                child: Theme(
+                  data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                  child: ExpansionTile(
+                    initiallyExpanded: _isOptionsExpanded,
+                    onExpansionChanged: (val) {
+                      setState(() {
+                        _isOptionsExpanded = val;
+                      });
+                    },
+                    leading: const Icon(Icons.settings_suggest_rounded, color: Colors.blueAccent),
+                    title: const Text(
+                      'Changes Box (Settings)',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white),
+                    ),
+                    subtitle: Text(
+                      'Configure output options for this tool',
+                      style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.5)),
+                    ),
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Divider(color: Colors.white12, height: 1, indent: 0, endIndent: 0),
+                            const SizedBox(height: 12),
+                            // AI Option settings panel
+                            if (isAiRequired || isAiOptional) ...[
+                              const Text(
+                                'AI Option Settings',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF60A5FA),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              TextField(
+                                controller: _keyController,
+                                obscureText: true,
+                                onChanged: (val) async {
+                                  final key = val.trim();
+                                  globalGeminiApiKey = key;
+                                  if (_saveKeyPermanently) {
+                                    try {
+                                      final prefs = await SharedPreferences.getInstance();
+                                      await prefs.setString('gemini_api_key', key);
+                                    } catch (e) {
+                                      debugPrint('SharedPreferences save error: $e');
+                                    }
+                                  }
+                                },
+                                decoration: const InputDecoration(
+                                  labelText: 'Google Gemini API Key',
+                                  labelStyle: TextStyle(fontSize: 12, color: Colors.grey),
+                                  border: OutlineInputBorder(),
+                                  prefixIcon: Icon(Icons.vpn_key_rounded, size: 18),
+                                  contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  SizedBox(
+                                    height: 20,
+                                    width: 20,
+                                    child: Checkbox(
+                                      value: _saveKeyPermanently,
+                                      activeColor: Colors.blueAccent,
+                                      onChanged: (val) async {
+                                        setState(() {
+                                          _saveKeyPermanently = val ?? false;
+                                        });
+                                        if (_saveKeyPermanently) {
+                                          final prefs = await SharedPreferences.getInstance();
+                                          await prefs.setString('gemini_api_key', _keyController.text.trim());
+                                        } else {
+                                          final prefs = await SharedPreferences.getInstance();
+                                          await prefs.remove('gemini_api_key');
+                                        }
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  const Text(
+                                    'Save API Key permanently on this device',
+                                    style: TextStyle(fontSize: 11, color: Colors.grey),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                isAiRequired
+                                    ? '* This tool requires a Gemini API Key to function.'
+                                    : '* Gemini AI is optional here. Leave empty to use direct conversion.',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontStyle: FontStyle.italic,
+                                  color: isAiRequired ? Colors.amberAccent : Colors.grey,
+                                ),
+                              ),
+                              if (widget.tool['id'] == 'translate') ...[
+                                const SizedBox(height: 12),
+                                DropdownButtonFormField<String>(
+                                  value: _targetLanguage,
+                                  dropdownColor: const Color(0xFF0B1329),
+                                  decoration: const InputDecoration(
+                                    labelText: 'Target Language',
+                                    labelStyle: TextStyle(fontSize: 12, color: Colors.grey),
+                                    border: OutlineInputBorder(),
+                                    prefixIcon: Icon(Icons.language_rounded, size: 18),
+                                    contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                  ),
+                                  items: _languages.map((String lang) {
+                                    return DropdownMenuItem<String>(
+                                        value: lang, child: Text(lang));
+                                  }).toList(),
+                                  onChanged: (String? newVal) {
+                                    if (newVal != null) {
+                                      setState(() {
+                                        _targetLanguage = newVal;
+                                      });
+                                    }
+                                  },
+                                ),
+                              ],
+                              const SizedBox(height: 16),
+                            ],
+
+                            // Protect PDF configuration panel
+                            if (widget.tool['id'] == 'protect') ...[
+                              const Text(
+                                'Protection Settings',
+                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF60A5FA)),
+                              ),
+                              const SizedBox(height: 8),
+                              TextField(
+                                controller: _protectPasswordController,
+                                obscureText: true,
+                                decoration: const InputDecoration(
+                                  labelText: 'Password to Encrypt PDF',
+                                  labelStyle: TextStyle(fontSize: 12, color: Colors.grey),
+                                  border: OutlineInputBorder(),
+                                  prefixIcon: Icon(Icons.lock_rounded, size: 18),
+                                  contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                            ],
+
+                            // Unlock PDF configuration panel
+                            if (widget.tool['id'] == 'unlock') ...[
+                              const Text(
+                                'Unlock Settings',
+                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF60A5FA)),
+                              ),
+                              const SizedBox(height: 8),
+                              TextField(
+                                controller: _protectPasswordController,
+                                obscureText: true,
+                                decoration: const InputDecoration(
+                                  labelText: 'PDF Password to Unlock',
+                                  labelStyle: TextStyle(fontSize: 12, color: Colors.grey),
+                                  border: OutlineInputBorder(),
+                                  prefixIcon: Icon(Icons.lock_open_rounded, size: 18),
+                                  contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                            ],
+
+                            // Compress PDF configuration panel
+                            if (widget.tool['id'] == 'compress') ...[
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text(
+                                    'Compression Level',
+                                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF60A5FA)),
+                                  ),
+                                  Text(
+                                    '${_compressionPercent.toInt()}% (${((_pickedFiles.isNotEmpty ? _pickedFiles[0].size : 0) * (_compressionPercent / 100) / 1024).toStringAsFixed(0)} KB)',
+                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF60A5FA)),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Slider(
+                                min: 10.0,
+                                max: 90.0,
+                                divisions: 8,
+                                value: _compressionPercent,
+                                activeColor: Colors.blueAccent,
+                                inactiveColor: const Color(0xFF0F172A),
+                                onChanged: (double val) {
+                                  setState(() {
+                                    _compressionPercent = val;
+                                  });
+                                },
+                              ),
+                              const Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 8.0),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text('High (10%)', style: TextStyle(fontSize: 9, color: Colors.grey)),
+                                    Text('Medium (50%)', style: TextStyle(fontSize: 9, color: Colors.grey)),
+                                    Text('Low (90%)', style: TextStyle(fontSize: 9, color: Colors.grey)),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                            ],
+
+                            // Split PDF configuration panel
+                            if (widget.tool['id'] == 'split') ...[
+                              const Text(
+                                'Split Settings',
+                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF60A5FA)),
+                              ),
+                              const SizedBox(height: 8),
+                              DropdownButtonFormField<String>(
+                                value: _splitMode,
+                                dropdownColor: const Color(0xFF0B1329),
+                                decoration: const InputDecoration(
+                                  labelText: 'Split Mode',
+                                  labelStyle: TextStyle(fontSize: 12, color: Colors.grey),
+                                  border: OutlineInputBorder(),
+                                  contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                ),
+                                items: const [
+                                  DropdownMenuItem(value: 'all', child: Text('Every Page (one PDF per page)')),
+                                  DropdownMenuItem(value: 'half', child: Text('Split in Half (2 parts)')),
+                                  DropdownMenuItem(value: 'range', child: Text('Custom Page Ranges')),
+                                ],
+                                onChanged: (val) {
+                                  if (val != null) setState(() { _splitMode = val; });
+                                },
+                              ),
+                              if (_splitMode == 'range') ...[
+                                const SizedBox(height: 8),
+                                TextField(
+                                  controller: _splitPageRangesController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Page Ranges (e.g. 1-3,4-6,7)',
+                                    labelStyle: TextStyle(fontSize: 12, color: Colors.grey),
+                                    border: OutlineInputBorder(),
+                                    contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                  ),
+                                ),
+                              ],
+                              const SizedBox(height: 16),
+                            ],
+
+                            // Watermark PDF configuration panel
+                            if (widget.tool['id'] == 'watermark') ...[
+                              const Text(
+                                'Watermark Settings',
+                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF60A5FA)),
+                              ),
+                              const SizedBox(height: 8),
+                              TextField(
+                                controller: _watermarkTextController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Watermark Text',
+                                  border: OutlineInputBorder(),
+                                  contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              TextField(
+                                controller: _watermarkFontSizeController,
+                                keyboardType: TextInputType.number,
+                                decoration: const InputDecoration(
+                                  labelText: 'Font Size',
+                                  border: OutlineInputBorder(),
+                                  contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text('Opacity', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                                  Text('${(_watermarkOpacity * 100).toInt()}%', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blueAccent, fontSize: 12)),
+                                ],
+                              ),
+                              Slider(
+                                min: 0.05,
+                                max: 1.0,
+                                value: _watermarkOpacity,
+                                onChanged: (val) {
+                                  setState(() { _watermarkOpacity = val; });
+                                },
+                              ),
+                              const SizedBox(height: 16),
+                            ],
+
+                            // Page Numbers configuration panel
+                            if (widget.tool['id'] == 'page-numbers') ...[
+                              const Text(
+                                'Page Numbering Settings',
+                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF60A5FA)),
+                              ),
+                              const SizedBox(height: 8),
+                              DropdownButtonFormField<String>(
+                                value: _pageNumPosition,
+                                dropdownColor: const Color(0xFF0B1329),
+                                decoration: const InputDecoration(
+                                  labelText: 'Position',
+                                  border: OutlineInputBorder(),
+                                  contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                ),
+                                items: const [
+                                  DropdownMenuItem(value: 'bottom-center', child: Text('Bottom Center')),
+                                  DropdownMenuItem(value: 'bottom-left', child: Text('Bottom Left')),
+                                  DropdownMenuItem(value: 'bottom-right', child: Text('Bottom Right')),
+                                  DropdownMenuItem(value: 'top-center', child: Text('Top Center')),
+                                  DropdownMenuItem(value: 'top-left', child: Text('Top Left')),
+                                  DropdownMenuItem(value: 'top-right', child: Text('Top Right')),
+                                ],
+                                onChanged: (val) {
+                                  if (val != null) setState(() { _pageNumPosition = val; });
+                                },
+                              ),
+                              const SizedBox(height: 8),
+                              TextField(
+                                controller: _pageNumStartController,
+                                keyboardType: TextInputType.number,
+                                decoration: const InputDecoration(
+                                  labelText: 'Start Number',
+                                  border: OutlineInputBorder(),
+                                  contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              TextField(
+                                controller: _pageNumPrefixController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Prefix (e.g. Page )',
+                                  border: OutlineInputBorder(),
+                                  contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                            ],
+
+                            // Organize PDF options panel
+                            if (widget.tool['id'] == 'organize-pdf') ...[
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text(
+                                    'Page Order Settings',
+                                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF60A5FA)),
+                                  ),
+                                  if (_pageCount != null)
+                                    Text(
+                                      'Detected $_pageCount pages',
+                                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.amberAccent),
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              DropdownButtonFormField<String>(
+                                value: _organizeMode,
+                                dropdownColor: const Color(0xFF0B1329),
+                                decoration: const InputDecoration(
+                                  labelText: 'Organize Mode',
+                                  border: OutlineInputBorder(),
+                                  contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                ),
+                                items: [
+                                  DropdownMenuItem(
+                                    value: 'reverse',
+                                    child: Text(_pageCount != null ? 'Down to Up ($_pageCount to 1)' : 'Down to Up (Reverse Pages)'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'normal',
+                                    child: Text(_pageCount != null ? 'Up to Down (1 to $_pageCount)' : 'Up to Down (Keep Order)'),
+                                  ),
+                                  const DropdownMenuItem(value: 'custom', child: Text('Custom Page Order')),
+                                ],
+                                onChanged: (val) {
+                                  if (val != null) {
+                                    setState(() { _organizeMode = val; });
+                                  }
+                                },
+                              ),
+                              if (_organizeMode == 'custom') ...[
+                                const SizedBox(height: 8),
+                                TextField(
+                                  controller: _organizePagesController,
+                                  decoration: InputDecoration(
+                                    labelText: 'Custom Order (e.g. 3,1,2)',
+                                    helperText: _pageCount != null ? 'Enter page indices in order for $_pageCount-page PDF' : 'e.g. 3,1,2',
+                                    helperStyle: const TextStyle(fontSize: 10),
+                                    border: const OutlineInputBorder(),
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                  ),
+                                ),
+                              ],
+                              const SizedBox(height: 16),
+                            ],
+
+                            // Crop PDF options panel
+                            if (widget.tool['id'] == 'crop') ...[
+                              const Text(
+                                'Crop Margins Settings',
+                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF60A5FA)),
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: TextField(
+                                      controller: _cropLeftController,
+                                      keyboardType: TextInputType.number,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Left (%)',
+                                        border: OutlineInputBorder(),
+                                        contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: TextField(
+                                      controller: _cropTopController,
+                                      keyboardType: TextInputType.number,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Top (%)',
+                                        border: OutlineInputBorder(),
+                                        contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: TextField(
+                                      controller: _cropRightController,
+                                      keyboardType: TextInputType.number,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Right (%)',
+                                        border: OutlineInputBorder(),
+                                        contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: TextField(
+                                      controller: _cropBottomController,
+                                      keyboardType: TextInputType.number,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Bottom (%)',
+                                        border: OutlineInputBorder(),
+                                        contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+                            ],
+
+                            // AI Edit PDF configuration panel
+                            if (widget.tool['id'] == 'edit-pdf') ...[
+                              const Text(
+                                'AI Edit Settings',
+                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF60A5FA)),
+                              ),
+                              const SizedBox(height: 8),
+                              TextField(
+                                controller: _editPromptController,
+                                maxLines: 3,
+                                decoration: const InputDecoration(
+                                  labelText: 'Editing Instructions',
+                                  hintText: 'e.g. Translate headers to French and format bullet points...',
+                                  border: OutlineInputBorder(),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                            ],
+
+                            // Sign PDF configuration panel
+                            if (widget.tool['id'] == 'sign') ...[
+                              const Text(
+                                'Signature Settings',
+                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF60A5FA)),
+                              ),
+                              const SizedBox(height: 8),
+                              TextField(
+                                controller: _signatureTextController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Signature Text',
+                                  border: OutlineInputBorder(),
+                                  contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                            ],
+
+                            // Redact PDF configuration panel
+                            if (widget.tool['id'] == 'redact') ...[
+                              const Text(
+                                'Redaction Settings',
+                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF60A5FA)),
+                              ),
+                              const SizedBox(height: 8),
+                              TextField(
+                                controller: _redactTermController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Text Term to Redact (e.g. Email or Name)',
+                                  border: OutlineInputBorder(),
+                                  contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+
               if (_isProcessing) ...[
                 LinearProgressIndicator(
                   value: _progress,
@@ -1790,12 +2339,12 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
                 ElevatedButton(
                   onPressed: _runOperation,
                   style: ElevatedButton.styleFrom(
-                    minimumSize: const Size(220, 52),
+                    minimumSize: const Size(double.infinity, 52),
                     backgroundColor: Colors.green,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                  child: const Text('Start Operations'),
+                  child: Text('⚡ ${widget.tool['name']}'),
                 ),
             ]
           ],
@@ -1845,7 +2394,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 8),
             const Text(
-              'Provide your own Gemini API key. The key is stored locally in memory and sent via secure headers to run AI Summarizer and Translate PDF tools.',
+              'Provide your own Gemini API key. The key is stored locally in memory and sent via secure headers to run AI Summarizer, Translate, and OCR PDF tools.',
               style: TextStyle(color: Colors.grey),
             ),
             const SizedBox(height: 30),
@@ -1860,11 +2409,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 20),
             ElevatedButton(
-              onPressed: () {
-                globalGeminiApiKey = _keyController.text.trim();
+              onPressed: () async {
+                final apiKey = _keyController.text.trim();
+                globalGeminiApiKey = apiKey;
+                try {
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.setString('gemini_api_key', apiKey);
+                } catch (e) {
+                  debugPrint("Failed to save API Key to SharedPreferences: $e");
+                }
+                if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('API Key saved successfully!'),
+                    content: Text('API Key saved permanently!'),
                     backgroundColor: Colors.green,
                   ),
                 );

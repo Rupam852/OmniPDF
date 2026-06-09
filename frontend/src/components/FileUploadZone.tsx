@@ -7,6 +7,49 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   import.meta.url
 ).href;
 
+const getFileExtension = (file: File): string => {
+  const dotIndex = file.name.lastIndexOf('.');
+  return dotIndex !== -1 ? file.name.substring(dotIndex + 1).toLowerCase() : '';
+};
+
+const getFileColor = (file: File): string => {
+  const ext = getFileExtension(file);
+  if (ext === 'pdf') return '#ef4444'; // Red
+  if (ext === 'docx' || ext === 'doc') return '#2563eb'; // Blue
+  if (ext === 'pptx' || ext === 'ppt') return '#ea580c'; // Orange
+  if (ext === 'xlsx' || ext === 'xls') return '#16a34a'; // Green
+  if (ext === 'html' || ext === 'htm') return '#ca8a04'; // Yellow
+  return '#64748b'; // Slate
+};
+
+const renderPdfPageToDataUrl = async (file: File): Promise<string> => {
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const loadingTask = pdfjs.getDocument({ data: new Uint8Array(arrayBuffer) });
+    const pdfDoc = await loadingTask.promise;
+    const page = await pdfDoc.getPage(1);
+    
+    const viewport = page.getViewport({ scale: 0.4 });
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    if (!context) return '';
+    
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    
+    await page.render({
+      canvasContext: context,
+      viewport: viewport,
+      canvas: canvas
+    }).promise;
+    
+    return canvas.toDataURL('image/jpeg', 0.8);
+  } catch (err) {
+    console.error('Error rendering PDF page preview:', err);
+    return '';
+  }
+};
+
 interface FileUploadZoneProps {
   toolName: string;
   toolId?: string;
@@ -26,6 +69,8 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
 }) => {
   const [dragActive, setDragActive] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
+  const [filePreviews, setFilePreviews] = useState<Record<string, string>>({});
+  const [fileRotations, setFileRotations] = useState<Record<string, number>>({});
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -60,6 +105,17 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
   const [pageNumPrefix, setPageNumPrefix] = useState('');
   // Protect / Unlock
   const [pdfPassword, setPdfPassword] = useState('');
+  // Crop
+  const [cropLeft, setCropLeft] = useState<number>(10);
+  const [cropTop, setCropTop] = useState<number>(10);
+  const [cropRight, setCropRight] = useState<number>(10);
+  const [cropBottom, setCropBottom] = useState<number>(10);
+  // Edit PDF
+  const [editPrompt, setEditPrompt] = useState<string>('Fix typos and format text nicely');
+  // Sign
+  const [signatureText, setSignatureText] = useState<string>('Signed by OmniPDF User');
+  // Redact
+  const [redactTerm, setRedactTerm] = useState<string>('');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -160,6 +216,55 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
     detectPages();
   }, [files]);
 
+  useEffect(() => {
+    const loadPreviews = async () => {
+      const newPreviews = { ...filePreviews };
+      let updated = false;
+
+      for (const file of files) {
+        if (newPreviews[file.name]) continue;
+
+        if (file.type === 'application/pdf') {
+          const dataUrl = await renderPdfPageToDataUrl(file);
+          if (dataUrl) {
+            newPreviews[file.name] = dataUrl;
+            updated = true;
+          }
+        } else if (file.type.startsWith('image/')) {
+          newPreviews[file.name] = URL.createObjectURL(file);
+          updated = true;
+        }
+      }
+
+      if (updated) {
+        setFilePreviews(newPreviews);
+      }
+    };
+
+    loadPreviews();
+  }, [files]);
+
+  const rotateFile = (fileName: string) => {
+    setFileRotations(prev => {
+      const current = prev[fileName] || 0;
+      const next = (current + 90) % 360;
+      if (toolId === 'rotate') {
+        setRotateAngle(String(next));
+      }
+      return { ...prev, [fileName]: next };
+    });
+  };
+
+  const moveFile = (index: number, direction: 'left' | 'right') => {
+    const newIndex = direction === 'left' ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= files.length) return;
+    const updatedFiles = [...files];
+    const temp = updatedFiles[index];
+    updatedFiles[index] = updatedFiles[newIndex];
+    updatedFiles[newIndex] = temp;
+    setFiles(updatedFiles);
+  };
+
   const handleDrag = (e: DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -232,12 +337,21 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
       return;
     }
 
-    if (isIntelligence && !geminiKey.trim()) {
+    const isAiRequired = ['ocr', 'edit-pdf', 'ai-summarizer', 'translate'].includes(toolId);
+    if (isAiRequired && !geminiKey.trim()) {
       setErrorMessage('A Google Gemini API key must be provided to use this tool.');
       return;
     }
 
     // Per-tool validation
+    if (toolId === 'edit-pdf' && !editPrompt.trim()) {
+      setErrorMessage('Please enter editing instructions for the AI.');
+      return;
+    }
+    if (toolId === 'redact' && !redactTerm.trim()) {
+      setErrorMessage('Please enter a term to redact from the PDF.');
+      return;
+    }
     if (toolId === 'remove-pages' && !pageNumbers.trim()) {
       setErrorMessage('Please enter page numbers to remove (e.g. "1,3,5").');
       return;
@@ -283,6 +397,14 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
         pgNumFontSize: '10',
         // Protect / Unlock
         password: pdfPassword,
+        // Crop
+        left: cropLeft, top: cropTop, right: cropRight, bottom: cropBottom,
+        // Edit PDF
+        prompt: editPrompt,
+        // Sign
+        signatureText,
+        // Redact
+        term: redactTerm,
       };
 
       // For extract-pages, we forward extractPageRanges as pageRanges
@@ -483,368 +605,530 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
           )}
         </div>
       ) : (
-        <div className="file-list-container">
-          <div className="file-list-header">
-            <span>Selected Files ({files.length})</span>
-            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-              {toolId === 'scan-to-pdf' && (
-                <button
-                  type="button"
-                  onClick={() => setIsCameraActive(true)}
-                  className="add-more-btn"
-                  style={{
-                    background: 'rgba(59, 130, 246, 0.15)',
-                    color: '#60a5fa',
-                    border: '1px solid rgba(59, 130, 246, 0.3)',
-                  }}
-                >
-                  📷 Scan Page
-                </button>
-              )}
-              {allowMultiple && (
-                <button onClick={() => fileInputRef.current?.click()} className="add-more-btn">
-                  + Add Files
-                </button>
-              )}
-              <button onClick={clearFiles} className="clear-btn">Clear All</button>
+        <div className="tool-workspace-layout">
+          <div className="workspace-main-panel">
+            <div className="file-list-header">
+              <span>Selected Files ({files.length})</span>
+              <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                {toolId === 'scan-to-pdf' && (
+                  <button
+                    type="button"
+                    onClick={() => setIsCameraActive(true)}
+                    className="add-more-btn"
+                    style={{
+                      background: 'rgba(59, 130, 246, 0.15)',
+                      color: '#60a5fa',
+                      border: '1px solid rgba(59, 130, 246, 0.3)',
+                    }}
+                  >
+                    📷 Scan Page
+                  </button>
+                )}
+                {allowMultiple && (
+                  <button onClick={() => fileInputRef.current?.click()} className="add-more-btn">
+                    + Add Files
+                  </button>
+                )}
+                <button onClick={clearFiles} className="clear-btn">Clear All</button>
+              </div>
+            </div>
+
+            <div className="preview-card-grid">
+              {files.map((file, index) => {
+                const rotation = fileRotations[file.name] || 0;
+                const previewUrl = filePreviews[file.name];
+                const sizeMB = (file.size / 1024 / 1024).toFixed(2);
+                const fileColor = getFileColor(file);
+                const fileExt = getFileExtension(file);
+
+                return (
+                  <div key={index} className="preview-card-wrapper">
+                    <div className="preview-card">
+                      <div 
+                        className="preview-thumbnail-container"
+                        style={{ transform: `rotate(${rotation}deg)` }}
+                      >
+                        {previewUrl ? (
+                          <div 
+                            className="preview-thumbnail" 
+                            style={{ backgroundImage: `url(${previewUrl})` }}
+                          />
+                        ) : (
+                          <div className="preview-placeholder">
+                            <div className="file-badge" style={{ backgroundColor: fileColor }}>
+                              {fileExt.toUpperCase() || 'FILE'}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="preview-card-footer">
+                        <span className="preview-card-name" title={file.name}>
+                          {file.name}
+                        </span>
+                        <span className="preview-card-size">
+                          {sizeMB} MB
+                        </span>
+                      </div>
+
+                      {/* Card Overlay Actions */}
+                      <div className="preview-card-overlay">
+                        <button 
+                          type="button" 
+                          onClick={(e) => { e.stopPropagation(); rotateFile(file.name); }} 
+                          className="card-action-btn"
+                          title="Rotate"
+                        >
+                          🔄 Rotate
+                        </button>
+                        
+                        {allowMultiple && (
+                          <div className="reorder-actions">
+                            <button 
+                              type="button" 
+                              disabled={index === 0}
+                              onClick={(e) => { e.stopPropagation(); moveFile(index, 'left'); }} 
+                              className="reorder-arrow-btn"
+                              title="Move Left"
+                            >
+                              ◀
+                            </button>
+                            <button 
+                              type="button" 
+                              disabled={index === files.length - 1}
+                              onClick={(e) => { e.stopPropagation(); moveFile(index, 'right'); }} 
+                              className="reorder-arrow-btn"
+                              title="Move Right"
+                            >
+                              ▶
+                            </button>
+                          </div>
+                        )}
+
+                        <button 
+                          type="button" 
+                          onClick={(e) => { e.stopPropagation(); removeFile(index); }} 
+                          className="card-action-btn delete-card-btn"
+                          title="Remove File"
+                        >
+                          ❌ Delete
+                        </button>
+                      </div>
+                    </div>
+                    <div className="card-index-badge">{index + 1}</div>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
-          <div className="file-grid">
-            {files.map((file, index) => (
-              <div key={index} className="file-card">
-                <div className="file-info">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" style={{ marginRight: '8px', flexShrink: 0 }}>
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                    <polyline points="14 2 14 8 20 8" />
-                  </svg>
-                  <span className="file-name" title={file.name}>
-                    {file.name.length > 24 ? `${file.name.slice(0, 14)}...${file.name.slice(-8)}` : file.name}
-                  </span>
+          <div className="changes-sidebar">
+            <div className="changes-sidebar-header">
+              <h3 className="changes-sidebar-title">⚙️ Changes Box</h3>
+              <div className="changes-summary-details">
+                <div className="summary-detail-row">
+                  <span>Selected files:</span>
+                  <strong>{files.length}</strong>
                 </div>
-                <div className="file-actions">
-                  <span className="file-size">{(file.size / 1024 / 1024).toFixed(2)} MB</span>
-                  <button onClick={() => removeFile(index)} className="remove-btn">&times;</button>
+                <div className="summary-detail-row">
+                  <span>Total Size:</span>
+                  <strong>{(files.reduce((acc, f) => acc + f.size, 0) / 1024 / 1024).toFixed(2)} MB</strong>
                 </div>
+                {pageCount !== null && (
+                  <div className="summary-detail-row">
+                    <span>Total Pages:</span>
+                    <strong>{pageCount}</strong>
+                  </div>
+                )}
               </div>
-            ))}
-          </div>
+            </div>
 
-          {/* ─── Options Panel ──────────────────────────────────────── */}
-          <div className="settings-panel">
-            <h4 className="settings-title">⚙️ Options Configurator</h4>
+            <div className="settings-panel">
+              <h4 className="settings-title">Options Configurator</h4>
 
-            {/* Gemini API Key for intelligence tools */}
-            {isIntelligence && (
-              <div className="setting-group">
-                <label className="setting-label">Google Gemini API Key:</label>
-                <input
-                  type="password"
-                  placeholder="Enter your Gemini API Key..."
-                  value={geminiKey}
-                  onChange={(e) => { setGeminiKey(e.target.value); localStorage.setItem('gemini_api_key', e.target.value); }}
-                  className="setting-input"
-                  id="gemini-api-key-input"
-                />
-              </div>
-            )}
-
-            {/* COMPRESS options */}
-            {toolId === 'compress' && (
-              <div className="setting-group">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <label className="setting-label">Target Size (Compression Level):</label>
-                  <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#60a5fa' }}>
-                    {compressionPercent}% of original ({((files.reduce((acc, f) => acc + f.size, 0)) * (compressionPercent / 100) / 1024).toFixed(0)} KB total)
-                  </span>
-                </div>
-                <input
-                  type="range"
-                  min="10"
-                  max="90"
-                  value={compressionPercent}
-                  onChange={(e) => setCompressionPercent(parseInt(e.target.value, 10))}
-                  style={{
-                    width: '100%',
-                    accentColor: '#3b82f6',
-                    cursor: 'pointer',
-                    marginTop: '8px',
-                    height: '6px',
-                    borderRadius: '3px',
-                    background: '#1e293b',
-                    outline: 'none',
-                  }}
-                  id="compression-slider"
-                />
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#64748b', marginTop: '4px' }}>
-                  <span>High Compression (10% size)</span>
-                  <span>Medium (50%)</span>
-                  <span>Low Compression (90% size)</span>
-                </div>
-              </div>
-            )}
-
-            {/* WATERMARK options */}
-            {toolId === 'watermark' && (
-              <>
+              {/* Gemini API Key for intelligence tools */}
+              {isIntelligence && (
                 <div className="setting-group">
-                  <label className="setting-label">Watermark Text:</label>
+                  <label className="setting-label">Google Gemini API Key:</label>
                   <input
-                    type="text"
-                    placeholder="e.g. CONFIDENTIAL"
-                    value={watermarkText}
-                    onChange={(e) => setWatermarkText(e.target.value)}
+                    type="password"
+                    placeholder="Enter your Gemini API Key..."
+                    value={geminiKey}
+                    onChange={(e) => { setGeminiKey(e.target.value); localStorage.setItem('gemini_api_key', e.target.value); }}
                     className="setting-input"
-                    id="watermark-text-input"
+                    id="gemini-api-key-input"
                   />
                 </div>
-                <div className="setting-row" style={{ marginTop: '10px' }}>
-                  <div className="setting-col">
-                    <label className="setting-label">Font Size:</label>
-                    <input type="number" min="12" max="80" value={watermarkFontSize} onChange={(e) => setWatermarkFontSize(parseInt(e.target.value, 10) || 40)} className="setting-input" />
-                  </div>
-                  <div className="setting-col">
-                    <label className="setting-label">Opacity (0.05–1):</label>
-                    <input type="number" min="0.05" max="1" step="0.05" value={opacity} onChange={(e) => setOpacity(parseFloat(e.target.value))} className="setting-input" />
-                  </div>
-                </div>
-              </>
-            )}
+              )}
 
-            {/* SPLIT options */}
-            {toolId === 'split' && (
-              <>
-                <div className="setting-group">
-                  <label className="setting-label">Split Mode:</label>
-                  <select value={splitMode} onChange={(e) => setSplitMode(e.target.value as any)} className="setting-select">
-                    <option value="all">Every Page (one PDF per page)</option>
-                    <option value="half">Split in Half (2 parts)</option>
-                    <option value="range">Custom Page Ranges</option>
-                  </select>
-                </div>
-                {splitMode === 'range' && (
-                  <div className="setting-group" style={{ marginTop: '10px' }}>
-                    <label className="setting-label">Page Ranges (e.g. "1-3,4-6,7"):</label>
-                    <input type="text" placeholder="1-3,4-6,7" value={pageRanges} onChange={(e) => setPageRanges(e.target.value)} className="setting-input" />
-                  </div>
-                )}
-              </>
-            )}
-
-            {/* ROTATE options */}
-            {toolId === 'rotate' && (
-              <div className="setting-row">
-                <div className="setting-col">
-                  <label className="setting-label">Rotation Angle:</label>
-                  <select value={rotateAngle} onChange={(e) => setRotateAngle(e.target.value)} className="setting-select">
-                    <option value="90">90° Clockwise</option>
-                    <option value="180">180° (Upside Down)</option>
-                    <option value="270">270° (Counter-Clockwise)</option>
-                  </select>
-                </div>
-                <div className="setting-col">
-                  <label className="setting-label">Pages:</label>
-                  <input type="text" placeholder="all  OR  1,3,5" value={rotatePages} onChange={(e) => setRotatePages(e.target.value)} className="setting-input" />
-                  <small className="setting-hint">Use "all" or comma-separated page numbers</small>
-                </div>
-              </div>
-            )}
-
-            {/* REMOVE PAGES options */}
-            {toolId === 'remove-pages' && (
-              <div className="setting-group">
-                <label className="setting-label">Pages to Remove (e.g. "1,3,5"):</label>
-                <input type="text" placeholder="1,3,5" value={pageNumbers} onChange={(e) => setPageNumbers(e.target.value)} className="setting-input" />
-                <small className="setting-hint">Comma-separated 1-indexed page numbers</small>
-              </div>
-            )}
-
-            {/* EXTRACT PAGES options */}
-            {toolId === 'extract-pages' && (
-              <div className="setting-group">
-                <label className="setting-label">Pages to Extract (e.g. "1-3,5,7-9"):</label>
-                <input type="text" placeholder="1-3,5,7-9" value={extractPageRanges} onChange={(e) => setExtractPageRanges(e.target.value)} className="setting-input" />
-                <small className="setting-hint">Use ranges (1-3) or individual pages (5), comma-separated</small>
-              </div>
-            )}
-
-            {/* ORGANIZE PDF options */}
-            {toolId === 'organize-pdf' && (
-              <>
+              {/* COMPRESS options */}
+              {toolId === 'compress' && (
                 <div className="setting-group">
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <label className="setting-label">Page Order Mode:</label>
-                    {pageCount !== null && (
-                      <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#60a5fa' }}>
-                        Detected {pageCount} pages
-                      </span>
-                    )}
+                    <label className="setting-label">Target Size (Compression Level):</label>
+                    <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#60a5fa' }}>
+                      {compressionPercent}% of original ({((files.reduce((acc, f) => acc + f.size, 0)) * (compressionPercent / 100) / 1024).toFixed(0)} KB total)
+                    </span>
                   </div>
-                  <select
-                    value={organizeMode}
-                    onChange={(e) => setOrganizeMode(e.target.value as any)}
-                    className="setting-select"
-                  >
-                    <option value="reverse">
-                      {pageCount !== null ? `Down to Up (${pageCount} to 1)` : 'Down to Up (Reverse Pages)'}
-                    </option>
-                    <option value="normal">
-                      {pageCount !== null ? `Up to Down (1 to ${pageCount})` : 'Up to Down (Keep Original Order)'}
-                    </option>
-                    <option value="custom">Custom Page Order</option>
-                  </select>
+                  <input
+                    type="range"
+                    min="10"
+                    max="90"
+                    value={compressionPercent}
+                    onChange={(e) => setCompressionPercent(parseInt(e.target.value, 10))}
+                    style={{
+                      width: '100%',
+                      accentColor: '#3b82f6',
+                      cursor: 'pointer',
+                      marginTop: '8px',
+                      height: '6px',
+                      borderRadius: '3px',
+                      background: '#1e293b',
+                      outline: 'none',
+                    }}
+                    id="compression-slider"
+                  />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#64748b', marginTop: '4px' }}>
+                    <span>High Compression (10% size)</span>
+                    <span>Medium (50%)</span>
+                    <span>Low Compression (90% size)</span>
+                  </div>
                 </div>
-                {organizeMode === 'custom' && (
-                  <div className="setting-group" style={{ marginTop: '10px' }}>
-                    <label className="setting-label">
-                      New Page Order (e.g. "3,1,2" for {pageCount || 3}-page PDF):
-                    </label>
+              )}
+
+              {/* WATERMARK options */}
+              {toolId === 'watermark' && (
+                <>
+                  <div className="setting-group">
+                    <label className="setting-label">Watermark Text:</label>
                     <input
                       type="text"
-                      placeholder="e.g. 3,1,2"
-                      value={pageOrder}
-                      onChange={(e) => setPageOrder(e.target.value)}
+                      placeholder="e.g. CONFIDENTIAL"
+                      value={watermarkText}
+                      onChange={(e) => setWatermarkText(e.target.value)}
                       className="setting-input"
+                      id="watermark-text-input"
                     />
-                    <small className="setting-hint">
-                      Comma-separated 1-indexed page numbers in desired order.
-                    </small>
                   </div>
-                )}
-              </>
-            )}
+                  <div className="setting-row" style={{ marginTop: '10px' }}>
+                    <div className="setting-col">
+                      <label className="setting-label">Font Size:</label>
+                      <input type="number" min="12" max="80" value={watermarkFontSize} onChange={(e) => setWatermarkFontSize(parseInt(e.target.value, 10) || 40)} className="setting-input" />
+                    </div>
+                    <div className="setting-col">
+                      <label className="setting-label">Opacity (0.05–1):</label>
+                      <input type="number" min="0.05" max="1" step="0.05" value={opacity} onChange={(e) => setOpacity(parseFloat(e.target.value))} className="setting-input" />
+                    </div>
+                  </div>
+                </>
+              )}
 
-            {/* PAGE NUMBERS options */}
-            {toolId === 'page-numbers' && (
-              <>
+              {/* SPLIT options */}
+              {toolId === 'split' && (
+                <>
+                  <div className="setting-group">
+                    <label className="setting-label">Split Mode:</label>
+                    <select value={splitMode} onChange={(e) => setSplitMode(e.target.value as any)} className="setting-select">
+                      <option value="all">Every Page (one PDF per page)</option>
+                      <option value="half">Split in Half (2 parts)</option>
+                      <option value="range">Custom Page Ranges</option>
+                    </select>
+                  </div>
+                  {splitMode === 'range' && (
+                    <div className="setting-group" style={{ marginTop: '10px' }}>
+                      <label className="setting-label">Page Ranges (e.g. "1-3,4-6,7"):</label>
+                      <input type="text" placeholder="1-3,4-6,7" value={pageRanges} onChange={(e) => setPageRanges(e.target.value)} className="setting-input" />
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* ROTATE options */}
+              {toolId === 'rotate' && (
                 <div className="setting-row">
-                  <div className="setting-col" style={{ flex: 2 }}>
-                    <label className="setting-label">Position:</label>
-                    <select value={pageNumPosition} onChange={(e) => setPageNumPosition(e.target.value)} className="setting-select">
-                      <option value="bottom-center">Bottom Center</option>
-                      <option value="bottom-left">Bottom Left</option>
-                      <option value="bottom-right">Bottom Right</option>
-                      <option value="top-center">Top Center</option>
-                      <option value="top-left">Top Left</option>
-                      <option value="top-right">Top Right</option>
+                  <div className="setting-col">
+                    <label className="setting-label">Rotation Angle:</label>
+                    <select value={rotateAngle} onChange={(e) => setRotateAngle(e.target.value)} className="setting-select">
+                      <option value="90">90° Clockwise</option>
+                      <option value="180">180° (Upside Down)</option>
+                      <option value="270">270° (Counter-Clockwise)</option>
                     </select>
                   </div>
                   <div className="setting-col">
-                    <label className="setting-label">Start Number:</label>
-                    <input type="number" min="0" value={pageNumStart} onChange={(e) => setPageNumStart(parseInt(e.target.value, 10) || 1)} className="setting-input" />
+                    <label className="setting-label">Pages:</label>
+                    <input type="text" placeholder="all  OR  1,3,5" value={rotatePages} onChange={(e) => setRotatePages(e.target.value)} className="setting-input" />
+                    <small className="setting-hint">Use "all" or comma-separated page numbers</small>
                   </div>
                 </div>
-                <div className="setting-group" style={{ marginTop: '10px' }}>
-                  <label className="setting-label">Prefix (optional, e.g. "Page "):</label>
-                  <input type="text" placeholder="Page " value={pageNumPrefix} onChange={(e) => setPageNumPrefix(e.target.value)} className="setting-input" />
+              )}
+
+              {/* REMOVE PAGES options */}
+              {toolId === 'remove-pages' && (
+                <div className="setting-group">
+                  <label className="setting-label">Pages to Remove (e.g. "1,3,5"):</label>
+                  <input type="text" placeholder="1,3,5" value={pageNumbers} onChange={(e) => setPageNumbers(e.target.value)} className="setting-input" />
+                  <small className="setting-hint">Comma-separated 1-indexed page numbers</small>
                 </div>
-              </>
-            )}
+              )}
 
-            {/* PROTECT options */}
-            {toolId === 'protect' && (
-              <div className="setting-group">
-                <label className="setting-label">Password to Encrypt PDF:</label>
-                <input
-                  type="password"
-                  placeholder="Enter encryption password..."
-                  value={pdfPassword}
-                  onChange={(e) => setPdfPassword(e.target.value)}
-                  className="setting-input"
-                  id="protect-password-input"
-                />
-                <small className="setting-hint">⚠️ Note: Make sure to remember this password; it will be required to open the PDF. Uses strong AES-256 encryption.</small>
+              {/* EXTRACT PAGES options */}
+              {toolId === 'extract-pages' && (
+                <div className="setting-group">
+                  <label className="setting-label">Pages to Extract (e.g. "1-3,5,7-9"):</label>
+                  <input type="text" placeholder="1-3,5,7-9" value={extractPageRanges} onChange={(e) => setExtractPageRanges(e.target.value)} className="setting-input" />
+                  <small className="setting-hint">Use ranges (1-3) or individual pages (5), comma-separated</small>
+                </div>
+              )}
+
+              {/* ORGANIZE PDF options */}
+              {toolId === 'organize-pdf' && (
+                <>
+                  <div className="setting-group">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <label className="setting-label">Page Order Mode:</label>
+                      {pageCount !== null && (
+                        <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#60a5fa' }}>
+                          Detected {pageCount} pages
+                        </span>
+                      )}
+                    </div>
+                    <select
+                      value={organizeMode}
+                      onChange={(e) => setOrganizeMode(e.target.value as any)}
+                      className="setting-select"
+                    >
+                      <option value="reverse">
+                        {pageCount !== null ? `Down to Up (${pageCount} to 1)` : 'Down to Up (Reverse Pages)'}
+                      </option>
+                      <option value="normal">
+                        {pageCount !== null ? `Up to Down (1 to ${pageCount})` : 'Up to Down (Keep Original Order)'}
+                      </option>
+                      <option value="custom">Custom Page Order</option>
+                    </select>
+                  </div>
+                  {organizeMode === 'custom' && (
+                    <div className="setting-group" style={{ marginTop: '10px' }}>
+                      <label className="setting-label">
+                        New Page Order (e.g. "3,1,2" for {pageCount || 3}-page PDF):
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. 3,1,2"
+                        value={pageOrder}
+                        onChange={(e) => setPageOrder(e.target.value)}
+                        className="setting-input"
+                      />
+                      <small className="setting-hint">
+                        Comma-separated 1-indexed page numbers in desired order.
+                      </small>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* PAGE NUMBERS options */}
+              {toolId === 'page-numbers' && (
+                <>
+                  <div className="setting-row">
+                    <div className="setting-col" style={{ flex: 2 }}>
+                      <label className="setting-label">Position:</label>
+                      <select value={pageNumPosition} onChange={(e) => setPageNumPosition(e.target.value)} className="setting-select">
+                        <option value="bottom-center">Bottom Center</option>
+                        <option value="bottom-left">Bottom Left</option>
+                        <option value="bottom-right">Bottom Right</option>
+                        <option value="top-center">Top Center</option>
+                        <option value="top-left">Top Left</option>
+                        <option value="top-right">Top Right</option>
+                      </select>
+                    </div>
+                    <div className="setting-col">
+                      <label className="setting-label">Start Number:</label>
+                      <input type="number" min="0" value={pageNumStart} onChange={(e) => setPageNumStart(parseInt(e.target.value, 10) || 1)} className="setting-input" />
+                    </div>
+                  </div>
+                  <div className="setting-group" style={{ marginTop: '10px' }}>
+                    <label className="setting-label">Prefix (optional, e.g. "Page "):</label>
+                    <input type="text" placeholder="Page " value={pageNumPrefix} onChange={(e) => setPageNumPrefix(e.target.value)} className="setting-input" />
+                  </div>
+                </>
+              )}
+
+              {/* PROTECT options */}
+              {toolId === 'protect' && (
+                <div className="setting-group">
+                  <label className="setting-label">Password to Encrypt PDF:</label>
+                  <input
+                    type="password"
+                    placeholder="Enter encryption password..."
+                    value={pdfPassword}
+                    onChange={(e) => setPdfPassword(e.target.value)}
+                    className="setting-input"
+                    id="protect-password-input"
+                  />
+                  <small className="setting-hint">⚠️ Note: Make sure to remember this password; it will be required to open the PDF. Uses strong AES-256 encryption.</small>
+                </div>
+              )}
+
+              {/* UNLOCK options */}
+              {toolId === 'unlock' && (
+                <div className="setting-group">
+                  <label className="setting-label">PDF Password to Unlock:</label>
+                  <input
+                    type="password"
+                    placeholder="Enter password to unlock PDF..."
+                    value={pdfPassword}
+                    onChange={(e) => setPdfPassword(e.target.value)}
+                    className="setting-input"
+                    id="unlock-password-input"
+                  />
+                  <small className="setting-hint">⚠️ Note: Enter the password that was used to protect this PDF document.</small>
+                </div>
+              )}
+
+              {/* AI Summarizer format */}
+              {toolId === 'ai-summarizer' && (
+                <div className="setting-group">
+                  <label className="setting-label">Summary Format:</label>
+                  <select value={summaryFormat} onChange={(e) => setSummaryFormat(e.target.value as any)} className="setting-select" id="summary-format-select">
+                    <option value="bullets">Key Bullet Points</option>
+                    <option value="paragraph">Fluid Narrative Summary</option>
+                  </select>
+                </div>
+              )}
+
+              {/* Translate language */}
+              {toolId === 'translate' && (
+                <div className="setting-group">
+                  <label className="setting-label">Target Language:</label>
+                  <select value={targetLanguage} onChange={(e) => setTargetLanguage(e.target.value)} className="setting-select" id="target-language-select">
+                    <option value="Spanish">Spanish</option>
+                    <option value="French">French</option>
+                    <option value="German">German</option>
+                    <option value="Hindi">Hindi</option>
+                    <option value="Bengali">Bengali</option>
+                    <option value="Marathi">Marathi</option>
+                    <option value="Telugu">Telugu</option>
+                    <option value="Tamil">Tamil</option>
+                    <option value="Gujarati">Gujarati</option>
+                    <option value="Urdu">Urdu</option>
+                    <option value="Kannada">Kannada</option>
+                    <option value="Odia">Odia</option>
+                    <option value="Malayalam">Malayalam</option>
+                    <option value="Punjabi">Punjabi</option>
+                    <option value="Assamese">Assamese</option>
+                    <option value="Chinese (Simplified)">Chinese (Simplified)</option>
+                    <option value="Chinese (Traditional)">Chinese (Traditional)</option>
+                    <option value="Japanese">Japanese</option>
+                    <option value="Korean">Korean</option>
+                    <option value="Russian">Russian</option>
+                    <option value="Arabic">Arabic</option>
+                    <option value="Portuguese">Portuguese</option>
+                    <option value="Italian">Italian</option>
+                    <option value="Turkish">Turkish</option>
+                    <option value="Vietnamese">Vietnamese</option>
+                    <option value="Dutch">Dutch</option>
+                    <option value="Indonesian">Indonesian</option>
+                    <option value="Polish">Polish</option>
+                  </select>
+                </div>
+              )}
+
+              {/* CROP options */}
+              {toolId === 'crop' && (
+                <div className="setting-group">
+                  <label className="setting-label">Crop Margins (percentage):</label>
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: '11px', color: '#64748b' }}>Left (%)</label>
+                      <input type="number" min="0" max="49" value={cropLeft} onChange={(e) => setCropLeft(parseInt(e.target.value, 10) || 0)} className="setting-input" />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: '11px', color: '#64748b' }}>Top (%)</label>
+                      <input type="number" min="0" max="49" value={cropTop} onChange={(e) => setCropTop(parseInt(e.target.value, 10) || 0)} className="setting-input" />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: '11px', color: '#64748b' }}>Right (%)</label>
+                      <input type="number" min="0" max="49" value={cropRight} onChange={(e) => setCropRight(parseInt(e.target.value, 10) || 0)} className="setting-input" />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: '11px', color: '#64748b' }}>Bottom (%)</label>
+                      <input type="number" min="0" max="49" value={cropBottom} onChange={(e) => setCropBottom(parseInt(e.target.value, 10) || 0)} className="setting-input" />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* EDIT PDF options */}
+              {toolId === 'edit-pdf' && (
+                <div className="setting-group">
+                  <label className="setting-label">AI Editing Instructions:</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Translate to Spanish, fix formatting, add footer..."
+                    value={editPrompt}
+                    onChange={(e) => setEditPrompt(e.target.value)}
+                    className="setting-input"
+                    id="edit-prompt-input"
+                  />
+                </div>
+              )}
+
+              {/* SIGN options */}
+              {toolId === 'sign' && (
+                <div className="setting-group">
+                  <label className="setting-label">Signature Text (Typed Name):</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. John Doe"
+                    value={signatureText}
+                    onChange={(e) => setSignatureText(e.target.value)}
+                    className="setting-input"
+                    id="signature-text-input"
+                  />
+                </div>
+              )}
+
+              {/* REDACT options */}
+              {toolId === 'redact' && (
+                <div className="setting-group">
+                  <label className="setting-label">Term to Redact (blackout):</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Email, SSN, confidential info..."
+                    value={redactTerm}
+                    onChange={(e) => setRedactTerm(e.target.value)}
+                    className="setting-input"
+                    id="redact-term-input"
+                  />
+                </div>
+              )}
+
+              {/* No-op message for tools with no options */}
+              {!isIntelligence &&
+                !['compress', 'watermark', 'split', 'rotate', 'remove-pages', 'extract-pages',
+                  'organize-pdf', 'page-numbers', 'protect', 'unlock', 'ai-summarizer', 'translate',
+                  'crop', 'edit-pdf', 'sign', 'redact'].includes(toolId) && (
+                <p style={{ color: '#64748b', fontSize: '13px', margin: '0' }}>No additional options required for this tool.</p>
+              )}
+            </div>
+
+            {/* Progress Bar */}
+            {isProcessing && (
+              <div className="progress-container">
+                <div className="progress-bar">
+                  <div className="progress-fill" style={{ width: `${progress}%` }} />
+                </div>
+                <div className="progress-text">Processing... {progress}%</div>
               </div>
             )}
 
-            {/* UNLOCK options */}
-            {toolId === 'unlock' && (
-              <div className="setting-group">
-                <label className="setting-label">PDF Password to Unlock:</label>
-                <input
-                  type="password"
-                  placeholder="Enter password to unlock PDF..."
-                  value={pdfPassword}
-                  onChange={(e) => setPdfPassword(e.target.value)}
-                  className="setting-input"
-                  id="unlock-password-input"
-                />
-                <small className="setting-hint">⚠️ Note: Enter the password that was used to protect this PDF document.</small>
-              </div>
-            )}
-
-            {/* AI Summarizer format */}
-            {toolId === 'ai-summarizer' && (
-              <div className="setting-group">
-                <label className="setting-label">Summary Format:</label>
-                <select value={summaryFormat} onChange={(e) => setSummaryFormat(e.target.value as any)} className="setting-select" id="summary-format-select">
-                  <option value="bullets">Key Bullet Points</option>
-                  <option value="paragraph">Fluid Narrative Summary</option>
-                </select>
-              </div>
-            )}
-
-            {/* Translate language */}
-            {toolId === 'translate' && (
-              <div className="setting-group">
-                <label className="setting-label">Target Language:</label>
-                <select value={targetLanguage} onChange={(e) => setTargetLanguage(e.target.value)} className="setting-select" id="target-language-select">
-                  <option value="Spanish">Spanish</option>
-                  <option value="French">French</option>
-                  <option value="German">German</option>
-                  <option value="Hindi">Hindi</option>
-                  <option value="Bengali">Bengali</option>
-                  <option value="Marathi">Marathi</option>
-                  <option value="Telugu">Telugu</option>
-                  <option value="Tamil">Tamil</option>
-                  <option value="Gujarati">Gujarati</option>
-                  <option value="Urdu">Urdu</option>
-                  <option value="Kannada">Kannada</option>
-                  <option value="Odia">Odia</option>
-                  <option value="Malayalam">Malayalam</option>
-                  <option value="Punjabi">Punjabi</option>
-                  <option value="Assamese">Assamese</option>
-                  <option value="Chinese (Simplified)">Chinese (Simplified)</option>
-                  <option value="Chinese (Traditional)">Chinese (Traditional)</option>
-                  <option value="Japanese">Japanese</option>
-                  <option value="Korean">Korean</option>
-                  <option value="Russian">Russian</option>
-                  <option value="Arabic">Arabic</option>
-                  <option value="Portuguese">Portuguese</option>
-                  <option value="Italian">Italian</option>
-                  <option value="Turkish">Turkish</option>
-                  <option value="Vietnamese">Vietnamese</option>
-                  <option value="Dutch">Dutch</option>
-                  <option value="Indonesian">Indonesian</option>
-                  <option value="Polish">Polish</option>
-                </select>
-              </div>
-            )}
-
-            {/* No-op message for tools with no options */}
-            {!isIntelligence &&
-              !['compress', 'watermark', 'split', 'rotate', 'remove-pages', 'extract-pages',
-                'organize-pdf', 'page-numbers', 'protect', 'unlock', 'ai-summarizer', 'translate'].includes(toolId) && (
-              <p style={{ color: '#64748b', fontSize: '13px', margin: '0' }}>No additional options required for this tool.</p>
+            {/* Process Button */}
+            {!isProcessing && (
+              <button onClick={handleTriggerProcess} className="process-btn" id="process-btn">
+                ⚡ Process &amp; Download
+              </button>
             )}
           </div>
-
-          {/* Progress Bar */}
-          {isProcessing && (
-            <div className="progress-container">
-              <div className="progress-bar">
-                <div className="progress-fill" style={{ width: `${progress}%` }} />
-              </div>
-              <div className="progress-text">Processing... {progress}%</div>
-            </div>
-          )}
-
-          {/* Process Button */}
-          {!isProcessing && (
-            <button onClick={handleTriggerProcess} className="process-btn" id="process-btn">
-              ⚡ Process &amp; Download
-            </button>
-          )}
         </div>
       )}
 

@@ -159,7 +159,7 @@ export default function App() {
     {
       id: 'ocr',
       name: 'OCR PDF',
-      description: 'Easily convert scanned PDF into searchable and selectable documents.',
+      description: 'Convert scanned PDF to searchable, selectable text using Gemini 1.5 Flash AI. (Requires Gemini API Key)',
       category: 'optimize',
       iconColor: '#22c55e',
       iconPath: (
@@ -543,11 +543,7 @@ export default function App() {
     if (!selectedTool) return;
 
     // Tools that are shown in UI but require external binaries — handle gracefully
-    const NOT_IMPLEMENTED_TOOLS = [
-      'ocr', 'crop', 'edit-pdf', 'pdf-forms', 'sign', 'redact', 'compare',
-      'word-to-pdf', 'powerpoint-to-pdf', 'excel-to-pdf', 'html-to-pdf',
-      'pdf-to-word', 'pdf-to-powerpoint', 'pdf-to-excel', 'pdf-to-pdfa'
-    ];
+    const NOT_IMPLEMENTED_TOOLS: string[] = [];
 
     if (NOT_IMPLEMENTED_TOOLS.includes(selectedTool.id)) {
       alert(`"${selectedTool.name}" requires a server-side binary (e.g. LibreOffice, Ghostscript) that is not currently installed. This tool is coming soon!`);
@@ -893,6 +889,71 @@ export default function App() {
             fileNameToDownload: makeFileName(files[0].name, `_translated_${options.targetLanguage || 'Spanish'}`),
           });
         }
+      }
+
+      // ── OCR PDF ──────────────────────────────────────────────────────────────
+      else if (selectedTool.id === 'ocr') {
+        const result = await OmniPdfApi.ocrPdf(token || '', files[0], options.geminiKey);
+        setProcessedResult({
+          toolName: selectedTool.name,
+          fileName: files[0].name,
+          summary: result.summary,
+          downloadUrl: result.fileData ? base64ToBlobUrl(result.fileData) : undefined,
+          fileNameToDownload: result.fileName || `ocr_${files[0].name}`,
+          successMessage: 'Your PDF has been OCR-processed with Gemini AI!',
+          actionText: 'Download OCR PDF',
+        });
+      }
+
+      // ── COMPARE ──────────────────────────────────────────────────────────────
+      else if (selectedTool.id === 'compare') {
+        if (files.length < 2) {
+          alert('Please upload exactly two PDF files to compare.');
+          throw new Error('Two files are required for comparison.');
+        }
+        const result = await OmniPdfApi.comparePdfs(token || '', files[0], files[1]);
+        setProcessedResult({
+          toolName: selectedTool.name,
+          fileName: 'Comparison Report',
+          downloadUrl: result.fileData ? base64ToBlobUrl(result.fileData) : undefined,
+          fileNameToDownload: result.fileName || 'comparison_report.pdf',
+          successMessage: 'Your PDF comparison report has been generated successfully!',
+          actionText: 'Download Comparison Report',
+        });
+      }
+
+      // ── GENERIC PYTHON RUNNER TOOLS ──────────────────────────────────────────
+      else if (['word-to-pdf', 'powerpoint-to-pdf', 'excel-to-pdf', 'html-to-pdf', 'pdf-to-word', 'pdf-to-powerpoint', 'pdf-to-excel', 'pdf-to-pdfa', 'crop', 'edit-pdf', 'pdf-forms', 'sign', 'redact'].includes(selectedTool.id)) {
+        const endpoint = selectedTool.id;
+        
+        // Map clean output suffixes and mime types
+        const suffixMap: Record<string, { suffix: string, mime: string, action: string, msg: string }> = {
+          'word-to-pdf': { suffix: '.pdf', mime: 'application/pdf', action: 'Download PDF', msg: 'Document converted to PDF successfully!' },
+          'powerpoint-to-pdf': { suffix: '.pdf', mime: 'application/pdf', action: 'Download PDF', msg: 'Presentation converted to PDF successfully!' },
+          'excel-to-pdf': { suffix: '.pdf', mime: 'application/pdf', action: 'Download PDF', msg: 'Spreadsheet converted to PDF successfully!' },
+          'html-to-pdf': { suffix: '.pdf', mime: 'application/pdf', action: 'Download PDF', msg: 'HTML converted to PDF successfully!' },
+          'pdf-to-word': { suffix: '.docx', mime: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', action: 'Download Word Doc', msg: 'PDF converted to Word successfully!' },
+          'pdf-to-powerpoint': { suffix: '.pptx', mime: 'application/vnd.openxmlformats-officedocument.presentationml.presentation', action: 'Download PowerPoint', msg: 'PDF converted to PowerPoint successfully!' },
+          'pdf-to-excel': { suffix: '.xlsx', mime: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', action: 'Download Excel Workbook', msg: 'PDF converted to Excel successfully!' },
+          'pdf-to-pdfa': { suffix: '.pdf', mime: 'application/pdf', action: 'Download PDF/A', msg: 'PDF converted to PDF/A archive successfully!' },
+          'crop': { suffix: '.pdf', mime: 'application/pdf', action: 'Download Cropped PDF', msg: 'PDF margins cropped successfully!' },
+          'edit-pdf': { suffix: '.pdf', mime: 'application/pdf', action: 'Download Edited PDF', msg: 'PDF edited successfully using Gemini AI!' },
+          'pdf-forms': { suffix: '.pdf', mime: 'application/pdf', action: 'Download Flattened PDF', msg: 'Interactive PDF form fields flattened successfully!' },
+          'sign': { suffix: '.pdf', mime: 'application/pdf', action: 'Download Signed PDF', msg: 'PDF signed successfully!' },
+          'redact': { suffix: '.pdf', mime: 'application/pdf', action: 'Download Redacted PDF', msg: 'Selected text has been permanently redacted!' },
+        };
+
+        const config = suffixMap[selectedTool.id];
+        const result = await OmniPdfApi.runPdfTool(endpoint, token || '', files[0], options);
+
+        setProcessedResult({
+          toolName: selectedTool.name,
+          fileName: files[0].name,
+          downloadUrl: result.fileData ? base64ToBlobUrl(result.fileData, config.mime) : undefined,
+          fileNameToDownload: result.fileName || makeFileName(files[0].name, `_processed${config.suffix}`),
+          successMessage: result.message || config.msg,
+          actionText: config.action,
+        });
       }
 
       // ── FALLBACK ─────────────────────────────────────────────────────────────
@@ -1267,11 +1328,22 @@ export default function App() {
             <FileUploadZone
               toolName={selectedTool.name}
               toolId={selectedTool.id}
-              allowMultiple={selectedTool.id === 'merge' || selectedTool.id === 'jpg-to-pdf' || selectedTool.id === 'scan-to-pdf' || selectedTool.id === 'compress'}
-              isIntelligence={selectedTool.category === 'intelligence'}
+              allowMultiple={selectedTool.id === 'merge' || selectedTool.id === 'jpg-to-pdf' || selectedTool.id === 'scan-to-pdf' || selectedTool.id === 'compress' || selectedTool.id === 'compare'}
+              isIntelligence={
+                selectedTool.category === 'intelligence' ||
+                ['ocr', 'edit-pdf', 'pdf-to-word', 'pdf-to-powerpoint', 'pdf-to-excel'].includes(selectedTool.id)
+              }
               acceptedMimeTypes={
                 selectedTool.id === 'jpg-to-pdf' || selectedTool.id === 'scan-to-pdf'
                   ? ['image/jpeg', 'image/jpg', 'image/png']
+                  : selectedTool.id === 'word-to-pdf'
+                  ? ['application/vnd.openxmlformats-officedocument.wordprocessingml.document']
+                  : selectedTool.id === 'powerpoint-to-pdf'
+                  ? ['application/vnd.openxmlformats-officedocument.presentationml.presentation']
+                  : selectedTool.id === 'excel-to-pdf'
+                  ? ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']
+                  : selectedTool.id === 'html-to-pdf'
+                  ? ['text/html']
                   : ['application/pdf']
               }
               onProcess={handleProcessTool}

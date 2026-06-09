@@ -127,6 +127,30 @@ export const OmniPdfApi = {
   },
 
   /**
+   * Execute OCR PDF operation
+   */
+  async ocrPdf(token: string, file: File, geminiKey?: string): Promise<ToolResult> {
+    const headers = await getHeaders(token, true);
+    if (geminiKey) {
+      headers['x-gemini-key'] = geminiKey;
+    }
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch(`${API_BASE_URL}/tools/ocr`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.message || 'OCR PDF failed. Make sure you set your Gemini Key.');
+    }
+    return data;
+  },
+
+  /**
    * Execute a generic PDF tool on the backend
    */
   async runPdfTool(
@@ -136,6 +160,9 @@ export const OmniPdfApi = {
     options: Record<string, any> = {}
   ): Promise<ToolResult> {
     const headers = await getHeaders(token, true);
+    if (options.geminiKey) {
+      headers['x-gemini-key'] = options.geminiKey;
+    }
     const formData = new FormData();
     formData.append('file', file);
 
@@ -154,6 +181,32 @@ export const OmniPdfApi = {
     const data = await response.json();
     if (!response.ok) {
       throw new Error(data.message || `${endpoint} operation failed`);
+    }
+    return data;
+  },
+
+  /**
+   * Compare two PDF documents
+   */
+  async comparePdfs(
+    token: string,
+    file1: File,
+    file2: File
+  ): Promise<ToolResult> {
+    const headers = await getHeaders(token, true);
+    const formData = new FormData();
+    formData.append('file1', file1);
+    formData.append('file2', file2);
+
+    const response = await fetch(`${API_BASE_URL}/tools/compare`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.message || 'PDF Comparison failed');
     }
     return data;
   },

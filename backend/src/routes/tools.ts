@@ -19,6 +19,25 @@ import path from 'path';
 
 const execFileAsync = promisify(execFile);
 
+async function runPythonScript(args: string[]): Promise<{ stdout: string; stderr: string }> {
+  const pythonCmd = process.env.PYTHON_PATH || 'python';
+  try {
+    return await execFileAsync(pythonCmd, args);
+  } catch (err: any) {
+    if (process.env.PYTHON_PATH) {
+      throw err;
+    }
+    if (err.code === 'ENOENT' && pythonCmd === 'python') {
+      try {
+        return await execFileAsync('python3', args);
+      } catch (err3: any) {
+        throw new Error(`Failed to execute Python script. Tried 'python' and 'python3'. Details: ${err3.message}`);
+      }
+    }
+    throw err;
+  }
+}
+
 const router = Router();
 
 // Configure multer for file storage in memory
@@ -318,7 +337,7 @@ router.post(
       const scriptPath = path.join(__dirname, '../scripts/compress.py');
       console.log(`[Compress PDF] Running python compression script: ${scriptPath}`);
 
-      await execFileAsync('python', [
+      await runPythonScript( [
         scriptPath,
         inputTempPath,
         outputTempPath,
@@ -405,7 +424,7 @@ router.post(
       await fs.promises.writeFile(inputTempPath, file.buffer);
 
       const scriptPath = path.join(__dirname, '../scripts/protect.py');
-      await execFileAsync('python', [
+      await runPythonScript( [
         scriptPath,
         inputTempPath,
         outputTempPath,
@@ -875,7 +894,7 @@ router.post(
       await fs.promises.writeFile(inputTempPath, file.buffer);
 
       const scriptPath = path.join(__dirname, '../scripts/unlock.py');
-      await execFileAsync('python', [
+      await runPythonScript( [
         scriptPath,
         inputTempPath,
         outputTempPath,
@@ -1012,7 +1031,7 @@ router.post(
       await fs.promises.writeFile(inputTempPath, file.buffer);
 
       const scriptPath = path.join(__dirname, '../scripts/pdf_to_jpg.py');
-      await execFileAsync('python', [
+      await runPythonScript( [
         scriptPath,
         inputTempPath,
         outputTempPath,
@@ -1259,32 +1278,896 @@ router.post(
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Generic "Not Implemented" handler for tools shown in UI but not yet supported
 // ─────────────────────────────────────────────────────────────────────────────
-const NOT_IMPLEMENTED_TOOLS = [
-  'ocr',
-  'crop',
-  'edit-pdf',
-  'pdf-forms',
-  'sign',
-  'redact',
-  'compare',
-  'word-to-pdf',
-  'powerpoint-to-pdf',
-  'excel-to-pdf',
-  'html-to-pdf',
-  'pdf-to-word',
-  'pdf-to-powerpoint',
-  'pdf-to-excel',
-  'pdf-to-pdfa',
-  'scan-to-pdf',
-];
+// POST /api/tools/ocr
+// ─────────────────────────────────────────────────────────────────────────────
+router.post(
+  '/ocr',
+  upload.single('file'),
+  async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    const file = req.file;
+    const geminiApiKey = (req.headers['x-gemini-key'] as string) || req.body.apiKey;
+
+    if (!file) {
+      res.status(400).json({ error: 'Bad Request', message: 'A PDF document is required.' });
+      return;
+    }
+    if (!geminiApiKey) {
+      res.status(400).json({
+        error: 'Gemini Key Missing',
+        message: 'A Google Gemini API key must be provided to use the OCR PDF tool.',
+      });
+      return;
+    }
+
+    try {
+      console.log(`[OCR PDF] File: ${file.size} bytes`);
+      const genAI = new GoogleGenerativeAI(geminiApiKey);
+      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+
+      const prompt =
+        "Analyze this scanned PDF document and perform full OCR. Extract all the text page by page, preserving the document's structure, headings, paragraphs, and lists as closely as possible. Return only the clean extracted text. Do not add any extra explanations or conversational text.";
+
+      const result = await model.generateContent([
+        {
+          inlineData: {
+            data: file.buffer.toString('base64'),
+            mimeType: 'application/pdf',
+          },
+        },
+        { text: prompt },
+      ]);
+
+      const ocrText = result.response.text();
+      const ocrPdfBase64 = await createPdfFromText(ocrText, 'OCR EXTRACTED DOCUMENT — OmniPDF');
+
+      res.status(200).json({
+        success: true,
+        summary: ocrText,
+        fileData: ocrPdfBase64,
+        fileName: `ocr_${file.originalname || 'document.pdf'}`,
+        downloadUrl: `data:application/pdf;base64,${ocrPdfBase64}`,
+      });
+    } catch (error: any) {
+      console.error('[OCR PDF] Error:', error);
+      res.status(500).json({
+        error: 'OCR Processing Failed',
+        message: error.message || 'Could not perform OCR. Check if your Gemini API key is valid.',
+      });
+    }
+  }
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/tools/word-to-pdf
+// ─────────────────────────────────────────────────────────────────────────────
+router.post(
+  '/word-to-pdf',
+  upload.single('file'),
+  async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    const file = req.file;
+    if (!file) {
+      res.status(400).json({ error: 'Bad Request', message: 'A Word file is required.' });
+      return;
+    }
+
+    const tempDir = path.join(__dirname, '../../temp');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    const inputTempPath = path.join(tempDir, `input-${uniqueSuffix}.docx`);
+    const outputTempPath = path.join(tempDir, `output-${uniqueSuffix}.pdf`);
+
+    try {
+      await fs.promises.writeFile(inputTempPath, file.buffer);
+      const scriptPath = path.join(__dirname, '../scripts/word_to_pdf.py');
+
+      await runPythonScript( [scriptPath, inputTempPath, outputTempPath]);
+
+      if (!fs.existsSync(outputTempPath)) {
+        throw new Error('Word to PDF script did not generate output file.');
+      }
+
+      const bytes = await fs.promises.readFile(outputTempPath);
+      const base64 = Buffer.from(bytes).toString('base64');
+
+      res.status(200).json({
+        success: true,
+        message: 'Word document converted to PDF successfully.',
+        fileData: base64,
+        fileName: `converted_${file.originalname.replace(/\.[^/.]+$/, '')}.pdf`,
+        downloadUrl: `data:application/pdf;base64,${base64}`,
+      });
+    } catch (error: any) {
+      console.error('[Word to PDF] Error:', error);
+      res.status(500).json({
+        error: 'Conversion Failed',
+        message: error.message || 'Could not convert Word to PDF.',
+      });
+    } finally {
+      if (fs.existsSync(inputTempPath)) fs.unlinkSync(inputTempPath);
+      if (fs.existsSync(outputTempPath)) fs.unlinkSync(outputTempPath);
+    }
+  }
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/tools/powerpoint-to-pdf
+// ─────────────────────────────────────────────────────────────────────────────
+router.post(
+  '/powerpoint-to-pdf',
+  upload.single('file'),
+  async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    const file = req.file;
+    if (!file) {
+      res.status(400).json({ error: 'Bad Request', message: 'A PowerPoint file is required.' });
+      return;
+    }
+
+    const tempDir = path.join(__dirname, '../../temp');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    const inputTempPath = path.join(tempDir, `input-${uniqueSuffix}.pptx`);
+    const outputTempPath = path.join(tempDir, `output-${uniqueSuffix}.pdf`);
+
+    try {
+      await fs.promises.writeFile(inputTempPath, file.buffer);
+      const scriptPath = path.join(__dirname, '../scripts/powerpoint_to_pdf.py');
+
+      await runPythonScript( [scriptPath, inputTempPath, outputTempPath]);
+
+      if (!fs.existsSync(outputTempPath)) {
+        throw new Error('PowerPoint to PDF script did not generate output file.');
+      }
+
+      const bytes = await fs.promises.readFile(outputTempPath);
+      const base64 = Buffer.from(bytes).toString('base64');
+
+      res.status(200).json({
+        success: true,
+        message: 'PowerPoint presentation converted to PDF successfully.',
+        fileData: base64,
+        fileName: `converted_${file.originalname.replace(/\.[^/.]+$/, '')}.pdf`,
+        downloadUrl: `data:application/pdf;base64,${base64}`,
+      });
+    } catch (error: any) {
+      console.error('[PowerPoint to PDF] Error:', error);
+      res.status(500).json({
+        error: 'Conversion Failed',
+        message: error.message || 'Could not convert PowerPoint to PDF.',
+      });
+    } finally {
+      if (fs.existsSync(inputTempPath)) fs.unlinkSync(inputTempPath);
+      if (fs.existsSync(outputTempPath)) fs.unlinkSync(outputTempPath);
+    }
+  }
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/tools/excel-to-pdf
+// ─────────────────────────────────────────────────────────────────────────────
+router.post(
+  '/excel-to-pdf',
+  upload.single('file'),
+  async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    const file = req.file;
+    if (!file) {
+      res.status(400).json({ error: 'Bad Request', message: 'An Excel file is required.' });
+      return;
+    }
+
+    const tempDir = path.join(__dirname, '../../temp');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    const inputTempPath = path.join(tempDir, `input-${uniqueSuffix}.xlsx`);
+    const outputTempPath = path.join(tempDir, `output-${uniqueSuffix}.pdf`);
+
+    try {
+      await fs.promises.writeFile(inputTempPath, file.buffer);
+      const scriptPath = path.join(__dirname, '../scripts/excel_to_pdf.py');
+
+      await runPythonScript( [scriptPath, inputTempPath, outputTempPath]);
+
+      if (!fs.existsSync(outputTempPath)) {
+        throw new Error('Excel to PDF script did not generate output file.');
+      }
+
+      const bytes = await fs.promises.readFile(outputTempPath);
+      const base64 = Buffer.from(bytes).toString('base64');
+
+      res.status(200).json({
+        success: true,
+        message: 'Excel spreadsheet converted to PDF successfully.',
+        fileData: base64,
+        fileName: `converted_${file.originalname.replace(/\.[^/.]+$/, '')}.pdf`,
+        downloadUrl: `data:application/pdf;base64,${base64}`,
+      });
+    } catch (error: any) {
+      console.error('[Excel to PDF] Error:', error);
+      res.status(500).json({
+        error: 'Conversion Failed',
+        message: error.message || 'Could not convert Excel to PDF.',
+      });
+    } finally {
+      if (fs.existsSync(inputTempPath)) fs.unlinkSync(inputTempPath);
+      if (fs.existsSync(outputTempPath)) fs.unlinkSync(outputTempPath);
+    }
+  }
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/tools/html-to-pdf
+// ─────────────────────────────────────────────────────────────────────────────
+router.post(
+  '/html-to-pdf',
+  upload.single('file'),
+  async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    const file = req.file;
+    if (!file) {
+      res.status(400).json({ error: 'Bad Request', message: 'An HTML file is required.' });
+      return;
+    }
+
+    const tempDir = path.join(__dirname, '../../temp');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    const inputTempPath = path.join(tempDir, `input-${uniqueSuffix}.html`);
+    const outputTempPath = path.join(tempDir, `output-${uniqueSuffix}.pdf`);
+
+    try {
+      await fs.promises.writeFile(inputTempPath, file.buffer);
+      const scriptPath = path.join(__dirname, '../scripts/html_to_pdf.py');
+
+      await runPythonScript( [scriptPath, inputTempPath, outputTempPath]);
+
+      if (!fs.existsSync(outputTempPath)) {
+        throw new Error('HTML to PDF script did not generate output file.');
+      }
+
+      const bytes = await fs.promises.readFile(outputTempPath);
+      const base64 = Buffer.from(bytes).toString('base64');
+
+      res.status(200).json({
+        success: true,
+        message: 'HTML converted to PDF successfully.',
+        fileData: base64,
+        fileName: `converted_${file.originalname.replace(/\.[^/.]+$/, '')}.pdf`,
+        downloadUrl: `data:application/pdf;base64,${base64}`,
+      });
+    } catch (error: any) {
+      console.error('[HTML to PDF] Error:', error);
+      res.status(500).json({
+        error: 'Conversion Failed',
+        message: error.message || 'Could not convert HTML to PDF.',
+      });
+    } finally {
+      if (fs.existsSync(inputTempPath)) fs.unlinkSync(inputTempPath);
+      if (fs.existsSync(outputTempPath)) fs.unlinkSync(outputTempPath);
+    }
+  }
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/tools/pdf-to-word
+// ─────────────────────────────────────────────────────────────────────────────
+router.post(
+  '/pdf-to-word',
+  upload.single('file'),
+  async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    const file = req.file;
+    const geminiApiKey = (req.headers['x-gemini-key'] as string) || req.body.geminiKey || req.body.apiKey || '';
+
+    if (!file) {
+      res.status(400).json({ error: 'Bad Request', message: 'A PDF file is required.' });
+      return;
+    }
+
+    const tempDir = path.join(__dirname, '../../temp');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    const inputTempPath = path.join(tempDir, `input-${uniqueSuffix}.pdf`);
+    const outputTempPath = path.join(tempDir, `output-${uniqueSuffix}.docx`);
+
+    try {
+      await fs.promises.writeFile(inputTempPath, file.buffer);
+      const scriptPath = path.join(__dirname, '../scripts/pdf_to_word.py');
+
+      await runPythonScript( [scriptPath, inputTempPath, outputTempPath, geminiApiKey]);
+
+      if (!fs.existsSync(outputTempPath)) {
+        throw new Error('PDF to Word script did not generate output file.');
+      }
+
+      const bytes = await fs.promises.readFile(outputTempPath);
+      const base64 = Buffer.from(bytes).toString('base64');
+
+      res.status(200).json({
+        success: true,
+        message: geminiApiKey
+          ? 'PDF converted to editable Word document using Gemini AI.'
+          : 'PDF converted to Word document successfully.',
+        fileData: base64,
+        fileName: `converted_${file.originalname.replace(/\.[^/.]+$/, '')}.docx`,
+        downloadUrl: `data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,${base64}`,
+      });
+    } catch (error: any) {
+      console.error('[PDF to Word] Error:', error);
+      res.status(500).json({
+        error: 'Conversion Failed',
+        message: error.message || 'Could not convert PDF to Word.',
+      });
+    } finally {
+      if (fs.existsSync(inputTempPath)) fs.unlinkSync(inputTempPath);
+      if (fs.existsSync(outputTempPath)) fs.unlinkSync(outputTempPath);
+    }
+  }
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/tools/pdf-to-powerpoint
+// ─────────────────────────────────────────────────────────────────────────────
+router.post(
+  '/pdf-to-powerpoint',
+  upload.single('file'),
+  async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    const file = req.file;
+    const geminiApiKey = (req.headers['x-gemini-key'] as string) || req.body.geminiKey || req.body.apiKey || '';
+
+    if (!file) {
+      res.status(400).json({ error: 'Bad Request', message: 'A PDF file is required.' });
+      return;
+    }
+
+    const tempDir = path.join(__dirname, '../../temp');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    const inputTempPath = path.join(tempDir, `input-${uniqueSuffix}.pdf`);
+    const outputTempPath = path.join(tempDir, `output-${uniqueSuffix}.pptx`);
+
+    try {
+      await fs.promises.writeFile(inputTempPath, file.buffer);
+      const scriptPath = path.join(__dirname, '../scripts/pdf_to_powerpoint.py');
+
+      await runPythonScript( [scriptPath, inputTempPath, outputTempPath, geminiApiKey]);
+
+      if (!fs.existsSync(outputTempPath)) {
+        throw new Error('PDF to PowerPoint script did not generate output file.');
+      }
+
+      const bytes = await fs.promises.readFile(outputTempPath);
+      const base64 = Buffer.from(bytes).toString('base64');
+
+      res.status(200).json({
+        success: true,
+        message: geminiApiKey
+          ? 'PDF converted to slide presentation outline using Gemini AI.'
+          : 'PDF converted to PowerPoint slides successfully.',
+        fileData: base64,
+        fileName: `converted_${file.originalname.replace(/\.[^/.]+$/, '')}.pptx`,
+        downloadUrl: `data:application/vnd.openxmlformats-officedocument.presentationml.presentation;base64,${base64}`,
+      });
+    } catch (error: any) {
+      console.error('[PDF to PowerPoint] Error:', error);
+      res.status(500).json({
+        error: 'Conversion Failed',
+        message: error.message || 'Could not convert PDF to PowerPoint.',
+      });
+    } finally {
+      if (fs.existsSync(inputTempPath)) fs.unlinkSync(inputTempPath);
+      if (fs.existsSync(outputTempPath)) fs.unlinkSync(outputTempPath);
+    }
+  }
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/tools/pdf-to-excel
+// ─────────────────────────────────────────────────────────────────────────────
+router.post(
+  '/pdf-to-excel',
+  upload.single('file'),
+  async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    const file = req.file;
+    const geminiApiKey = (req.headers['x-gemini-key'] as string) || req.body.geminiKey || req.body.apiKey || '';
+
+    if (!file) {
+      res.status(400).json({ error: 'Bad Request', message: 'A PDF file is required.' });
+      return;
+    }
+
+    const tempDir = path.join(__dirname, '../../temp');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    const inputTempPath = path.join(tempDir, `input-${uniqueSuffix}.pdf`);
+    const outputTempPath = path.join(tempDir, `output-${uniqueSuffix}.xlsx`);
+
+    try {
+      await fs.promises.writeFile(inputTempPath, file.buffer);
+      const scriptPath = path.join(__dirname, '../scripts/pdf_to_excel.py');
+
+      await runPythonScript( [scriptPath, inputTempPath, outputTempPath, geminiApiKey]);
+
+      if (!fs.existsSync(outputTempPath)) {
+        throw new Error('PDF to Excel script did not generate output file.');
+      }
+
+      const bytes = await fs.promises.readFile(outputTempPath);
+      const base64 = Buffer.from(bytes).toString('base64');
+
+      res.status(200).json({
+        success: true,
+        message: geminiApiKey
+          ? 'PDF tables extracted into Excel spreadsheet using Gemini AI.'
+          : 'PDF tables converted to Excel workbook successfully.',
+        fileData: base64,
+        fileName: `converted_${file.originalname.replace(/\.[^/.]+$/, '')}.xlsx`,
+        downloadUrl: `data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,${base64}`,
+      });
+    } catch (error: any) {
+      console.error('[PDF to Excel] Error:', error);
+      res.status(500).json({
+        error: 'Conversion Failed',
+        message: error.message || 'Could not convert PDF to Excel.',
+      });
+    } finally {
+      if (fs.existsSync(inputTempPath)) fs.unlinkSync(inputTempPath);
+      if (fs.existsSync(outputTempPath)) fs.unlinkSync(outputTempPath);
+    }
+  }
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/tools/pdf-to-pdfa
+// ─────────────────────────────────────────────────────────────────────────────
+router.post(
+  '/pdf-to-pdfa',
+  upload.single('file'),
+  async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    const file = req.file;
+    if (!file) {
+      res.status(400).json({ error: 'Bad Request', message: 'A PDF file is required.' });
+      return;
+    }
+
+    const tempDir = path.join(__dirname, '../../temp');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    const inputTempPath = path.join(tempDir, `input-${uniqueSuffix}.pdf`);
+    const outputTempPath = path.join(tempDir, `output-${uniqueSuffix}.pdf`);
+
+    try {
+      await fs.promises.writeFile(inputTempPath, file.buffer);
+      const scriptPath = path.join(__dirname, '../scripts/pdf_to_pdfa.py');
+
+      await runPythonScript( [scriptPath, inputTempPath, outputTempPath]);
+
+      if (!fs.existsSync(outputTempPath)) {
+        throw new Error('PDF to PDF/A script did not generate output file.');
+      }
+
+      const bytes = await fs.promises.readFile(outputTempPath);
+      const base64 = Buffer.from(bytes).toString('base64');
+
+      res.status(200).json({
+        success: true,
+        message: 'PDF converted to PDF/A compliant document successfully.',
+        fileData: base64,
+        fileName: `pdfa_${file.originalname || 'document.pdf'}`,
+        downloadUrl: `data:application/pdf;base64,${base64}`,
+      });
+    } catch (error: any) {
+      console.error('[PDF to PDF/A] Error:', error);
+      res.status(500).json({
+        error: 'Conversion Failed',
+        message: error.message || 'Could not convert PDF to PDF/A.',
+      });
+    } finally {
+      if (fs.existsSync(inputTempPath)) fs.unlinkSync(inputTempPath);
+      if (fs.existsSync(outputTempPath)) fs.unlinkSync(outputTempPath);
+    }
+  }
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/tools/crop
+// ─────────────────────────────────────────────────────────────────────────────
+router.post(
+  '/crop',
+  upload.single('file'),
+  async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    const file = req.file;
+    const left = req.body.left || '10';
+    const top = req.body.top || '10';
+    const right = req.body.right || '10';
+    const bottom = req.body.bottom || '10';
+
+    if (!file) {
+      res.status(400).json({ error: 'Bad Request', message: 'A PDF file is required.' });
+      return;
+    }
+
+    const tempDir = path.join(__dirname, '../../temp');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    const inputTempPath = path.join(tempDir, `input-${uniqueSuffix}.pdf`);
+    const outputTempPath = path.join(tempDir, `output-${uniqueSuffix}.pdf`);
+
+    try {
+      await fs.promises.writeFile(inputTempPath, file.buffer);
+      const scriptPath = path.join(__dirname, '../scripts/crop.py');
+
+      await runPythonScript( [scriptPath, inputTempPath, outputTempPath, left, top, right, bottom]);
+
+      if (!fs.existsSync(outputTempPath)) {
+        throw new Error('Crop script did not generate output file.');
+      }
+
+      const bytes = await fs.promises.readFile(outputTempPath);
+      const base64 = Buffer.from(bytes).toString('base64');
+
+      res.status(200).json({
+        success: true,
+        message: `PDF margins cropped successfully (Left: ${left}%, Top: ${top}%, Right: ${right}%, Bottom: ${bottom}%).`,
+        fileData: base64,
+        fileName: `cropped_${file.originalname || 'document.pdf'}`,
+        downloadUrl: `data:application/pdf;base64,${base64}`,
+      });
+    } catch (error: any) {
+      console.error('[Crop PDF] Error:', error);
+      res.status(500).json({
+        error: 'Cropping Failed',
+        message: error.message || 'Could not crop PDF.',
+      });
+    } finally {
+      if (fs.existsSync(inputTempPath)) fs.unlinkSync(inputTempPath);
+      if (fs.existsSync(outputTempPath)) fs.unlinkSync(outputTempPath);
+    }
+  }
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/tools/edit-pdf
+// ─────────────────────────────────────────────────────────────────────────────
+router.post(
+  '/edit-pdf',
+  upload.single('file'),
+  async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    const file = req.file;
+    const prompt = req.body.prompt || 'Fix formatting and layout';
+    const geminiApiKey = (req.headers['x-gemini-key'] as string) || req.body.geminiKey || req.body.apiKey;
+
+    if (!file) {
+      res.status(400).json({ error: 'Bad Request', message: 'A PDF file is required.' });
+      return;
+    }
+
+    if (!geminiApiKey) {
+      res.status(400).json({
+        error: 'Gemini Key Missing',
+        message: 'A Google Gemini API key must be provided to use the AI Edit PDF tool.',
+      });
+      return;
+    }
+
+    const tempDir = path.join(__dirname, '../../temp');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    const inputTempPath = path.join(tempDir, `input-${uniqueSuffix}.pdf`);
+    const outputTempPath = path.join(tempDir, `output-${uniqueSuffix}.pdf`);
+
+    try {
+      await fs.promises.writeFile(inputTempPath, file.buffer);
+      const scriptPath = path.join(__dirname, '../scripts/edit_pdf.py');
+
+      await runPythonScript( [scriptPath, inputTempPath, outputTempPath, prompt, geminiApiKey]);
+
+      if (!fs.existsSync(outputTempPath)) {
+        throw new Error('AI Edit PDF script did not generate output file.');
+      }
+
+      const bytes = await fs.promises.readFile(outputTempPath);
+      const base64 = Buffer.from(bytes).toString('base64');
+
+      res.status(200).json({
+        success: true,
+        message: 'PDF edited successfully using Gemini AI.',
+        fileData: base64,
+        fileName: `edited_${file.originalname || 'document.pdf'}`,
+        downloadUrl: `data:application/pdf;base64,${base64}`,
+      });
+    } catch (error: any) {
+      console.error('[Edit PDF] Error:', error);
+      res.status(500).json({
+        error: 'Editing Failed',
+        message: error.message || 'Could not edit PDF.',
+      });
+    } finally {
+      if (fs.existsSync(inputTempPath)) fs.unlinkSync(inputTempPath);
+      if (fs.existsSync(outputTempPath)) fs.unlinkSync(outputTempPath);
+    }
+  }
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/tools/pdf-forms
+// ─────────────────────────────────────────────────────────────────────────────
+router.post(
+  '/pdf-forms',
+  upload.single('file'),
+  async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    const file = req.file;
+
+    if (!file) {
+      res.status(400).json({ error: 'Bad Request', message: 'A PDF file is required.' });
+      return;
+    }
+
+    const tempDir = path.join(__dirname, '../../temp');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    const inputTempPath = path.join(tempDir, `input-${uniqueSuffix}.pdf`);
+    const outputTempPath = path.join(tempDir, `output-${uniqueSuffix}.pdf`);
+
+    try {
+      await fs.promises.writeFile(inputTempPath, file.buffer);
+      const scriptPath = path.join(__dirname, '../scripts/pdf_forms.py');
+
+      await runPythonScript( [scriptPath, inputTempPath, outputTempPath]);
+
+      if (!fs.existsSync(outputTempPath)) {
+        throw new Error('PDF Forms flattening script did not generate output file.');
+      }
+
+      const bytes = await fs.promises.readFile(outputTempPath);
+      const base64 = Buffer.from(bytes).toString('base64');
+
+      res.status(200).json({
+        success: true,
+        message: 'Interactive form fields flattened successfully.',
+        fileData: base64,
+        fileName: `flattened_${file.originalname || 'document.pdf'}`,
+        downloadUrl: `data:application/pdf;base64,${base64}`,
+      });
+    } catch (error: any) {
+      console.error('[Flatten Forms] Error:', error);
+      res.status(500).json({
+        error: 'Flatten Failed',
+        message: error.message || 'Could not flatten PDF forms.',
+      });
+    } finally {
+      if (fs.existsSync(inputTempPath)) fs.unlinkSync(inputTempPath);
+      if (fs.existsSync(outputTempPath)) fs.unlinkSync(outputTempPath);
+    }
+  }
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/tools/sign
+// ─────────────────────────────────────────────────────────────────────────────
+router.post(
+  '/sign',
+  upload.single('file'),
+  async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    const file = req.file;
+    const signatureText = req.body.signatureText || 'Signed by OmniPDF';
+
+    if (!file) {
+      res.status(400).json({ error: 'Bad Request', message: 'A PDF file is required.' });
+      return;
+    }
+
+    const tempDir = path.join(__dirname, '../../temp');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    const inputTempPath = path.join(tempDir, `input-${uniqueSuffix}.pdf`);
+    const outputTempPath = path.join(tempDir, `output-${uniqueSuffix}.pdf`);
+
+    try {
+      await fs.promises.writeFile(inputTempPath, file.buffer);
+      const scriptPath = path.join(__dirname, '../scripts/sign.py');
+
+      await runPythonScript( [scriptPath, inputTempPath, outputTempPath, signatureText]);
+
+      if (!fs.existsSync(outputTempPath)) {
+        throw new Error('Sign script did not generate output file.');
+      }
+
+      const bytes = await fs.promises.readFile(outputTempPath);
+      const base64 = Buffer.from(bytes).toString('base64');
+
+      res.status(200).json({
+        success: true,
+        message: `PDF signed successfully as: '${signatureText}'.`,
+        fileData: base64,
+        fileName: `signed_${file.originalname || 'document.pdf'}`,
+        downloadUrl: `data:application/pdf;base64,${base64}`,
+      });
+    } catch (error: any) {
+      console.error('[Sign PDF] Error:', error);
+      res.status(500).json({
+        error: 'Sign Failed',
+        message: error.message || 'Could not sign PDF.',
+      });
+    } finally {
+      if (fs.existsSync(inputTempPath)) fs.unlinkSync(inputTempPath);
+      if (fs.existsSync(outputTempPath)) fs.unlinkSync(outputTempPath);
+    }
+  }
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/tools/redact
+// ─────────────────────────────────────────────────────────────────────────────
+router.post(
+  '/redact',
+  upload.single('file'),
+  async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    const file = req.file;
+    const term = req.body.term || req.body.termToRedact || '';
+
+    if (!file) {
+      res.status(400).json({ error: 'Bad Request', message: 'A PDF file is required.' });
+      return;
+    }
+
+    if (!term) {
+      res.status(400).json({ error: 'Bad Request', message: 'A term to redact is required.' });
+      return;
+    }
+
+    const tempDir = path.join(__dirname, '../../temp');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    const inputTempPath = path.join(tempDir, `input-${uniqueSuffix}.pdf`);
+    const outputTempPath = path.join(tempDir, `output-${uniqueSuffix}.pdf`);
+
+    try {
+      await fs.promises.writeFile(inputTempPath, file.buffer);
+      const scriptPath = path.join(__dirname, '../scripts/redact.py');
+
+      await runPythonScript( [scriptPath, inputTempPath, outputTempPath, term]);
+
+      if (!fs.existsSync(outputTempPath)) {
+        throw new Error('Redact script did not generate output file.');
+      }
+
+      const bytes = await fs.promises.readFile(outputTempPath);
+      const base64 = Buffer.from(bytes).toString('base64');
+
+      res.status(200).json({
+        success: true,
+        message: `Permanently redacted all instances of '${term}' from the PDF.`,
+        fileData: base64,
+        fileName: `redacted_${file.originalname || 'document.pdf'}`,
+        downloadUrl: `data:application/pdf;base64,${base64}`,
+      });
+    } catch (error: any) {
+      console.error('[Redact PDF] Error:', error);
+      res.status(500).json({
+        error: 'Redaction Failed',
+        message: error.message || 'Could not redact PDF.',
+      });
+    } finally {
+      if (fs.existsSync(inputTempPath)) fs.unlinkSync(inputTempPath);
+      if (fs.existsSync(outputTempPath)) fs.unlinkSync(outputTempPath);
+    }
+  }
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/tools/compare
+// ─────────────────────────────────────────────────────────────────────────────
+router.post(
+  '/compare',
+  upload.any(),
+  async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    let file1: Express.Multer.File | undefined;
+    let file2: Express.Multer.File | undefined;
+
+    if (Array.isArray(req.files)) {
+      const filesArray = req.files as Express.Multer.File[];
+      file1 = filesArray.find((f) => f.fieldname === 'file1') || filesArray[0];
+      file2 = filesArray.find((f) => f.fieldname === 'file2') || filesArray[1];
+    }
+
+    if (!file1 || !file2) {
+      res.status(400).json({
+        error: 'Bad Request',
+        message: 'Two PDF files (file1 and file2) are required for comparison.',
+      });
+      return;
+    }
+
+    const tempDir = path.join(__dirname, '../../temp');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    const path1 = path.join(tempDir, `input1-${uniqueSuffix}.pdf`);
+    const path2 = path.join(tempDir, `input2-${uniqueSuffix}.pdf`);
+    const reportPath = path.join(tempDir, `report-${uniqueSuffix}.pdf`);
+
+    try {
+      await fs.promises.writeFile(path1, file1.buffer);
+      await fs.promises.writeFile(path2, file2.buffer);
+      const scriptPath = path.join(__dirname, '../scripts/compare.py');
+
+      await runPythonScript( [scriptPath, path1, path2, reportPath]);
+
+      if (!fs.existsSync(reportPath)) {
+        throw new Error('Comparison script did not generate report file.');
+      }
+
+      const bytes = await fs.promises.readFile(reportPath);
+      const base64 = Buffer.from(bytes).toString('base64');
+
+      res.status(200).json({
+        success: true,
+        message: 'PDF comparison report generated successfully.',
+        fileData: base64,
+        fileName: 'comparison_report.pdf',
+        downloadUrl: `data:application/pdf;base64,${base64}`,
+      });
+    } catch (error: any) {
+      console.error('[Compare PDFs] Error:', error);
+      res.status(500).json({
+        error: 'Compare Failed',
+        message: error.message || 'Could not compare PDFs.',
+      });
+    } finally {
+      if (fs.existsSync(path1)) fs.unlinkSync(path1);
+      if (fs.existsSync(path2)) fs.unlinkSync(path2);
+      if (fs.existsSync(reportPath)) fs.unlinkSync(reportPath);
+    }
+  }
+);
+
+// Generic placeholder for tools that are truly coming soon or not implemented
+const NOT_IMPLEMENTED_TOOLS: string[] = [];
 
 NOT_IMPLEMENTED_TOOLS.forEach((toolId) => {
   router.post(`/${toolId}`, upload.any(), (req, res) => {
     res.status(501).json({
       error: 'Not Implemented',
-      message: `The "${toolId}" tool requires a server-side binary or third-party API (e.g. LibreOffice, Ghostscript, OCR engine) that is not currently installed on this server. This tool is planned for a future release.`,
+      message: `The "${toolId}" tool requires a server-side binary or third-party API that is not currently installed.`,
       toolId,
       status: 'coming_soon',
     });
@@ -1292,3 +2175,4 @@ NOT_IMPLEMENTED_TOOLS.forEach((toolId) => {
 });
 
 export default router;
+
