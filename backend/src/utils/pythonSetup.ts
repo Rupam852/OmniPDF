@@ -22,8 +22,16 @@ export function getPythonStatus() {
  * Runs a command and returns true if it completes with code 0.
  */
 async function checkCommand(cmd: string, args: string): Promise<boolean> {
+  const pathSeparator = process.platform === 'win32' ? ';' : ':';
+  const pythonPackagesPath = path.resolve(path.join(__dirname, '../../python_packages'));
+  const customEnv = {
+    ...process.env,
+    PYTHONPATH: process.env.PYTHONPATH 
+      ? `${pythonPackagesPath}${pathSeparator}${process.env.PYTHONPATH}` 
+      : pythonPackagesPath
+  };
   try {
-    await execAsync(`"${cmd}" ${args}`);
+    await execAsync(`"${cmd}" ${args}`, { env: customEnv });
     return true;
   } catch {
     return false;
@@ -38,6 +46,7 @@ export async function checkAndInstallPythonDependencies(): Promise<void> {
   console.log('[Python Setup] Starting Python dependency verification...');
   
   let pythonCmd = process.env.PYTHON_PATH || 'python';
+  const pythonPackagesPath = path.resolve(path.join(__dirname, '../../python_packages'));
   
   // 1. Detect Python command
   let isPythonAvailable = await checkCommand(pythonCmd, '--version');
@@ -72,15 +81,22 @@ export async function checkAndInstallPythonDependencies(): Promise<void> {
   
   // 3. Find requirements.txt path
   const reqPath = path.join(__dirname, '../../requirements.txt');
+  const pathSeparator = process.platform === 'win32' ? ';' : ':';
+  const customEnv = {
+    ...process.env,
+    PYTHONPATH: process.env.PYTHONPATH 
+      ? `${pythonPackagesPath}${pathSeparator}${process.env.PYTHONPATH}` 
+      : pythonPackagesPath
+  };
   
   try {
     if (fs.existsSync(reqPath)) {
-      console.log(`[Python Setup] Installing dependencies from ${reqPath}...`);
-      await execAsync(`"${pythonCmd}" -m pip install -r "${reqPath}"`);
+      console.log(`[Python Setup] Installing dependencies from ${reqPath} into ${pythonPackagesPath}...`);
+      await execAsync(`"${pythonCmd}" -m pip install --target="${pythonPackagesPath}" -r "${reqPath}"`, { env: customEnv });
     } else {
-      console.log('[Python Setup] requirements.txt not found, installing packages individually...');
+      console.log(`[Python Setup] requirements.txt not found, installing packages individually into ${pythonPackagesPath}...`);
       const packages = ['pymupdf', 'python-docx', 'python-pptx', 'openpyxl', 'pdf2docx', 'google-generativeai'];
-      await execAsync(`"${pythonCmd}" -m pip install ${packages.join(' ')}`);
+      await execAsync(`"${pythonCmd}" -m pip install --target="${pythonPackagesPath}" ${packages.join(' ')}`, { env: customEnv });
     }
     
     // Verify installation
@@ -93,29 +109,9 @@ export async function checkAndInstallPythonDependencies(): Promise<void> {
       throw new Error('Verification failed after installation.');
     }
   } catch (err: any) {
-    // If pip install fails, try --user flag as fallback
-    try {
-      console.warn('[Python Setup] Standard installation failed, trying with --user flag...');
-      if (fs.existsSync(reqPath)) {
-        await execAsync(`"${pythonCmd}" -m pip install --user -r "${reqPath}"`);
-      } else {
-        const packages = ['pymupdf', 'python-docx', 'python-pptx', 'openpyxl', 'pdf2docx', 'google-generativeai'];
-        await execAsync(`"${pythonCmd}" -m pip install --user ${packages.join(' ')}`);
-      }
-      
-      const verifyInstalled = await checkCommand(pythonCmd, `-c "${importCheckCode}"`);
-      if (verifyInstalled) {
-        console.log('[Python Setup] Automatic dependency installation (--user) completed successfully!');
-        isPythonReady = true;
-        pythonError = null;
-      } else {
-        throw new Error('Verification failed after --user installation.');
-      }
-    } catch (fallbackErr: any) {
-      const errorMsg = `Failed to install Python dependencies. Please run 'pip install pymupdf python-docx python-pptx openpyxl pdf2docx google-generativeai' manually. Details: ${fallbackErr.message}`;
-      console.error(`[Python Setup] ERROR: ${errorMsg}`);
-      pythonError = errorMsg;
-      isPythonReady = false;
-    }
+    const errorMsg = `Failed to install Python dependencies. Please run 'pip install --target=./python_packages pymupdf python-docx python-pptx openpyxl pdf2docx google-generativeai' manually. Details: ${err.message}`;
+    console.error(`[Python Setup] ERROR: ${errorMsg}`);
+    pythonError = errorMsg;
+    isPythonReady = false;
   }
 }

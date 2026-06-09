@@ -31,3 +31,8 @@ yarn-error.log*
 *.sln
 *.sw?
 .DS_Store
+
+# Python & Temporary Files
+python_packages/
+temp/
+

@@ -21,15 +21,24 @@ const execFileAsync = promisify(execFile);
 
 async function runPythonScript(args: string[]): Promise<{ stdout: string; stderr: string }> {
   const pythonCmd = process.env.PYTHON_PATH || 'python';
+  const pathSeparator = process.platform === 'win32' ? ';' : ':';
+  const pythonPackagesPath = path.resolve(path.join(__dirname, '../../python_packages'));
+  const customEnv = {
+    ...process.env,
+    PYTHONPATH: process.env.PYTHONPATH 
+      ? `${pythonPackagesPath}${pathSeparator}${process.env.PYTHONPATH}` 
+      : pythonPackagesPath
+  };
+
   try {
-    return await execFileAsync(pythonCmd, args);
+    return await execFileAsync(pythonCmd, args, { env: customEnv });
   } catch (err: any) {
     if (process.env.PYTHON_PATH) {
       throw err;
     }
     if (err.code === 'ENOENT' && pythonCmd === 'python') {
       try {
-        return await execFileAsync('python3', args);
+        return await execFileAsync('python3', args, { env: customEnv });
       } catch (err3: any) {
         throw new Error(`Failed to execute Python script. Tried 'python' and 'python3'. Details: ${err3.message}`);
       }
