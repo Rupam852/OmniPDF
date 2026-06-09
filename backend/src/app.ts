@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import apiRouter from './routes';
 import { apiLimiter } from './middleware/rateLimiter';
+import { checkAndInstallPythonDependencies } from './utils/pythonSetup';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -65,6 +66,11 @@ if (require.main === module) {
   app.listen(PORT, () => {
     console.log(`[OmniPDF Backend] Server listening on port ${PORT}`);
     console.log(`[OmniPDF Backend] Active Environment: ${process.env.NODE_ENV || 'development'}`);
+    
+    // Asynchronously check and setup python dependencies so server starts immediately
+    checkAndInstallPythonDependencies().catch((err) => {
+      console.error('[Python Setup] Unexpected error in dependency setup:', err);
+    });
   });
 }
 
