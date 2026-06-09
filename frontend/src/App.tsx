@@ -16,6 +16,7 @@ interface Tool {
 }
 
 export default function App() {
+  const [showLandingPage, setShowLandingPage] = useState<boolean>(true);
   const [activeTab, setActiveTab] = useState<string>('All');
   const [selectedTool, setSelectedTool] = useState<Tool | null>(null);
   const [user, setUser] = useState<User | null>(null);
@@ -965,18 +966,115 @@ export default function App() {
     }
   };
 
+  if (showLandingPage) {
+    return (
+      <div className="landing-page-container">
+        <nav className="landing-nav">
+          <a href="#" className="landing-nav-logo" onClick={(e) => e.preventDefault()}>
+            Omni<span>PDF</span>
+          </a>
+          <span className="landing-nav-badge">v1.2.0 Stable</span>
+        </nav>
+
+        <main className="landing-hero">
+          <div className="landing-tagline">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            </svg>
+            Omnipotent PDF Solutions
+          </div>
+          <h1 className="landing-title">
+            Ultimate PDF Tools, <span>Decentralized & Free</span>
+          </h1>
+          <p className="landing-subtitle">
+            Experience the next-gen web & mobile platform for all your PDF requirements. Edit, compress, merge, split, and run AI summaries on your documents with military-grade safety.
+          </p>
+
+          <div className="landing-actions">
+            <button 
+              className="shine-btn shine-btn-primary" 
+              onClick={() => setShowLandingPage(false)}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <circle cx="12" cy="12" r="10" />
+                <polygon points="12 8 8 12 12 16 12 12 16 12 12 8" />
+              </svg>
+              Continue with Web
+            </button>
+            <a 
+              href="https://drive.google.com/file/d/1pum6bxn_ERFrn64J5wGnx7-tHFBWzUDg/view?usp=sharing" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="shine-btn shine-btn-secondary"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              Download Android App
+            </a>
+          </div>
+        </main>
+
+        <section className="landing-features">
+          <div className="landing-feature-card">
+            <div className="landing-feature-icon" style={{ backgroundColor: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6' }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              </svg>
+            </div>
+            <h3 className="landing-feature-title">Secure & Confidential</h3>
+            <p className="landing-feature-desc">All processing is performed directly in-browser or securely on-cloud, ensuring absolute privacy for your sensitive data.</p>
+          </div>
+          <div className="landing-feature-card">
+            <div className="landing-feature-icon" style={{ backgroundColor: 'rgba(16, 185, 129, 0.15)', color: '#10b981' }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+              </svg>
+            </div>
+            <h3 className="landing-feature-title">High Speed Compression</h3>
+            <p className="landing-feature-desc">Reduce document sizes by up to 90% in seconds without compromising readable content, layouts, or fonts.</p>
+          </div>
+          <div className="landing-feature-card">
+            <div className="landing-feature-icon" style={{ backgroundColor: 'rgba(139, 92, 246, 0.15)', color: '#8b5cf6' }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+              </svg>
+            </div>
+            <h3 className="landing-feature-title">AI Summarization</h3>
+            <p className="landing-feature-desc">Instantly query documents and extract comprehensive highlights, semantic summaries, and bullet points using advanced local/cloud AI models.</p>
+          </div>
+        </section>
+
+        <footer className="landing-footer">
+          &copy; {new Date().getFullYear()} OmniPDF. Designed for extreme productivity.
+        </footer>
+      </div>
+    );
+  }
+
   return (
     <div className="app-wrapper">
       {/* Navigation Bar */}
       <header className="app-header">
         <a 
           href="#" 
-          onClick={(e) => { e.preventDefault(); setSelectedTool(null); setActiveTab('All'); setProcessedResult(null); }} 
+          onClick={(e) => { e.preventDefault(); setShowLandingPage(true); setSelectedTool(null); setActiveTab('All'); setProcessedResult(null); }} 
           className="logo"
         >
           Omni<span>PDF</span>
         </a>
         <ul className="nav-links">
+          <li>
+            <a 
+              href="#" 
+              onClick={(e) => { e.preventDefault(); setShowLandingPage(true); setSelectedTool(null); setProcessedResult(null); }} 
+              className="nav-link"
+            >
+              HOME
+            </a>
+          </li>
           <li>
             <a 
               href="#" 
@@ -1220,6 +1318,19 @@ export default function App() {
                 </div>
               </div>
             </div>
+          </li>
+          
+          {/* DOWNLOAD APP Link */}
+          <li>
+            <a 
+              href="https://drive.google.com/file/d/1pum6bxn_ERFrn64J5wGnx7-tHFBWzUDg/view?usp=sharing" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="nav-link android-download-link"
+              style={{ color: '#10b981', fontWeight: 'bold' }}
+            >
+              📥 DOWNLOAD APP
+            </a>
           </li>
         </ul>
       </header>
