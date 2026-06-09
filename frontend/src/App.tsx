@@ -4,12 +4,6 @@ import { OmniPdfApi } from './services/api';
 import { auth } from './services/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { compressPdfInBrowser } from './services/compressPdf';
-import * as pdfjs from 'pdfjs-dist';
-
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
-  import.meta.url
-).href;
 
 
 interface Tool {
@@ -38,8 +32,6 @@ export default function App() {
     files?: { fileName: string; downloadUrl: string; }[];
   } | null>(null);
 
-  const [successPdfPreviewUrl, setSuccessPdfPreviewUrl] = useState<string | null>(null);
-
   // Auth State Listener
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -47,50 +39,6 @@ export default function App() {
     });
     return () => unsubscribe();
   }, []);
-
-  // Success PDF Render Effect
-  useEffect(() => {
-    const renderSuccessPdf = async () => {
-      if (!processedResult || !processedResult.downloadUrl) {
-        setSuccessPdfPreviewUrl(null);
-        return;
-      }
-      const fileName = processedResult.fileNameToDownload || processedResult.fileName || '';
-      const dotIndex = fileName.lastIndexOf('.');
-      const ext = dotIndex !== -1 ? fileName.substring(dotIndex + 1).toLowerCase() : '';
-      
-      if (ext === 'pdf') {
-        try {
-          const loadingTask = pdfjs.getDocument({ url: processedResult.downloadUrl });
-          const pdfDoc = await loadingTask.promise;
-          const page = await pdfDoc.getPage(1);
-          
-          const viewport = page.getViewport({ scale: 0.8 });
-          const canvas = document.createElement('canvas');
-          const context = canvas.getContext('2d');
-          if (context) {
-            canvas.width = viewport.width;
-            canvas.height = viewport.height;
-            await page.render({
-              canvasContext: context,
-              viewport: viewport,
-              canvas: canvas
-            }).promise;
-            
-            setSuccessPdfPreviewUrl(canvas.toDataURL('image/jpeg', 0.85));
-          }
-        } catch (e) {
-          console.error('Error rendering success PDF preview:', e);
-          setSuccessPdfPreviewUrl(null);
-        }
-      } else {
-        setSuccessPdfPreviewUrl(null);
-      }
-    };
-    
-    renderSuccessPdf();
-  }, [processedResult]);
-
 
   const tabs = [
     'All',
@@ -1021,49 +969,6 @@ export default function App() {
     }
   };
 
-  const renderSuccessBigPreview = (url: string, fileName: string) => {
-    const dotIndex = fileName.lastIndexOf('.');
-    const ext = dotIndex !== -1 ? fileName.substring(dotIndex + 1).toLowerCase() : '';
-    
-    if (ext === 'pdf') {
-      if (successPdfPreviewUrl) {
-        return (
-          <img
-            src={successPdfPreviewUrl}
-            alt="Output PDF Page 1 Preview"
-            className="large-image-preview"
-          />
-        );
-      }
-      return (
-        <div className="large-placeholder-preview">
-          <p>Loading PDF Preview...</p>
-        </div>
-      );
-    } else if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) {
-      return (
-        <img
-          src={url}
-          alt="Output Image Preview"
-          className="large-image-preview"
-        />
-      );
-    } else {
-      const fileColor = '#64748b';
-      return (
-        <div className="large-placeholder-preview">
-          <div className="large-file-badge" style={{ backgroundColor: fileColor }}>
-            {ext.toUpperCase()}
-          </div>
-          <p className="large-file-name">{fileName}</p>
-          <p className="large-file-meta">
-            Preview not supported for this file type.
-          </p>
-        </div>
-      );
-    }
-  };
-
   return (
     <div className="app-wrapper">
       {/* Navigation Bar */}
@@ -1326,23 +1231,6 @@ export default function App() {
       {/* Main Container */}
       <main className="app-main">
         {processedResult ? (
-          <div className="success-layout-vertical">
-            {processedResult.downloadUrl && (
-              <div className="big-dynamic-preview-container">
-                <div className="big-preview-header">
-                  <span className="big-preview-title">
-                    🔍 Live Preview: {processedResult.fileNameToDownload || processedResult.fileName}
-                  </span>
-                  <span className="big-preview-subtitle">
-                    Processed Output Document
-                  </span>
-                </div>
-                <div className="big-preview-content">
-                  {renderSuccessBigPreview(processedResult.downloadUrl, processedResult.fileNameToDownload || processedResult.fileName)}
-                </div>
-              </div>
-            )}
-
             <div className="success-container">
             <div className="success-icon-wrapper">
               <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5">
@@ -1433,7 +1321,6 @@ export default function App() {
               </button>
             </div>
           </div>
-        </div>
         ) : selectedTool ? (
           <div>
             <button onClick={() => { setSelectedTool(null); setProcessedResult(null); }} className="back-btn">

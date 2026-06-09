@@ -22,34 +22,6 @@ const getFileColor = (file: File): string => {
   return '#64748b'; // Slate
 };
 
-const renderPdfPageToDataUrl = async (file: File): Promise<string> => {
-  try {
-    const arrayBuffer = await file.arrayBuffer();
-    const loadingTask = pdfjs.getDocument({ data: new Uint8Array(arrayBuffer) });
-    const pdfDoc = await loadingTask.promise;
-    const page = await pdfDoc.getPage(1);
-    
-    const viewport = page.getViewport({ scale: 0.8 });
-    const canvas = document.createElement('canvas');
-    const context = canvas.getContext('2d');
-    if (!context) return '';
-    
-    canvas.width = viewport.width;
-    canvas.height = viewport.height;
-    
-    await page.render({
-      canvasContext: context,
-      viewport: viewport,
-      canvas: canvas
-    }).promise;
-    
-    return canvas.toDataURL('image/jpeg', 0.8);
-  } catch (err) {
-    console.error('Error rendering PDF page preview:', err);
-    return '';
-  }
-};
-
 interface FileUploadZoneProps {
   toolName: string;
   toolId?: string;
@@ -69,13 +41,11 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
 }) => {
   const [dragActive, setDragActive] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
-  const [filePreviews, setFilePreviews] = useState<Record<string, string>>({});
   const [fileRotations, setFileRotations] = useState<Record<string, number>>({});
-  const [selectedPreviewIndex, setSelectedPreviewIndex] = useState<number>(0);
-  const [bigPreviewUrls, setBigPreviewUrls] = useState<Record<string, string>>({});
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
 
 
   // ─── Tool-specific option states ─────────────────────────────────────────
@@ -219,58 +189,7 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
     detectPages();
   }, [files]);
 
-  useEffect(() => {
-    const loadPreviews = async () => {
-      const newPreviews = { ...filePreviews };
-      const newBigUrls = { ...bigPreviewUrls };
-      let updated = false;
 
-      for (const file of files) {
-        // PDF.js thumbnail
-        if (!newPreviews[file.name]) {
-          if (file.type === 'application/pdf') {
-            const dataUrl = await renderPdfPageToDataUrl(file);
-            if (dataUrl) {
-              newPreviews[file.name] = dataUrl;
-              updated = true;
-            }
-          } else if (file.type.startsWith('image/')) {
-            newPreviews[file.name] = URL.createObjectURL(file);
-            updated = true;
-          }
-        }
-
-        // Big preview object URL
-        if (!newBigUrls[file.name]) {
-          newBigUrls[file.name] = URL.createObjectURL(file);
-          updated = true;
-        }
-      }
-
-      if (updated) {
-        setFilePreviews(newPreviews);
-        setBigPreviewUrls(newBigUrls);
-      }
-    };
-
-    loadPreviews();
-  }, [files]);
-
-  useEffect(() => {
-    return () => {
-      Object.values(bigPreviewUrls).forEach(url => {
-        try {
-          URL.revokeObjectURL(url);
-        } catch (e) {}
-      });
-    };
-  }, [bigPreviewUrls]);
-
-  useEffect(() => {
-    if (selectedPreviewIndex >= files.length && files.length > 0) {
-      setSelectedPreviewIndex(files.length - 1);
-    }
-  }, [files, selectedPreviewIndex]);
 
 
   const rotateFile = (fileName: string) => {
@@ -460,51 +379,7 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
     ? 'Supports JPG and PNG images up to 10MB each'
     : 'Supports PDFs up to 10MB';
 
-  const renderBigPreview = (file: File) => {
-    if (!file) return null;
-    const ext = getFileExtension(file);
-    const cachedUrl = bigPreviewUrls[file.name];
-    if (!cachedUrl) return null;
 
-    if (ext === 'pdf') {
-      const pdfThumbnail = filePreviews[file.name];
-      if (pdfThumbnail) {
-        return (
-          <img
-            src={pdfThumbnail}
-            alt="PDF Page 1 Preview"
-            className="large-image-preview"
-          />
-        );
-      }
-      return (
-        <div className="large-placeholder-preview">
-          <p>Loading PDF Preview...</p>
-        </div>
-      );
-    } else if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) {
-      return (
-        <img
-          src={cachedUrl}
-          alt="Image Preview"
-          className="large-image-preview"
-        />
-      );
-    } else {
-      const fileColor = getFileColor(file);
-      return (
-        <div className="large-placeholder-preview">
-          <div className="large-file-badge" style={{ backgroundColor: fileColor }}>
-            {ext.toUpperCase()}
-          </div>
-          <p className="large-file-name">{file.name}</p>
-          <p className="large-file-meta">
-            Size: {(file.size / 1024 / 1024).toFixed(2)} MB | Preview not supported for this file type.
-          </p>
-        </div>
-      );
-    }
-  };
 
   return (
     <div className="omnipdf-upload-container">
@@ -680,25 +555,7 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
           )}
         </div>
       ) : (
-        <div className="tool-workspace-layout-vertical">
-          {/* Big Preview Box spanning across the top */}
-          {files.length > 0 && files[selectedPreviewIndex] && (
-            <div className="big-dynamic-preview-container">
-              <div className="big-preview-header">
-                <span className="big-preview-title">
-                  🔍 Live Preview: {files[selectedPreviewIndex].name}
-                </span>
-                <span className="big-preview-subtitle">
-                  Click any file below to change preview
-                </span>
-              </div>
-              <div className="big-preview-content">
-                {renderBigPreview(files[selectedPreviewIndex])}
-              </div>
-            </div>
-          )}
-
-          <div className="tool-workspace-layout">
+        <div className="tool-workspace-layout">
             <div className="workspace-main-panel">
               <div className="file-list-header">
                 <span>Selected Files ({files.length})</span>
@@ -725,96 +582,84 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
                   <button onClick={clearFiles} className="clear-btn">Clear All</button>
                 </div>
               </div>
-
               <div className="preview-card-grid">
                 {files.map((file, index) => {
                   const rotation = fileRotations[file.name] || 0;
-                  const previewUrl = filePreviews[file.name];
                   const sizeMB = (file.size / 1024 / 1024).toFixed(2);
                   const fileColor = getFileColor(file);
                   const fileExt = getFileExtension(file);
 
                   return (
                     <div key={index} className="preview-card-wrapper">
-                      <div 
-                        className={`preview-card ${selectedPreviewIndex === index ? 'selected-preview-card' : ''}`}
-                        onClick={() => setSelectedPreviewIndex(index)}
-                      >
-                      <div 
-                        className="preview-thumbnail-container"
-                        style={{ transform: `rotate(${rotation}deg)` }}
-                      >
-                        {previewUrl ? (
-                          <div 
-                            className="preview-thumbnail" 
-                            style={{ backgroundImage: `url(${previewUrl})` }}
-                          />
-                        ) : (
+                      <div className="preview-card">
+                        <div 
+                          className="preview-thumbnail-container"
+                          style={{ transform: `rotate(${rotation}deg)` }}
+                        >
                           <div className="preview-placeholder">
                             <div className="file-badge" style={{ backgroundColor: fileColor }}>
                               {fileExt.toUpperCase() || 'FILE'}
                             </div>
                           </div>
-                        )}
-                      </div>
+                        </div>
 
-                      <div className="preview-card-footer">
-                        <span className="preview-card-name" title={file.name}>
-                          {file.name}
-                        </span>
-                        <span className="preview-card-size">
-                          {sizeMB} MB
-                        </span>
-                      </div>
+                        <div className="preview-card-footer">
+                          <span className="preview-card-name" title={file.name}>
+                            {file.name}
+                          </span>
+                          <span className="preview-card-size">
+                            {sizeMB} MB
+                          </span>
+                        </div>
 
-                      {/* Card Overlay Actions */}
-                      <div className="preview-card-overlay">
-                        <button 
-                          type="button" 
-                          onClick={(e) => { e.stopPropagation(); rotateFile(file.name); }} 
-                          className="card-action-btn"
-                          title="Rotate"
-                        >
-                          🔄 Rotate
-                        </button>
-                        
-                        {allowMultiple && (
-                          <div className="reorder-actions">
-                            <button 
-                              type="button" 
-                              disabled={index === 0}
-                              onClick={(e) => { e.stopPropagation(); moveFile(index, 'left'); }} 
-                              className="reorder-arrow-btn"
-                              title="Move Left"
-                            >
-                              ◀
-                            </button>
-                            <button 
-                              type="button" 
-                              disabled={index === files.length - 1}
-                              onClick={(e) => { e.stopPropagation(); moveFile(index, 'right'); }} 
-                              className="reorder-arrow-btn"
-                              title="Move Right"
-                            >
-                              ▶
-                            </button>
-                          </div>
-                        )}
+                        {/* Card Overlay Actions */}
+                        <div className="preview-card-overlay">
+                          <button 
+                            type="button" 
+                            onClick={(e) => { e.stopPropagation(); rotateFile(file.name); }} 
+                            className="card-action-btn"
+                            title="Rotate"
+                          >
+                            🔄 Rotate
+                          </button>
+                          
+                          {allowMultiple && (
+                            <div className="reorder-actions">
+                              <button 
+                                type="button" 
+                                disabled={index === 0}
+                                onClick={(e) => { e.stopPropagation(); moveFile(index, 'left'); }} 
+                                className="reorder-arrow-btn"
+                                title="Move Left"
+                              >
+                                ◀
+                              </button>
+                              <button 
+                                type="button" 
+                                disabled={index === files.length - 1}
+                                onClick={(e) => { e.stopPropagation(); moveFile(index, 'right'); }} 
+                                className="reorder-arrow-btn"
+                                title="Move Right"
+                              >
+                                ▶
+                              </button>
+                            </div>
+                          )}
 
-                        <button 
-                          type="button" 
-                          onClick={(e) => { e.stopPropagation(); removeFile(index); }} 
-                          className="card-action-btn delete-card-btn"
-                          title="Remove File"
-                        >
-                          ❌ Delete
-                        </button>
+                          <button 
+                            type="button" 
+                            onClick={(e) => { e.stopPropagation(); removeFile(index); }} 
+                            className="card-action-btn delete-card-btn"
+                            title="Remove File"
+                          >
+                            ❌ Delete
+                          </button>
+                        </div>
                       </div>
+                      <div className="card-index-badge">{index + 1}</div>
                     </div>
-                    <div className="card-index-badge">{index + 1}</div>
-                  </div>
-                );
-              })}
+                  );
+                })}
             </div>
           </div>
 
@@ -1226,7 +1071,6 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
             )}
           </div>
         </div>
-      </div>
       )}
 
       {errorMessage && (
