@@ -14,6 +14,51 @@ import 'package:shared_preferences/shared_preferences.dart';
 // Global memory API key store for the active app session
 String globalGeminiApiKey = '';
 
+void showCustomSnackBar({
+  required BuildContext context,
+  required String message,
+  Color backgroundColor = Colors.blueAccent,
+  IconData? icon,
+  Duration duration = const Duration(seconds: 3),
+}) {
+  ScaffoldMessenger.of(context).hideCurrentSnackBar();
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Row(
+        children: [
+          if (icon != null) ...[
+            Icon(icon, color: Colors.white, size: 20),
+            const SizedBox(width: 12),
+          ],
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
+            ),
+          ),
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: () {
+              ScaffoldMessenger.of(context).hideCurrentSnackBar();
+            },
+            child: const Icon(
+              Icons.close_rounded,
+              color: Colors.white70,
+              size: 20,
+            ),
+          ),
+        ],
+      ),
+      backgroundColor: backgroundColor,
+      behavior: SnackBarBehavior.floating,
+      elevation: 6,
+      margin: const EdgeInsets.all(16),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      duration: duration,
+    ),
+  );
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   try {
@@ -755,11 +800,11 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
         }
 
         if (tooLargeNames.isNotEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('File(s) too large: ${tooLargeNames.join(', ')}. Maximum allowed size is 10MB.'),
-              backgroundColor: Colors.redAccent,
-            ),
+          showCustomSnackBar(
+            context: context,
+            message: 'File(s) too large: ${tooLargeNames.join(', ')}. Maximum allowed size is 10MB.',
+            backgroundColor: Colors.redAccent,
+            icon: Icons.error_outline_rounded,
           );
         }
 
@@ -767,11 +812,11 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
           setState(() {
             if (allowMultiple) {
               if (widget.tool['id'] == 'compress' && _pickedFiles.length + validFiles.length > 10) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Maximum upload limit is 10 files for compression.'),
-                    backgroundColor: Colors.redAccent,
-                  ),
+                showCustomSnackBar(
+                  context: context,
+                  message: 'Maximum upload limit is 10 files for compression.',
+                  backgroundColor: Colors.redAccent,
+                  icon: Icons.error_outline_rounded,
                 );
                 // add up to 10
                 final spaceLeft = 10 - _pickedFiles.length;
@@ -779,11 +824,11 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
                   _pickedFiles.addAll(validFiles.take(spaceLeft));
                 }
               } else if (widget.tool['id'] == 'compare' && _pickedFiles.length + validFiles.length > 2) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Compare PDF tool accepts exactly 2 files.'),
-                    backgroundColor: Colors.redAccent,
-                  ),
+                showCustomSnackBar(
+                  context: context,
+                  message: 'Compare PDF tool accepts exactly 2 files.',
+                  backgroundColor: Colors.redAccent,
+                  icon: Icons.error_outline_rounded,
                 );
                 final spaceLeft = 2 - _pickedFiles.length;
                 if (spaceLeft > 0) {
@@ -801,22 +846,22 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to pick files: $e'),
-          backgroundColor: Colors.redAccent,
-        ),
+      showCustomSnackBar(
+        context: context,
+        message: 'Failed to pick files: $e',
+        backgroundColor: Colors.redAccent,
+        icon: Icons.error_outline_rounded,
       );
     }
   }
 
   void _runOperation() async {
     if (_pickedFiles.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please pick file(s) first.'),
-          backgroundColor: Colors.redAccent,
-        ),
+      showCustomSnackBar(
+        context: context,
+        message: 'Please pick file(s) first.',
+        backgroundColor: Colors.redAccent,
+        icon: Icons.error_outline_rounded,
       );
       return;
     }
@@ -825,11 +870,11 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
     final isAiRequired = ['ai_summarizer', 'ocr'].contains(widget.tool['id']);
 
     if (isAiRequired && apiKey.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('A Google Gemini API key must be provided to use this tool.'),
-          backgroundColor: Colors.redAccent,
-        ),
+      showCustomSnackBar(
+        context: context,
+        message: 'A Google Gemini API key must be provided to use this tool.',
+        backgroundColor: Colors.redAccent,
+        icon: Icons.error_outline_rounded,
       );
       return;
     }
@@ -845,21 +890,21 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
     }
 
     if (widget.tool['id'] == 'protect' && _protectPasswordController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('A password must be provided to protect this PDF.'),
-          backgroundColor: Colors.redAccent,
-        ),
+      showCustomSnackBar(
+        context: context,
+        message: 'A password must be provided to protect this PDF.',
+        backgroundColor: Colors.redAccent,
+        icon: Icons.error_outline_rounded,
       );
       return;
     }
 
     if (widget.tool['id'] == 'unlock' && _protectPasswordController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('A password must be provided to unlock this PDF.'),
-          backgroundColor: Colors.redAccent,
-        ),
+      showCustomSnackBar(
+        context: context,
+        message: 'A password must be provided to unlock this PDF.',
+        backgroundColor: Colors.redAccent,
+        icon: Icons.error_outline_rounded,
       );
       return;
     }
@@ -867,21 +912,21 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
 
 
     if (widget.tool['id'] == 'redact' && _redactTermController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter a term to redact from the PDF.'),
-          backgroundColor: Colors.redAccent,
-        ),
+      showCustomSnackBar(
+        context: context,
+        message: 'Please enter a term to redact from the PDF.',
+        backgroundColor: Colors.redAccent,
+        icon: Icons.error_outline_rounded,
       );
       return;
     }
 
     if (widget.tool['id'] == 'compare' && _pickedFiles.length != 2) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select exactly two PDF files to compare.'),
-          backgroundColor: Colors.redAccent,
-        ),
+      showCustomSnackBar(
+        context: context,
+        message: 'Please select exactly two PDF files to compare.',
+        backgroundColor: Colors.redAccent,
+        icon: Icons.error_outline_rounded,
       );
       return;
     }
@@ -969,11 +1014,11 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
           _isProcessing = false;
         });
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Compression Failed: $e'),
-            backgroundColor: Colors.redAccent,
-          ),
+        showCustomSnackBar(
+          context: context,
+          message: 'Compression Failed: $e',
+          backgroundColor: Colors.redAccent,
+          icon: Icons.error_outline_rounded,
         );
       }
       return;
@@ -1203,11 +1248,11 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
           final errData = jsonDecode(response.body);
           errMsg = errData['message'] ?? errData['error'] ?? errMsg;
         } catch (_) {}
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $errMsg'),
-            backgroundColor: Colors.redAccent,
-          ),
+        showCustomSnackBar(
+          context: context,
+          message: 'Error: $errMsg',
+          backgroundColor: Colors.redAccent,
+          icon: Icons.error_outline_rounded,
         );
       }
     } catch (e) {
@@ -1215,11 +1260,11 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
         _isProcessing = false;
       });
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Network Error: $e'),
-          backgroundColor: Colors.redAccent,
-        ),
+      showCustomSnackBar(
+        context: context,
+        message: 'Network Error: $e',
+        backgroundColor: Colors.redAccent,
+        icon: Icons.error_outline_rounded,
       );
     }
   }
@@ -1253,17 +1298,12 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
 
           if (savedPath != null) {
             if (!mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Saved to: $savedPath'),
-                backgroundColor: Colors.green,
-                duration: const Duration(seconds: 5),
-                action: SnackBarAction(
-                  label: 'OK',
-                  textColor: Colors.white,
-                  onPressed: () {},
-                ),
-              ),
+            showCustomSnackBar(
+              context: context,
+              message: 'Saved to: $savedPath',
+              backgroundColor: Colors.green,
+              icon: Icons.check_circle_outline_rounded,
+              duration: const Duration(seconds: 5),
             );
             return; // Exit early if native save succeeded
           }
@@ -1298,25 +1338,20 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
       await file.writeAsBytes(bytes);
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Saved to: $filePath'),
-          backgroundColor: Colors.green,
-          duration: const Duration(seconds: 5),
-          action: SnackBarAction(
-            label: 'OK',
-            textColor: Colors.white,
-            onPressed: () {},
-          ),
-        ),
+      showCustomSnackBar(
+        context: context,
+        message: 'Saved to: $filePath',
+        backgroundColor: Colors.green,
+        icon: Icons.check_circle_outline_rounded,
+        duration: const Duration(seconds: 5),
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to save file: $e'),
-          backgroundColor: Colors.redAccent,
-        ),
+      showCustomSnackBar(
+        context: context,
+        message: 'Failed to save file: $e',
+        backgroundColor: Colors.redAccent,
+        icon: Icons.error_outline_rounded,
       );
     }
   }
@@ -1420,11 +1455,11 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
                               onPressed: () {
                                 Clipboard.setData(
                                     ClipboardData(text: _summaryText!));
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Summary copied to clipboard!'),
-                                    backgroundColor: Colors.green,
-                                  ),
+                                showCustomSnackBar(
+                                  context: context,
+                                  message: 'Summary copied to clipboard!',
+                                  backgroundColor: Colors.green,
+                                  icon: Icons.check_circle_outline_rounded,
                                 );
                               },
                               icon: const Icon(Icons.copy, size: 16),
@@ -2423,11 +2458,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   debugPrint("Failed to save API Key to SharedPreferences: $e");
                 }
                 if (!mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('API Key saved permanently!'),
-                    backgroundColor: Colors.green,
-                  ),
+                showCustomSnackBar(
+                  context: context,
+                  message: 'API Key saved permanently!',
+                  backgroundColor: Colors.green,
+                  icon: Icons.check_circle_outline_rounded,
                 );
                 Navigator.pop(context);
               },
