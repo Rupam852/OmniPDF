@@ -975,7 +975,7 @@ export default function App() {
             Omni<span>PDF</span>
           </a>
           <ul className="landing-nav-links">
-            <li>
+            <li className="landing-nav-text-item">
               <a 
                 href="#features" 
                 className="landing-nav-link" 
@@ -987,7 +987,7 @@ export default function App() {
                 Features
               </a>
             </li>
-            <li>
+            <li className="landing-nav-text-item">
               <a 
                 href="#how-it-works" 
                 className="landing-nav-link" 
@@ -999,7 +999,7 @@ export default function App() {
                 How it Works
               </a>
             </li>
-            <li>
+            <li className="landing-nav-text-item">
               <a 
                 href="#privacy" 
                 className="landing-nav-link" 
