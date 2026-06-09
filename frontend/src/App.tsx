@@ -973,24 +973,23 @@ export default function App() {
           <a href="#" className="landing-nav-logo" onClick={(e) => e.preventDefault()}>
             Omni<span>PDF</span>
           </a>
-          <span className="landing-nav-badge">v1.2.0 Stable</span>
         </nav>
 
         <main className="landing-hero">
-          <div className="landing-tagline">
+          <div className="landing-tagline animate-fade-in">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
             </svg>
             Omnipotent PDF Solutions
           </div>
-          <h1 className="landing-title">
+          <h1 className="landing-title animate-fade-in delay-1">
             Ultimate PDF Tools, <span>Decentralized & Free</span>
           </h1>
-          <p className="landing-subtitle">
+          <p className="landing-subtitle animate-fade-in delay-2">
             Experience the next-gen web & mobile platform for all your PDF requirements. Edit, compress, merge, split, and run AI summaries on your documents with military-grade safety.
           </p>
 
-          <div className="landing-actions">
+          <div className="landing-actions animate-fade-in delay-3">
             <button 
               className="shine-btn shine-btn-primary" 
               onClick={() => setShowLandingPage(false)}
@@ -1015,9 +1014,103 @@ export default function App() {
               Download Android App
             </a>
           </div>
+
+          {/* Floating Dashboard Mockup */}
+          <div className="landing-mockup animate-fade-in delay-4">
+            <div className="mockup-header">
+              <span className="mockup-dot red"></span>
+              <span className="mockup-dot yellow"></span>
+              <span className="mockup-dot green"></span>
+              <span className="mockup-title">OMNIPDF_DASHBOARD_PREVIEW</span>
+            </div>
+            <div className="mockup-body">
+              <div className="mockup-card">
+                <div className="mockup-card-icon" style={{ backgroundColor: 'rgba(249, 115, 22, 0.15)', color: '#f97316' }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M12 5v14M5 12h14" />
+                  </svg>
+                </div>
+                <div className="mockup-card-info">
+                  <div className="mockup-card-title">Merging Documents</div>
+                  <div className="mockup-card-status">
+                    <div className="mockup-card-status-bar" style={{ backgroundColor: '#f97316' }}></div>
+                  </div>
+                </div>
+              </div>
+              <div className="mockup-card">
+                <div className="mockup-card-icon" style={{ backgroundColor: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6' }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M4 14h6v8H4zm10-12h6v8h-6zM4 2h6v8H4zm10 12h6v8h-6z" />
+                  </svg>
+                </div>
+                <div className="mockup-card-info">
+                  <div className="mockup-card-title">Compressing Layout</div>
+                  <div className="mockup-card-status">
+                    <div className="mockup-card-status-bar" style={{ backgroundColor: '#3b82f6' }}></div>
+                  </div>
+                </div>
+              </div>
+              <div className="mockup-card">
+                <div className="mockup-card-icon" style={{ backgroundColor: 'rgba(139, 92, 246, 0.15)', color: '#8b5cf6' }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                  </svg>
+                </div>
+                <div className="mockup-card-info">
+                  <div className="mockup-card-title">AI Summarizer Active</div>
+                  <div className="mockup-card-status">
+                    <div className="mockup-card-status-bar" style={{ backgroundColor: '#8b5cf6' }}></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </main>
 
-        <section className="landing-features">
+        {/* Quick Tools Directory */}
+        <h2 className="landing-section-title animate-fade-in delay-2">Quick Feature Access</h2>
+        <p className="landing-section-subtitle animate-fade-in delay-3">Select any specialized tool to navigate straight to the workspace</p>
+        <div className="quick-directory animate-fade-in delay-4">
+          {tools.slice(0, 8).map((tool) => (
+            <div 
+              key={tool.id} 
+              className="directory-badge"
+              onClick={() => {
+                setSelectedTool(tool);
+                setShowLandingPage(false);
+                setProcessedResult(null);
+              }}
+            >
+              <span className="directory-badge-icon" style={{ color: tool.iconColor }}>
+                {tool.iconPath}
+              </span>
+              {tool.name}
+            </div>
+          ))}
+        </div>
+
+        {/* How It Works Stepper */}
+        <h2 className="landing-section-title animate-fade-in delay-2">Streamlined PDF Workflow</h2>
+        <p className="landing-section-subtitle animate-fade-in delay-3">Create, optimize, and manage files in three effortless steps</p>
+        <div className="landing-steps animate-fade-in delay-4">
+          <div className="landing-step-card">
+            <div className="landing-step-num">1</div>
+            <h4 className="landing-step-title">Select Any Tool</h4>
+            <p className="landing-step-desc">Pick from our premium toolbox for merging, compressing, organizing, encrypting, or AI parsing.</p>
+          </div>
+          <div className="landing-step-card">
+            <div className="landing-step-num">2</div>
+            <h4 className="landing-step-title">Drag & Drop Workspace</h4>
+            <p className="landing-step-desc">Upload files into our secure interface. All heavy processing happens quickly and efficiently.</p>
+          </div>
+          <div className="landing-step-card">
+            <div className="landing-step-num">3</div>
+            <h4 className="landing-step-title">Secure Download</h4>
+            <p className="landing-step-desc">Download your output instantly. Files are never stored or tracked for maximum confidentiality.</p>
+          </div>
+        </div>
+
+        <section className="landing-features animate-fade-in delay-5">
           <div className="landing-feature-card">
             <div className="landing-feature-icon" style={{ backgroundColor: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6' }}>
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

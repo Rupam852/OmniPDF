@@ -1898,6 +1898,270 @@ h1, h2, h3, h4, h5, h6 {
   transform: translateY(-1px);
 }
 
+/* ─── PREMIUM LANDING ANIMATIONS ─── */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  opacity: 0;
+  animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.delay-1 { animation-delay: 150ms; }
+.delay-2 { animation-delay: 300ms; }
+.delay-3 { animation-delay: 450ms; }
+.delay-4 { animation-delay: 600ms; }
+.delay-5 { animation-delay: 750ms; }
+
+/* ─── FLOATING DASHBOARD MOCKUP ─── */
+.landing-mockup {
+  width: 100%;
+  max-width: 900px;
+  background: rgba(10, 15, 30, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5), 0 0 40px rgba(59, 130, 246, 0.15);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  margin-top: 40px;
+  margin-bottom: 100px;
+  animation: float 6s ease-in-out infinite;
+}
+
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-12px); }
+  100% { transform: translateY(0px); }
+}
+
+.mockup-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  padding-bottom: 14px;
+}
+
+.mockup-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+.mockup-dot.red { background-color: #ef4444; }
+.mockup-dot.yellow { background-color: #f59e0b; }
+.mockup-dot.green { background-color: #10b981; }
+
+.mockup-title {
+  color: #64748b;
+  font-size: 11px;
+  font-family: monospace;
+  margin-left: auto;
+  letter-spacing: 0.05em;
+}
+
+.mockup-body {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.mockup-card {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  transition: all 0.3s ease;
+}
+
+.mockup-card:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.mockup-card-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mockup-card-info {
+  flex: 1;
+}
+
+.mockup-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #e2e8f0;
+  margin-bottom: 6px;
+}
+
+.mockup-card-status {
+  width: 80px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+  overflow: hidden;
+  position: relative;
+}
+
+.mockup-card-status-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  border-radius: 2px;
+  animation: loadingSim 3s infinite ease-in-out;
+}
+
+@keyframes loadingSim {
+  0% { width: 10%; }
+  50% { width: 90%; }
+  100% { width: 10%; }
+}
+
+/* ─── HOW IT WORKS STEPPER ─── */
+.landing-section-title {
+  font-size: clamp(26px, 4.5vw, 36px);
+  font-weight: 800;
+  text-align: center;
+  margin-top: 40px;
+  margin-bottom: 12px;
+  background: linear-gradient(135deg, #ffffff 40%, #94a3b8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: -0.02em;
+}
+
+.landing-section-subtitle {
+  font-size: 15px;
+  color: #64748b;
+  text-align: center;
+  margin-bottom: 60px;
+  max-width: 580px;
+  margin-left: auto;
+  margin-right: auto;
+  line-height: 1.6;
+}
+
+.landing-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 30px;
+  justify-content: center;
+  width: 100%;
+  max-width: 1100px;
+  margin-bottom: 100px;
+}
+
+.landing-step-card {
+  flex: 1;
+  min-width: 280px;
+  background: rgba(15, 23, 42, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  border-radius: 24px;
+  padding: 40px 30px;
+  text-align: center;
+  position: relative;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.landing-step-card:hover {
+  transform: translateY(-5px);
+  border-color: rgba(59, 130, 246, 0.2);
+  background: rgba(15, 23, 42, 0.35);
+}
+
+.landing-step-num {
+  position: absolute;
+  top: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  color: white;
+  font-size: 16px;
+  box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+}
+
+.landing-step-title {
+  font-size: 18px;
+  font-weight: 700;
+  margin-top: 15px;
+  margin-bottom: 12px;
+  color: #f8fafc;
+}
+
+.landing-step-desc {
+  font-size: 14px;
+  color: #94a3b8;
+  line-height: 1.55;
+  margin: 0;
+}
+
+/* ─── QUICK DIRECTORY BADGES ─── */
+.quick-directory {
+  width: 100%;
+  max-width: 1100px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+  margin-bottom: 100px;
+}
+
+.directory-badge {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 14px;
+  padding: 12px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #cbd5e1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.directory-badge:hover {
+  background: rgba(59, 130, 246, 0.08);
+  border-color: rgba(59, 130, 246, 0.3);
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 15px rgba(59, 130, 246, 0.15);
+}
+
+.directory-badge-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 
 
 
