@@ -1552,8 +1552,7 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
                     ),
                     const SizedBox(height: 20),
                   ],
-                  if (widget.tool['id'] == 'pdf-to-jpg' &&
-                      _processedFiles.isNotEmpty) ...[
+                  if (_processedFiles.isNotEmpty) ...[
                     ..._processedFiles.map((f) {
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 12.0),
@@ -1565,7 +1564,7 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
                           label: Text('Download ${f['fileName']}'),
                           style: ElevatedButton.styleFrom(
                             minimumSize: const Size(double.infinity, 48),
-                            backgroundColor: Colors.blueAccent,
+                            backgroundColor: Colors.green,
                             foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(8)),
