@@ -58,7 +58,7 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
   const [opacity, setOpacity] = useState<number>(0.15);
   const [summaryFormat, setSummaryFormat] = useState<'bullets' | 'paragraph'>('bullets');
   const [geminiKey, setGeminiKey] = useState(() => localStorage.getItem('gemini_api_key') || '');
-  const [targetLanguage, setTargetLanguage] = useState('Spanish');
+  const [targetLanguage, setTargetLanguage] = useState('');
   // Split
   const [splitMode, setSplitMode] = useState<'all' | 'half' | 'range'>('all');
   const [pageRanges, setPageRanges] = useState('');
@@ -375,6 +375,10 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
     }
     if (toolId === 'extract-pages' && !extractPageRanges.trim()) {
       setErrorMessage('Please enter page ranges to extract (e.g. "1-3,5").');
+      return;
+    }
+    if (toolId === 'translate' && !targetLanguage) {
+      setErrorMessage('Please select a target language for translation.');
       return;
     }
     if (toolId === 'split' && splitMode === 'range' && !pageRanges.trim()) {
@@ -1060,6 +1064,7 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
                 <div className="setting-group">
                   <label className="setting-label">Target Language:</label>
                   <select value={targetLanguage} onChange={(e) => setTargetLanguage(e.target.value)} className="setting-select" id="target-language-select">
+                    <option value="">Choose Language</option>
                     <option value="Spanish">Spanish</option>
                     <option value="French">French</option>
                     <option value="German">German</option>

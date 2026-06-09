@@ -518,7 +518,7 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
   late final TextEditingController _signatureTextController;
   late final TextEditingController _redactTermController;
 
-  String _targetLanguage = 'Spanish';
+  String _targetLanguage = 'Choose Language';
   double _compressionPercent = 50.0;
   String _splitMode = 'all'; // 'all', 'half', 'range'
   double _watermarkOpacity = 0.15;
@@ -534,6 +534,7 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
 
 
   final List<String> _languages = [
+    'Choose Language',
     'Spanish', 'French', 'German', 'Hindi', 'Bengali', 'Marathi',
     'Telugu', 'Tamil', 'Gujarati', 'Urdu', 'Kannada', 'Odia',
     'Malayalam', 'Punjabi', 'Assamese', 'Chinese (Simplified)',
@@ -839,6 +840,16 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please select exactly two PDF files to compare.'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
+    if (widget.tool['id'] == 'translate' && _targetLanguage == 'Choose Language') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select a target language for translation.'),
           backgroundColor: Colors.redAccent,
         ),
       );
