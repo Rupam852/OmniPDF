@@ -1107,7 +1107,7 @@ router.post(
     try {
       console.log(`[AI Summarizer] File: ${file.size} bytes, format: ${summaryFormat}`);
       const genAI = new GoogleGenerativeAI(geminiApiKey);
-      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+      const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
       const prompt =
         summaryFormat === 'paragraph'
@@ -1173,7 +1173,7 @@ router.post(
     try {
       console.log(`[Translate PDF] Target: ${targetLanguage}, File: ${file.size} bytes`);
       const genAI = new GoogleGenerativeAI(geminiApiKey);
-      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+      const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
       const result = await model.generateContent([
         {
@@ -1312,7 +1312,7 @@ router.post(
     try {
       console.log(`[OCR PDF] File: ${file.size} bytes`);
       const genAI = new GoogleGenerativeAI(geminiApiKey);
-      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+      const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
       const prompt =
         "Analyze this scanned PDF document and perform full OCR. Extract all the text page by page, preserving the document's structure, headings, paragraphs, and lists as closely as possible. Return only the clean extracted text. Do not add any extra explanations or conversational text.";

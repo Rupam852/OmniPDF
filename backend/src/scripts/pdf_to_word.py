@@ -16,7 +16,7 @@ def pdf_to_word_gemini(input_path, output_path, gemini_key):
         with open(input_path, "rb") as f:
             pdf_data = f.read()
             
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        model = genai.GenerativeModel('gemini-2.5-flash')
         prompt = "Extract all text and tabular data from this PDF document page-by-page. Preserve headings, paragraphs, and list structures as closely as possible. Output only the clean extracted markdown/structured text without extra chat conversational wrapper."
         
         response = model.generate_content([

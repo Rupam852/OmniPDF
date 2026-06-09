@@ -13,7 +13,7 @@ def edit_pdf_gemini(input_path, output_path, prompt, gemini_key):
         with open(input_path, "rb") as f:
             pdf_data = f.read()
             
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        model = genai.GenerativeModel('gemini-2.5-flash')
         full_prompt = (
             f"Analyze this PDF document and edit it according to the user's request: '{prompt}'. "
             "Return only the edited document content. Preserve layout structure as much as possible."

@@ -17,7 +17,7 @@ def pdf_to_xlsx_gemini(input_path, output_path, gemini_key):
         with open(input_path, "rb") as f:
             pdf_data = f.read()
             
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        model = genai.GenerativeModel('gemini-2.5-flash')
         prompt = (
             "Extract all tabular data from this PDF document. For each table found, "
             "return the rows in a structured JSON list format. For example:\n"
