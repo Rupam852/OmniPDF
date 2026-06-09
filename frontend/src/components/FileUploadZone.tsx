@@ -45,7 +45,8 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
+  const [selectedPreviewIndex, setSelectedPreviewIndex] = useState<number>(0);
+  const [bigPreviewUrls, setBigPreviewUrls] = useState<Record<string, string>>({});
 
 
   // ─── Tool-specific option states ─────────────────────────────────────────
@@ -189,8 +190,75 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
     detectPages();
   }, [files]);
 
+  useEffect(() => {
+    const newBigUrls = { ...bigPreviewUrls };
+    let updated = false;
 
+    for (const file of files) {
+      if (!newBigUrls[file.name]) {
+        newBigUrls[file.name] = URL.createObjectURL(file);
+        updated = true;
+      }
+    }
 
+    if (updated) {
+      setBigPreviewUrls(newBigUrls);
+    }
+  }, [files]);
+
+  useEffect(() => {
+    return () => {
+      Object.values(bigPreviewUrls).forEach(url => {
+        try {
+          URL.revokeObjectURL(url);
+        } catch (e) {}
+      });
+    };
+  }, [bigPreviewUrls]);
+
+  useEffect(() => {
+    if (selectedPreviewIndex >= files.length && files.length > 0) {
+      setSelectedPreviewIndex(files.length - 1);
+    }
+  }, [files, selectedPreviewIndex]);
+
+  const renderBigPreview = (file: File) => {
+    if (!file) return null;
+    const ext = getFileExtension(file);
+    const cachedUrl = bigPreviewUrls[file.name];
+    if (!cachedUrl) return null;
+
+    if (ext === 'pdf') {
+      return (
+        <iframe
+          src={`${cachedUrl}#toolbar=0`}
+          title="PDF Preview"
+          className="large-pdf-preview"
+        />
+      );
+    } else if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) {
+      return (
+        <img
+          src={cachedUrl}
+          alt="Image Preview"
+          className="large-image-preview"
+        />
+      );
+    } else {
+      const fileColor = getFileColor(file);
+      return (
+        <div className="large-placeholder-preview">
+          <div className="large-file-badge" style={{ backgroundColor: fileColor }}>
+            {ext.toUpperCase()}
+          </div>
+          <p className="large-file-name">{file.name}</p>
+          <p className="large-file-meta">
+            Size: {(file.size / 1024 / 1024).toFixed(2)} MB | Preview not supported for this file type.
+          </p>
+        </div>
+      );
+    }
+  };
 
   const rotateFile = (fileName: string) => {
     setFileRotations(prev => {
@@ -555,7 +623,25 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
           )}
         </div>
       ) : (
-        <div className="tool-workspace-layout">
+        <div className="tool-workspace-layout-vertical">
+          {/* Big Preview Box spanning across the top */}
+          {files.length > 0 && files[selectedPreviewIndex] && (
+            <div className="big-dynamic-preview-container">
+              <div className="big-preview-header">
+                <span className="big-preview-title">
+                  🔍 Live Preview: {files[selectedPreviewIndex].name}
+                </span>
+                <span className="big-preview-subtitle">
+                  Click any file below to change preview
+                </span>
+              </div>
+              <div className="big-preview-content">
+                {renderBigPreview(files[selectedPreviewIndex])}
+              </div>
+            </div>
+          )}
+
+          <div className="tool-workspace-layout">
             <div className="workspace-main-panel">
               <div className="file-list-header">
                 <span>Selected Files ({files.length})</span>
@@ -591,7 +677,10 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
 
                   return (
                     <div key={index} className="preview-card-wrapper">
-                      <div className="preview-card">
+                      <div 
+                        className={`preview-card ${selectedPreviewIndex === index ? 'selected-preview-card' : ''}`}
+                        onClick={() => setSelectedPreviewIndex(index)}
+                      >
                         <div 
                           className="preview-thumbnail-container"
                           style={{ transform: `rotate(${rotation}deg)` }}
@@ -1071,6 +1160,7 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
             )}
           </div>
         </div>
+      </div>
       )}
 
       {errorMessage && (
