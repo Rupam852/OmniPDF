@@ -1190,6 +1190,19 @@ h1, h2, h3, h4, h5, h6 {
   animation: fadeIn 0.15s ease-out;
 }
 
+/* Invisible hover bridge to prevent losing hover state when moving cursor down to the dropdown */
+.mega-dropdown::before,
+.normal-dropdown::before {
+  content: '';
+  position: absolute;
+  top: -24px;
+  left: 0;
+  right: 0;
+  height: 24px;
+  background: transparent;
+  z-index: -1;
+}
+
 .normal-dropdown-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
