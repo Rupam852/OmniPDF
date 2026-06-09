@@ -120,13 +120,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       'color': const Color(0xFF8B5CF6),
       'icon': Icons.auto_awesome_rounded,
     },
-    {
-      'id': 'translate',
-      'name': 'Translate PDF',
-      'desc': 'Translate document pages keeping formatting.',
-      'color': const Color(0xFF6366F1),
-      'icon': Icons.translate_rounded,
-    },
+
     {
       'id': 'watermark',
       'name': 'Watermark',
@@ -260,13 +254,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       'color': const Color(0xFF06B6D4),
       'icon': Icons.crop_rounded,
     },
-    {
-      'id': 'edit-pdf',
-      'name': 'AI Edit PDF',
-      'desc': 'Edit your PDF content using AI instructions.',
-      'color': const Color(0xFF8B5CF6),
-      'icon': Icons.edit_note_rounded,
-    },
+
     {
       'id': 'pdf-forms',
       'name': 'Flatten PDF Forms',
@@ -514,14 +502,13 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
   late final TextEditingController _cropTopController;
   late final TextEditingController _cropRightController;
   late final TextEditingController _cropBottomController;
-  late final TextEditingController _editPromptController;
   late final TextEditingController _signatureTextController;
   late final TextEditingController _redactTermController;
 
-  String _targetLanguage = 'Choose Language';
   double _compressionPercent = 50.0;
   String _splitMode = 'all'; // 'all', 'half', 'range'
   double _watermarkOpacity = 0.15;
+  String _watermarkPosition = 'center';
   String _pageNumPosition = 'bottom-center';
   String _rotateAngle = '90';
   String _organizeMode = 'reverse'; // 'reverse', 'normal', 'custom'
@@ -531,17 +518,6 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
   bool _isOptionsExpanded = false;
   bool _obscurePassword = true;
 
-
-
-  final List<String> _languages = [
-    'Choose Language',
-    'Spanish', 'French', 'German', 'Hindi', 'Bengali', 'Marathi',
-    'Telugu', 'Tamil', 'Gujarati', 'Urdu', 'Kannada', 'Odia',
-    'Malayalam', 'Punjabi', 'Assamese', 'Chinese (Simplified)',
-    'Chinese (Traditional)', 'Japanese', 'Korean', 'Russian',
-    'Arabic', 'Portuguese', 'Italian', 'Turkish', 'Vietnamese',
-    'Dutch', 'Indonesian', 'Polish'
-  ];
 
   @override
   void initState() {
@@ -564,7 +540,6 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
     _cropTopController = TextEditingController(text: '10');
     _cropRightController = TextEditingController(text: '10');
     _cropBottomController = TextEditingController(text: '10');
-    _editPromptController = TextEditingController(text: 'Fix formatting and layout');
     _signatureTextController = TextEditingController(text: 'Signed by OmniPDF');
     _redactTermController = TextEditingController();
   }
@@ -588,7 +563,6 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
     _cropTopController.dispose();
     _cropRightController.dispose();
     _cropBottomController.dispose();
-    _editPromptController.dispose();
     _signatureTextController.dispose();
     _redactTermController.dispose();
     super.dispose();
@@ -816,15 +790,7 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
       return;
     }
 
-    if (widget.tool['id'] == 'edit-pdf' && _editPromptController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter editing instructions for the AI.'),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
-      return;
-    }
+
 
     if (widget.tool['id'] == 'redact' && _redactTermController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -840,16 +806,6 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please select exactly two PDF files to compare.'),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
-      return;
-    }
-
-    if (widget.tool['id'] == 'translate' && _targetLanguage == 'Choose Language') {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select a target language for translation.'),
           backgroundColor: Colors.redAccent,
         ),
       );
@@ -988,10 +944,7 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
         request.headers['x-gemini-key'] = apiKey;
       }
 
-      // Populate Request Parameters
-      if (widget.tool['id'] == 'translate') {
-        request.fields['targetLanguage'] = _targetLanguage;
-      }
+
 
       if (widget.tool['id'] == 'compress') {
         final double originalSize = _pickedFiles.isNotEmpty ? _pickedFiles[0].size.toDouble() : 0.0;
@@ -1016,6 +969,7 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
         request.fields['watermarkText'] = _watermarkTextController.text.trim().isEmpty ? 'OmniPDF' : _watermarkTextController.text.trim();
         request.fields['opacity'] = _watermarkOpacity.toString();
         request.fields['fontSize'] = _watermarkFontSizeController.text.trim().isEmpty ? '40' : _watermarkFontSizeController.text.trim();
+        request.fields['position'] = _watermarkPosition;
       }
 
       if (widget.tool['id'] == 'page-numbers') {
@@ -1050,9 +1004,6 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
         request.fields['bottom'] = _cropBottomController.text.trim().isEmpty ? '10' : _cropBottomController.text.trim();
       }
 
-      if (widget.tool['id'] == 'edit-pdf') {
-        request.fields['prompt'] = _editPromptController.text.trim().isEmpty ? 'Fix formatting and layout' : _editPromptController.text.trim();
-      }
 
       if (widget.tool['id'] == 'sign') {
         request.fields['signatureText'] = _signatureTextController.text.trim().isEmpty ? 'Signed by OmniPDF' : _signatureTextController.text.trim();
@@ -1875,31 +1826,7 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
                                   color: isAiRequired ? Colors.amberAccent : Colors.grey,
                                 ),
                               ),
-                              if (widget.tool['id'] == 'translate') ...[
-                                const SizedBox(height: 12),
-                                DropdownButtonFormField<String>(
-                                  value: _targetLanguage,
-                                  dropdownColor: const Color(0xFF0B1329),
-                                  decoration: const InputDecoration(
-                                    labelText: 'Target Language',
-                                    labelStyle: TextStyle(fontSize: 12, color: Colors.grey),
-                                    border: OutlineInputBorder(),
-                                    prefixIcon: Icon(Icons.language_rounded, size: 18),
-                                    contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                  ),
-                                  items: _languages.map((String lang) {
-                                    return DropdownMenuItem<String>(
-                                        value: lang, child: Text(lang));
-                                  }).toList(),
-                                  onChanged: (String? newVal) {
-                                    if (newVal != null) {
-                                      setState(() {
-                                        _targetLanguage = newVal;
-                                      });
-                                    }
-                                  },
-                                ),
-                              ],
+
                               const SizedBox(height: 16),
                             ],
 
@@ -2093,6 +2020,28 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
                                   setState(() { _watermarkOpacity = val; });
                                 },
                               ),
+                              const SizedBox(height: 8),
+                              DropdownButtonFormField<String>(
+                                value: _watermarkPosition,
+                                dropdownColor: const Color(0xFF0B1329),
+                                decoration: const InputDecoration(
+                                  labelText: 'Position Placement',
+                                  border: OutlineInputBorder(),
+                                  contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                ),
+                                items: const [
+                                  DropdownMenuItem(value: 'center', child: Text('Center (rotated 45°)')),
+                                  DropdownMenuItem(value: 'top-left', child: Text('Top Left (horizontal)')),
+                                  DropdownMenuItem(value: 'top-center', child: Text('Top Center (horizontal)')),
+                                  DropdownMenuItem(value: 'top-right', child: Text('Top Right (horizontal)')),
+                                  DropdownMenuItem(value: 'bottom-left', child: Text('Bottom Left (horizontal)')),
+                                  DropdownMenuItem(value: 'bottom-center', child: Text('Bottom Center (horizontal)')),
+                                  DropdownMenuItem(value: 'bottom-right', child: Text('Bottom Right (horizontal)')),
+                                ],
+                                onChanged: (val) {
+                                  if (val != null) setState(() { _watermarkPosition = val; });
+                                },
+                              ),
                               const SizedBox(height: 16),
                             ],
 
@@ -2268,24 +2217,7 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
                               const SizedBox(height: 16),
                             ],
 
-                            // AI Edit PDF configuration panel
-                            if (widget.tool['id'] == 'edit-pdf') ...[
-                              const Text(
-                                'AI Edit Settings',
-                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF60A5FA)),
-                              ),
-                              const SizedBox(height: 8),
-                              TextField(
-                                controller: _editPromptController,
-                                maxLines: 3,
-                                decoration: const InputDecoration(
-                                  labelText: 'Editing Instructions',
-                                  hintText: 'e.g. Translate headers to French and format bullet points...',
-                                  border: OutlineInputBorder(),
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                            ],
+
 
                             // Sign PDF configuration panel
                             if (widget.tool['id'] == 'sign') ...[

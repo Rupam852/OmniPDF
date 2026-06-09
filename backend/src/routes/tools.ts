@@ -693,6 +693,7 @@ router.post(
     const watermarkText = (req.body.watermarkText || 'OmniPDF').trim() || 'OmniPDF';
     const opacity = Math.min(1, Math.max(0.05, parseFloat(req.body.opacity || '0.15')));
     const fontSize = Math.min(80, Math.max(12, parseInt(req.body.fontSize || '40', 10)));
+    const position = req.body.position || 'center';
 
     if (!file) {
       res.status(400).json({ error: 'Bad Request', message: 'A PDF file is required.' });
@@ -704,27 +705,59 @@ router.post(
       const font = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
       const pages = pdfDoc.getPages();
 
-      console.log(`[Watermark PDF] Applying watermark "${watermarkText}" to ${pages.length} pages`);
+      console.log(`[Watermark PDF] Applying watermark "${watermarkText}" to ${pages.length} pages at position "${position}"`);
 
       pages.forEach((page) => {
         const { width, height } = page.getSize();
-        // Estimate text width at given font size (Helvetica-Bold: ~0.6 ratio)
         const textWidth = watermarkText.length * fontSize * 0.55;
         const textHeight = fontSize;
+        const margin = 30;
 
-        // Centre it properly accounting for 45° rotation
-        // When text is rotated 45°, its bounding box centre needs adjustment
-        const cx = width / 2;
-        const cy = height / 2;
+        let x = 0;
+        let y = 0;
+        let rotateAngle = 0;
+
+        switch (position) {
+          case 'top-left':
+            x = margin;
+            y = height - margin - textHeight;
+            break;
+          case 'top-center':
+            x = (width - textWidth) / 2;
+            y = height - margin - textHeight;
+            break;
+          case 'top-right':
+            x = width - margin - textWidth;
+            y = height - margin - textHeight;
+            break;
+          case 'bottom-left':
+            x = margin;
+            y = margin;
+            break;
+          case 'bottom-center':
+            x = (width - textWidth) / 2;
+            y = margin;
+            break;
+          case 'bottom-right':
+            x = width - margin - textWidth;
+            y = margin;
+            break;
+          case 'center':
+          default:
+            x = (width - textWidth) / 2;
+            y = (height - textHeight) / 2;
+            rotateAngle = 45;
+            break;
+        }
 
         page.drawText(watermarkText, {
-          x: cx - textWidth / 2,
-          y: cy - textHeight / 2,
+          x,
+          y,
           size: fontSize,
           font,
           color: rgb(0.5, 0.5, 0.5),
           opacity,
-          rotate: degrees(45),
+          rotate: degrees(rotateAngle),
         });
       });
 

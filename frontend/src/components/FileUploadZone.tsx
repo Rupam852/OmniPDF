@@ -56,9 +56,9 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
   const [watermarkText, setWatermarkText] = useState('OmniPDF');
   const [watermarkFontSize, setWatermarkFontSize] = useState<number>(40);
   const [opacity, setOpacity] = useState<number>(0.15);
+  const [watermarkPosition, setWatermarkPosition] = useState('center');
   const [summaryFormat, setSummaryFormat] = useState<'bullets' | 'paragraph'>('bullets');
   const [geminiKey, setGeminiKey] = useState(() => localStorage.getItem('gemini_api_key') || '');
-  const [targetLanguage, setTargetLanguage] = useState('');
   // Split
   const [splitMode, setSplitMode] = useState<'all' | 'half' | 'range'>('all');
   const [pageRanges, setPageRanges] = useState('');
@@ -85,8 +85,6 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
   const [cropTop, setCropTop] = useState<number>(10);
   const [cropRight, setCropRight] = useState<number>(10);
   const [cropBottom, setCropBottom] = useState<number>(10);
-  // Edit PDF
-  const [editPrompt, setEditPrompt] = useState<string>('Fix typos and format text nicely');
   // Sign
   const [signatureText, setSignatureText] = useState<string>('Signed by OmniPDF User');
   // Redact
@@ -354,17 +352,13 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
       return;
     }
 
-    const isAiRequired = ['ocr', 'edit-pdf', 'ai-summarizer', 'translate'].includes(toolId);
+    const isAiRequired = ['ocr', 'ai-summarizer'].includes(toolId);
     if (isAiRequired && !geminiKey.trim()) {
       setErrorMessage('A Google Gemini API key must be provided to use this tool.');
       return;
     }
 
     // Per-tool validation
-    if (toolId === 'edit-pdf' && !editPrompt.trim()) {
-      setErrorMessage('Please enter editing instructions for the AI.');
-      return;
-    }
     if (toolId === 'redact' && !redactTerm.trim()) {
       setErrorMessage('Please enter a term to redact from the PDF.');
       return;
@@ -375,10 +369,6 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
     }
     if (toolId === 'extract-pages' && !extractPageRanges.trim()) {
       setErrorMessage('Please enter page ranges to extract (e.g. "1-3,5").');
-      return;
-    }
-    if (toolId === 'translate' && !targetLanguage) {
-      setErrorMessage('Please select a target language for translation.');
       return;
     }
     if (toolId === 'split' && splitMode === 'range' && !pageRanges.trim()) {
@@ -404,7 +394,7 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
         // Watermark
         watermarkText, watermarkFontSize, opacity,
         // AI tools
-        summaryFormat, geminiKey, targetLanguage,
+        summaryFormat, geminiKey,
         // Split
         splitMode, pageRanges,
         // Rotate
@@ -413,15 +403,15 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
         pageNumbers, extractPageRanges,
         // Organize
         pageOrder: organizeMode === 'custom' ? pageOrder : organizeMode,
-        // Page numbers
-        position: pageNumPosition, startNumber: String(pageNumStart), prefix: pageNumPrefix,
+        // Page numbers & Watermark positions
+        position: toolId === 'page-numbers' ? pageNumPosition : (toolId === 'watermark' ? watermarkPosition : undefined),
+        startNumber: String(pageNumStart),
+        prefix: pageNumPrefix,
         pgNumFontSize: '10',
         // Protect / Unlock
         password: pdfPassword,
         // Crop
         left: cropLeft, top: cropTop, right: cropRight, bottom: cropBottom,
-        // Edit PDF
-        prompt: editPrompt,
         // Sign
         signatureText,
         // Redact
@@ -817,6 +807,18 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
                       <input type="number" min="0.05" max="1" step="0.05" value={opacity} onChange={(e) => setOpacity(parseFloat(e.target.value))} className="setting-input" />
                     </div>
                   </div>
+                  <div className="setting-group" style={{ marginTop: '10px' }}>
+                    <label className="setting-label">Position Placement:</label>
+                    <select value={watermarkPosition} onChange={(e) => setWatermarkPosition(e.target.value)} className="setting-select">
+                      <option value="center">Center (rotated 45°)</option>
+                      <option value="top-left">Top Left (horizontal)</option>
+                      <option value="top-center">Top Center (horizontal)</option>
+                      <option value="top-right">Top Right (horizontal)</option>
+                      <option value="bottom-left">Bottom Left (horizontal)</option>
+                      <option value="bottom-center">Bottom Center (horizontal)</option>
+                      <option value="bottom-right">Bottom Right (horizontal)</option>
+                    </select>
+                  </div>
                 </>
               )}
 
@@ -1059,43 +1061,7 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
                 </div>
               )}
 
-              {/* Translate language */}
-              {toolId === 'translate' && (
-                <div className="setting-group">
-                  <label className="setting-label">Target Language:</label>
-                  <select value={targetLanguage} onChange={(e) => setTargetLanguage(e.target.value)} className="setting-select" id="target-language-select">
-                    <option value="">Choose Language</option>
-                    <option value="Spanish">Spanish</option>
-                    <option value="French">French</option>
-                    <option value="German">German</option>
-                    <option value="Hindi">Hindi</option>
-                    <option value="Bengali">Bengali</option>
-                    <option value="Marathi">Marathi</option>
-                    <option value="Telugu">Telugu</option>
-                    <option value="Tamil">Tamil</option>
-                    <option value="Gujarati">Gujarati</option>
-                    <option value="Urdu">Urdu</option>
-                    <option value="Kannada">Kannada</option>
-                    <option value="Odia">Odia</option>
-                    <option value="Malayalam">Malayalam</option>
-                    <option value="Punjabi">Punjabi</option>
-                    <option value="Assamese">Assamese</option>
-                    <option value="Chinese (Simplified)">Chinese (Simplified)</option>
-                    <option value="Chinese (Traditional)">Chinese (Traditional)</option>
-                    <option value="Japanese">Japanese</option>
-                    <option value="Korean">Korean</option>
-                    <option value="Russian">Russian</option>
-                    <option value="Arabic">Arabic</option>
-                    <option value="Portuguese">Portuguese</option>
-                    <option value="Italian">Italian</option>
-                    <option value="Turkish">Turkish</option>
-                    <option value="Vietnamese">Vietnamese</option>
-                    <option value="Dutch">Dutch</option>
-                    <option value="Indonesian">Indonesian</option>
-                    <option value="Polish">Polish</option>
-                  </select>
-                </div>
-              )}
+
 
               {/* CROP options */}
               {toolId === 'crop' && (
@@ -1122,20 +1088,6 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
                 </div>
               )}
 
-              {/* EDIT PDF options */}
-              {toolId === 'edit-pdf' && (
-                <div className="setting-group">
-                  <label className="setting-label">AI Editing Instructions:</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Translate to Spanish, fix formatting, add footer..."
-                    value={editPrompt}
-                    onChange={(e) => setEditPrompt(e.target.value)}
-                    className="setting-input"
-                    id="edit-prompt-input"
-                  />
-                </div>
-              )}
 
               {/* SIGN options */}
               {toolId === 'sign' && (
@@ -1170,8 +1122,8 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
               {/* No-op message for tools with no options */}
               {!isIntelligence &&
                 !['compress', 'watermark', 'split', 'rotate', 'remove-pages', 'extract-pages',
-                  'organize-pdf', 'page-numbers', 'protect', 'unlock', 'ai-summarizer', 'translate',
-                  'crop', 'edit-pdf', 'sign', 'redact'].includes(toolId) && (
+                  'organize-pdf', 'page-numbers', 'protect', 'unlock', 'ai-summarizer',
+                  'crop', 'sign', 'redact'].includes(toolId) && (
                 <p style={{ color: '#64748b', fontSize: '13px', margin: '0' }}>No additional options required for this tool.</p>
               )}
             </div>
