@@ -1,3 +1,4 @@
+import 'regenerator-runtime/runtime';
 import { Router, Response } from 'express';
 import multer from 'multer';
 import { GoogleGenerativeAI } from '@google/generative-ai';
