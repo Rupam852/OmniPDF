@@ -9,6 +9,9 @@ import { checkAndInstallPythonDependencies } from './utils/pythonSetup';
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Enable trust proxy for correct IP rate limiting behind reverse proxies (Vercel, AWS, etc.)
+app.set('trust proxy', 1);
+
 // Security Middleware
 app.use(helmet());
 
