@@ -66,6 +66,10 @@ h1, h2, h3, h4, h5, h6 {
   color: var(--color-accent);
 }
 
+.mobile-menu-toggle {
+  display: none;
+}
+
 .nav-links {
   display: flex;
   gap: 24px;
@@ -690,22 +694,203 @@ h1, h2, h3, h4, h5, h6 {
 @media (max-width: 768px) {
   .app-header {
     padding: 16px 20px;
-    flex-direction: column;
-    gap: 16px;
+    flex-direction: row;
+    justify-content: space-between;
     align-items: center;
-    text-align: center;
-    position: relative;
+    position: sticky;
+    top: 0;
   }
   
   .nav-links {
-    gap: 16px;
-    width: 100%;
-    justify-content: center;
-    flex-wrap: wrap;
+    display: none !important;
   }
   
-  .nav-link {
+  .mobile-menu-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    color: var(--text-primary);
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 8px;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+  }
+  
+  .mobile-menu-toggle:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+  }
+  
+  .mobile-menu-toggle:active {
+    transform: scale(0.95);
+  }
+
+  /* Mobile Menu Overlay */
+  .mobile-menu-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(3, 7, 18, 0.65);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    z-index: 1000;
+  }
+
+  /* Mobile Menu Drawer */
+  .mobile-menu-drawer {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 320px;
+    max-width: 85vw;
+    background: #0b1329;
+    border-left: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5);
+    z-index: 1001;
+    display: flex;
+    flex-direction: column;
+    transform: translateX(100%);
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    text-align: left;
+  }
+
+  .mobile-menu-drawer.open {
+    transform: translateX(0);
+  }
+
+  .mobile-drawer-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  .mobile-drawer-title {
+    font-family: var(--font-header);
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .mobile-menu-close {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+  }
+
+  .mobile-menu-close:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+    color: var(--text-primary);
+  }
+
+  .mobile-drawer-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 24px;
+  }
+
+  .mobile-nav-links {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 0;
+    margin: 0;
+  }
+
+  .mobile-nav-link {
+    display: block;
+    color: var(--text-primary);
+    text-decoration: none;
+    font-size: 15px;
+    font-weight: 600;
+    padding: 10px 12px;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+  }
+
+  .mobile-nav-link:hover {
+    background-color: rgba(59, 130, 246, 0.08);
+    color: var(--color-accent);
+  }
+
+  .mobile-nav-divider {
+    height: 1px;
+    background-color: rgba(255, 255, 255, 0.06);
+    margin: 8px 0;
+    list-style: none;
+  }
+
+  .mobile-nav-section {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 10px;
+    list-style: none;
+  }
+
+  .mobile-nav-section-title {
+    font-family: var(--font-header);
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--text-muted);
+    letter-spacing: 0.05em;
+    padding-left: 12px;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+  }
+
+  .mobile-sublinks {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 0;
+    margin: 0;
+  }
+
+  .mobile-sublink-item {
+    display: flex;
+    align-items: center;
+    color: var(--text-secondary);
+    text-decoration: none;
     font-size: 13px;
+    font-weight: 500;
+    padding: 8px 12px;
+    border-radius: 8px;
+    transition: all 0.15s ease;
+  }
+
+  .mobile-sublink-item:hover {
+    background-color: rgba(255, 255, 255, 0.03);
+    color: var(--color-accent);
+    transform: translateX(3px);
+  }
+
+  .mobile-sublink-icon {
+    width: 18px;
+    height: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 10px;
+  }
+
+  .mobile-sublink-icon svg {
+    width: 16px;
+    height: 16px;
   }
   
   .hero-section {
