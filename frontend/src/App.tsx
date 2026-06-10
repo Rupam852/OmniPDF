@@ -1479,158 +1479,158 @@ export default function App() {
             <line x1="3" y1="18" x2="21" y2="18"></line>
           </svg>
         </button>
-
-        {/* Mobile Drawer Overlay */}
-        {isMobileMenuOpen && (
-          <div className="mobile-menu-overlay" onClick={() => setIsMobileMenuOpen(false)}></div>
-        )}
-
-        {/* Mobile Menu Drawer */}
-        <div className={`mobile-menu-drawer ${isMobileMenuOpen ? 'open' : ''}`}>
-          <div className="mobile-drawer-header">
-            <span className="mobile-drawer-title">Menu</span>
-            <button className="mobile-menu-close" onClick={() => setIsMobileMenuOpen(false)}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <line x1="18" y1="6" x2="6" y2="18"></line>
-                <line x1="6" y1="6" x2="18" y2="18"></line>
-              </svg>
-            </button>
-          </div>
-          <div className="mobile-drawer-content">
-            <ul className="mobile-nav-links">
-              <li>
-                <a 
-                  href="#" 
-                  onClick={(e) => { e.preventDefault(); setShowLandingPage(true); setSelectedTool(null); setProcessedResult(null); setIsMobileMenuOpen(false); }} 
-                  className="mobile-nav-link"
-                >
-                  HOME
-                </a>
-              </li>
-              <li>
-                <a 
-                  href="#" 
-                  onClick={(e) => { e.preventDefault(); setSelectedTool(tools.find(t => t.id === 'merge') || null); setProcessedResult(null); setIsMobileMenuOpen(false); }} 
-                  className="mobile-nav-link"
-                >
-                  MERGE PDF
-                </a>
-              </li>
-              <li>
-                <a 
-                  href="#" 
-                  onClick={(e) => { e.preventDefault(); setSelectedTool(tools.find(t => t.id === 'split') || null); setProcessedResult(null); setIsMobileMenuOpen(false); }} 
-                  className="mobile-nav-link"
-                >
-                  SPLIT PDF
-                </a>
-              </li>
-              <li>
-                <a 
-                  href="#" 
-                  onClick={(e) => { e.preventDefault(); setSelectedTool(tools.find(t => t.id === 'compress') || null); setProcessedResult(null); setIsMobileMenuOpen(false); }} 
-                  className="mobile-nav-link"
-                >
-                  COMPRESS PDF
-                </a>
-              </li>
-
-              <li className="mobile-nav-divider"></li>
-              
-              {/* CONVERT PDF SECTION */}
-              <li className="mobile-nav-section">
-                <div className="mobile-nav-section-title">CONVERT TO PDF</div>
-                <ul className="mobile-sublinks">
-                  {tools.filter(t => t.category === 'convert_to').map(tool => (
-                    <li key={tool.id}>
-                      <a 
-                        href="#" 
-                        onClick={(e) => { e.preventDefault(); setSelectedTool(tool); setProcessedResult(null); setIsMobileMenuOpen(false); }}
-                        className="mobile-sublink-item"
-                      >
-                        <span className="mobile-sublink-icon" style={{ color: tool.iconColor }}>{tool.iconPath}</span>
-                        {tool.name}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              </li>
-
-              <li className="mobile-nav-section">
-                <div className="mobile-nav-section-title">CONVERT FROM PDF</div>
-                <ul className="mobile-sublinks">
-                  {tools.filter(t => t.category === 'convert_from').map(tool => (
-                    <li key={tool.id}>
-                      <a 
-                        href="#" 
-                        onClick={(e) => { e.preventDefault(); setSelectedTool(tool); setProcessedResult(null); setIsMobileMenuOpen(false); }}
-                        className="mobile-sublink-item"
-                      >
-                        <span className="mobile-sublink-icon" style={{ color: tool.iconColor }}>{tool.iconPath}</span>
-                        {tool.name}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              </li>
-
-              <li className="mobile-nav-divider"></li>
-
-              {/* ALL OTHER TOOLS */}
-              <li className="mobile-nav-section">
-                <div className="mobile-nav-section-title">ORGANIZE & EDIT</div>
-                <ul className="mobile-sublinks">
-                  {tools.filter(t => ['organize', 'edit'].includes(t.category) && t.id !== 'merge' && t.id !== 'split').map(tool => (
-                    <li key={tool.id}>
-                      <a 
-                        href="#" 
-                        onClick={(e) => { e.preventDefault(); setSelectedTool(tool); setProcessedResult(null); setIsMobileMenuOpen(false); }}
-                        className="mobile-sublink-item"
-                      >
-                        <span className="mobile-sublink-icon" style={{ color: tool.iconColor }}>{tool.iconPath}</span>
-                        {tool.name}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              </li>
-
-              <li className="mobile-nav-section">
-                <div className="mobile-nav-section-title">SECURITY & AI</div>
-                <ul className="mobile-sublinks">
-                  {tools.filter(t => ['security', 'intelligence', 'optimize'].includes(t.category) && t.id !== 'compress').map(tool => (
-                    <li key={tool.id}>
-                      <a 
-                        href="#" 
-                        onClick={(e) => { e.preventDefault(); setSelectedTool(tool); setProcessedResult(null); setIsMobileMenuOpen(false); }}
-                        className="mobile-sublink-item"
-                      >
-                        <span className="mobile-sublink-icon" style={{ color: tool.iconColor }}>{tool.iconPath}</span>
-                        {tool.name}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              </li>
-
-              <li className="mobile-nav-divider"></li>
-
-              <li>
-                <a 
-                  href="https://drive.google.com/file/d/1pum6bxn_ERFrn64J5wGnx7-tHFBWzUDg/view?usp=sharing" 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
-                  className="mobile-nav-link android-download-link"
-                  style={{ color: '#10b981', fontWeight: 'bold', display: 'inline-block', textAlign: 'center', width: '100%', padding: '12px' }}
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  📥 DOWNLOAD APP
-                </a>
-              </li>
-            </ul>
-          </div>
-        </div>
       </header>
+
+      {/* Mobile Drawer Overlay */}
+      {isMobileMenuOpen && (
+        <div className="mobile-menu-overlay" onClick={() => setIsMobileMenuOpen(false)}></div>
+      )}
+
+      {/* Mobile Menu Drawer */}
+      <div className={`mobile-menu-drawer ${isMobileMenuOpen ? 'open' : ''}`}>
+        <div className="mobile-drawer-header">
+          <span className="mobile-drawer-title">Menu</span>
+          <button className="mobile-menu-close" onClick={() => setIsMobileMenuOpen(false)}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+        <div className="mobile-drawer-content">
+          <ul className="mobile-nav-links">
+            <li>
+              <a 
+                href="#" 
+                onClick={(e) => { e.preventDefault(); setShowLandingPage(true); setSelectedTool(null); setProcessedResult(null); setIsMobileMenuOpen(false); }} 
+                className="mobile-nav-link"
+              >
+                HOME
+              </a>
+            </li>
+            <li>
+              <a 
+                href="#" 
+                onClick={(e) => { e.preventDefault(); setSelectedTool(tools.find(t => t.id === 'merge') || null); setProcessedResult(null); setIsMobileMenuOpen(false); }} 
+                className="mobile-nav-link"
+              >
+                MERGE PDF
+              </a>
+            </li>
+            <li>
+              <a 
+                href="#" 
+                onClick={(e) => { e.preventDefault(); setSelectedTool(tools.find(t => t.id === 'split') || null); setProcessedResult(null); setIsMobileMenuOpen(false); }} 
+                className="mobile-nav-link"
+              >
+                SPLIT PDF
+              </a>
+            </li>
+            <li>
+              <a 
+                href="#" 
+                onClick={(e) => { e.preventDefault(); setSelectedTool(tools.find(t => t.id === 'compress') || null); setProcessedResult(null); setIsMobileMenuOpen(false); }} 
+                className="mobile-nav-link"
+              >
+                COMPRESS PDF
+              </a>
+            </li>
+
+            <li className="mobile-nav-divider"></li>
+            
+            {/* CONVERT PDF SECTION */}
+            <li className="mobile-nav-section">
+              <div className="mobile-nav-section-title">CONVERT TO PDF</div>
+              <ul className="mobile-sublinks">
+                {tools.filter(t => t.category === 'convert_to').map(tool => (
+                  <li key={tool.id}>
+                    <a 
+                      href="#" 
+                      onClick={(e) => { e.preventDefault(); setSelectedTool(tool); setProcessedResult(null); setIsMobileMenuOpen(false); }}
+                      className="mobile-sublink-item"
+                    >
+                      <span className="mobile-sublink-icon" style={{ color: tool.iconColor }}>{tool.iconPath}</span>
+                      {tool.name}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </li>
+
+            <li className="mobile-nav-section">
+              <div className="mobile-nav-section-title">CONVERT FROM PDF</div>
+              <ul className="mobile-sublinks">
+                {tools.filter(t => t.category === 'convert_from').map(tool => (
+                  <li key={tool.id}>
+                    <a 
+                      href="#" 
+                      onClick={(e) => { e.preventDefault(); setSelectedTool(tool); setProcessedResult(null); setIsMobileMenuOpen(false); }}
+                      className="mobile-sublink-item"
+                    >
+                      <span className="mobile-sublink-icon" style={{ color: tool.iconColor }}>{tool.iconPath}</span>
+                      {tool.name}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </li>
+
+            <li className="mobile-nav-divider"></li>
+
+            {/* ALL OTHER TOOLS */}
+            <li className="mobile-nav-section">
+              <div className="mobile-nav-section-title">ORGANIZE & EDIT</div>
+              <ul className="mobile-sublinks">
+                {tools.filter(t => ['organize', 'edit'].includes(t.category) && t.id !== 'merge' && t.id !== 'split').map(tool => (
+                  <li key={tool.id}>
+                    <a 
+                      href="#" 
+                      onClick={(e) => { e.preventDefault(); setSelectedTool(tool); setProcessedResult(null); setIsMobileMenuOpen(false); }}
+                      className="mobile-sublink-item"
+                    >
+                      <span className="mobile-sublink-icon" style={{ color: tool.iconColor }}>{tool.iconPath}</span>
+                      {tool.name}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </li>
+
+            <li className="mobile-nav-section">
+              <div className="mobile-nav-section-title">SECURITY & AI</div>
+              <ul className="mobile-sublinks">
+                {tools.filter(t => ['security', 'intelligence', 'optimize'].includes(t.category) && t.id !== 'compress').map(tool => (
+                  <li key={tool.id}>
+                    <a 
+                      href="#" 
+                      onClick={(e) => { e.preventDefault(); setSelectedTool(tool); setProcessedResult(null); setIsMobileMenuOpen(false); }}
+                      className="mobile-sublink-item"
+                    >
+                      <span className="mobile-sublink-icon" style={{ color: tool.iconColor }}>{tool.iconPath}</span>
+                      {tool.name}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </li>
+
+            <li className="mobile-nav-divider"></li>
+
+            <li>
+              <a 
+                href="https://drive.google.com/file/d/1pum6bxn_ERFrn64J5wGnx7-tHFBWzUDg/view?usp=sharing" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="mobile-nav-link android-download-link"
+                style={{ color: '#10b981', fontWeight: 'bold', display: 'inline-block', textAlign: 'center', width: '100%', padding: '12px' }}
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                📥 DOWNLOAD APP
+              </a>
+            </li>
+          </ul>
+        </div>
+      </div>
 
       {/* Main Container */}
       <main className="app-main">
