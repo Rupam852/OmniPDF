@@ -2358,6 +2358,92 @@ h1, h2, h3, h4, h5, h6 {
   justify-content: center;
 }
 
+/* Mobile: 2-column grid for quick directory */
+@media (max-width: 640px) {
+  .quick-directory {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    padding: 0 4px;
+    margin-bottom: 40px;
+  }
+
+  .directory-badge {
+    padding: 14px 16px;
+    border-radius: 16px;
+    font-size: 13px;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    justify-content: flex-start;
+    min-height: 56px;
+  }
+
+  .directory-badge:active {
+    transform: scale(0.97);
+    background: rgba(59, 130, 246, 0.1);
+    border-color: rgba(59, 130, 246, 0.3);
+  }
+
+  .directory-badge-icon svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .landing-steps {
+    flex-direction: column;
+    gap: 28px;
+    padding: 0 4px;
+  }
+
+  .landing-step-card {
+    min-width: unset;
+    width: 100%;
+    padding: 36px 24px 28px;
+  }
+
+  .landing-features {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    margin-bottom: 40px;
+  }
+
+  .landing-feature-card {
+    padding: 24px 20px;
+  }
+
+  .landing-hero {
+    margin-bottom: 30px;
+  }
+
+  .landing-section-title {
+    font-size: 22px;
+    margin-top: 24px;
+    margin-bottom: 8px;
+  }
+
+  .landing-section-subtitle {
+    font-size: 13px;
+    margin-bottom: 20px;
+  }
+
+  .landing-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    width: 100%;
+    max-width: 340px;
+  }
+
+  .shine-btn {
+    width: 100%;
+    justify-content: center;
+    padding: 14px 20px;
+    font-size: 15px;
+  }
+}
+
+
 /* ─── LANDING NAVIGATION MENU ─── */
 .landing-nav-links {
   display: flex;
