@@ -23,6 +23,19 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
 
+  // Force-close hover dropdowns by blurring focused nav element
+  const closeDropdowns = () => {
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    // Remove hover by briefly disabling pointer-events on the header
+    const header = document.querySelector('.app-header') as HTMLElement | null;
+    if (header) {
+      header.style.pointerEvents = 'none';
+      setTimeout(() => { header.style.pointerEvents = ''; }, 300);
+    }
+  };
+
   // Dedicated state for processed results to render the success/download page
   const [processedResult, setProcessedResult] = useState<{
     toolName: string;
@@ -1255,7 +1268,7 @@ export default function App() {
                       <li key={tool.id}>
                         <a 
                           href="#" 
-                          onClick={(e) => { e.preventDefault(); setSelectedTool(tool); setProcessedResult(null); setShowLandingPage(false); }}
+                          onClick={(e) => { e.preventDefault(); setSelectedTool(tool); setProcessedResult(null); setShowLandingPage(false); closeDropdowns(); }}
                           className="dropdown-item-link"
                         >
                           <span className="dropdown-icon" style={{ color: tool.iconColor }}>
@@ -1275,7 +1288,7 @@ export default function App() {
                       <li key={tool.id}>
                         <a 
                           href="#" 
-                          onClick={(e) => { e.preventDefault(); setSelectedTool(tool); setProcessedResult(null); setShowLandingPage(false); }}
+                          onClick={(e) => { e.preventDefault(); setSelectedTool(tool); setProcessedResult(null); setShowLandingPage(false); closeDropdowns(); }}
                           className="dropdown-item-link"
                         >
                           <span className="dropdown-icon" style={{ color: tool.iconColor }}>
