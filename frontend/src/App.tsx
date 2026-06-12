@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react';
 import { FileUploadZone } from './components/FileUploadZone';
 import { OmniPdfApi } from './services/api';
-import { auth } from './services/firebase';
-import { onAuthStateChanged, User } from 'firebase/auth';
 import { compressPdfInBrowser } from './services/compressPdf';
 
 
@@ -20,7 +18,6 @@ export default function App() {
   const [showPrivacyModal, setShowPrivacyModal] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<string>('All');
   const [selectedTool, setSelectedTool] = useState<Tool | null>(null);
-  const [user, setUser] = useState<User | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
   const [openDropdown, setOpenDropdown] = useState<'convert' | 'alltools' | null>(null);
 
@@ -39,13 +36,7 @@ export default function App() {
     files?: { fileName: string; downloadUrl: string; }[];
   } | null>(null);
 
-  // Auth State Listener
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-    });
-    return () => unsubscribe();
-  }, []);
+
 
   const tabs = [
     'All',
@@ -540,8 +531,7 @@ export default function App() {
     }
 
     try {
-      const token = user ? await user.getIdToken() : undefined;
-      console.log(`Processing tool ${selectedTool.id} for user ${user?.uid || 'guest'}`);
+      console.log(`Processing tool: ${selectedTool.id}`);
 
       // Helper: base64 → Blob URL
       const base64ToBlobUrl = (base64: string, mimeType = 'application/pdf'): string => {
@@ -564,7 +554,7 @@ export default function App() {
 
       // ── MERGE ────────────────────────────────────────────────────────────────
       if (selectedTool.id === 'merge') {
-        const result = await OmniPdfApi.mergePdfs(token || '', files);
+        const result = await OmniPdfApi.mergePdfs('', files);
         if (result.fileData) {
           setProcessedResult({
             toolName: selectedTool.name,
@@ -579,7 +569,7 @@ export default function App() {
 
       // ── SPLIT ────────────────────────────────────────────────────────────────
       else if (selectedTool.id === 'split') {
-        const result = await OmniPdfApi.runPdfTool('split', token || '', files[0], {
+        const result = await OmniPdfApi.runPdfTool('split', '', files[0], {
           splitMode: options.splitMode || 'all',
           pageRanges: options.pageRanges || '',
         });
@@ -642,7 +632,7 @@ export default function App() {
 
       // ── PROTECT ──────────────────────────────────────────────────────────────
       else if (selectedTool.id === 'protect') {
-        const result = await OmniPdfApi.runPdfTool('protect', token || '', files[0], {
+        const result = await OmniPdfApi.runPdfTool('protect', '', files[0], {
           password: options.password || '',
         });
         if (result.fileData) {
@@ -659,7 +649,7 @@ export default function App() {
 
       // ── ROTATE ───────────────────────────────────────────────────────────────
       else if (selectedTool.id === 'rotate') {
-        const result = await OmniPdfApi.runPdfTool('rotate', token || '', files[0], {
+        const result = await OmniPdfApi.runPdfTool('rotate', '', files[0], {
           angle: options.angle || '90',
           pages: options.pages || 'all',
         });
@@ -677,7 +667,7 @@ export default function App() {
 
       // ── WATERMARK ─────────────────────────────────────────────────────────────
       else if (selectedTool.id === 'watermark') {
-        const result = await OmniPdfApi.runPdfTool('watermark', token || '', files[0], {
+        const result = await OmniPdfApi.runPdfTool('watermark', '', files[0], {
           watermarkText: options.watermarkText || 'OmniPDF',
           opacity: options.opacity || '0.15',
           fontSize: options.watermarkFontSize || '40',
@@ -696,7 +686,7 @@ export default function App() {
 
       // ── REMOVE PAGES ─────────────────────────────────────────────────────────
       else if (selectedTool.id === 'remove-pages') {
-        const result = await OmniPdfApi.runPdfTool('remove-pages', token || '', files[0], {
+        const result = await OmniPdfApi.runPdfTool('remove-pages', '', files[0], {
           pageNumbers: options.pageNumbers || '',
         });
         if (result.fileData) {
@@ -713,7 +703,7 @@ export default function App() {
 
       // ── EXTRACT PAGES ────────────────────────────────────────────────────────
       else if (selectedTool.id === 'extract-pages') {
-        const result = await OmniPdfApi.runPdfTool('extract-pages', token || '', files[0], {
+        const result = await OmniPdfApi.runPdfTool('extract-pages', '', files[0], {
           pageRanges: options.pageRanges || '',
         });
         if (result.fileData) {
@@ -730,7 +720,7 @@ export default function App() {
 
       // ── ORGANIZE PDF ─────────────────────────────────────────────────────────
       else if (selectedTool.id === 'organize-pdf') {
-        const result = await OmniPdfApi.runPdfTool('organize-pdf', token || '', files[0], {
+        const result = await OmniPdfApi.runPdfTool('organize-pdf', '', files[0], {
           pageOrder: options.pageOrder || '',
         });
         if (result.fileData) {
@@ -747,7 +737,7 @@ export default function App() {
 
       // ── PAGE NUMBERS ─────────────────────────────────────────────────────────
       else if (selectedTool.id === 'page-numbers') {
-        const result = await OmniPdfApi.runPdfTool('page-numbers', token || '', files[0], {
+        const result = await OmniPdfApi.runPdfTool('page-numbers', '', files[0], {
           position: options.position || 'bottom-center',
           startNumber: options.startNumber || '1',
           prefix: options.prefix || '',
@@ -767,7 +757,7 @@ export default function App() {
 
       // ── REPAIR ───────────────────────────────────────────────────────────────
       else if (selectedTool.id === 'repair') {
-        const result = await OmniPdfApi.runPdfTool('repair', token || '', files[0]);
+        const result = await OmniPdfApi.runPdfTool('repair', '', files[0]);
         if (result.fileData) {
           setProcessedResult({
             toolName: selectedTool.name,
@@ -782,7 +772,7 @@ export default function App() {
 
       // ── UNLOCK ───────────────────────────────────────────────────────────────
       else if (selectedTool.id === 'unlock') {
-        const result = await OmniPdfApi.runPdfTool('unlock', token || '', files[0], {
+        const result = await OmniPdfApi.runPdfTool('unlock', '', files[0], {
           password: options.password || '',
         });
         if (result.fileData) {
@@ -799,7 +789,7 @@ export default function App() {
 
       // ── JPG TO PDF ───────────────────────────────────────────────────────────
       else if (selectedTool.id === 'jpg-to-pdf') {
-        const result = await OmniPdfApi.mergeImages(token || '', files);
+        const result = await OmniPdfApi.mergeImages('', files);
         if (result.fileData) {
           setProcessedResult({
             toolName: selectedTool.name,
@@ -814,7 +804,7 @@ export default function App() {
 
       // ── SCAN TO PDF ───────────────────────────────────────────────────────────
       else if (selectedTool.id === 'scan-to-pdf') {
-        const result = await OmniPdfApi.mergeImages(token || '', files);
+        const result = await OmniPdfApi.mergeImages('', files);
         if (result.fileData) {
           setProcessedResult({
             toolName: selectedTool.name,
@@ -829,7 +819,7 @@ export default function App() {
 
       // ── PDF TO JPG ───────────────────────────────────────────────────────────
       else if (selectedTool.id === 'pdf-to-jpg') {
-        const result = await OmniPdfApi.runPdfTool('pdf-to-jpg', token || '', files[0]);
+        const result = await OmniPdfApi.runPdfTool('pdf-to-jpg', '', files[0]);
         if (result.fileData) {
           const base64ToZipBlobUrl = (base64: string): string => {
             const byteCharacters = atob(base64);
@@ -853,7 +843,7 @@ export default function App() {
 
       // ── AI SUMMARIZER ─────────────────────────────────────────────────────────
       else if (selectedTool.id === 'ai-summarizer') {
-        const result = await OmniPdfApi.summarizePdf(token || '', files[0], options.geminiKey, options.summaryFormat);
+        const result = await OmniPdfApi.summarizePdf('', files[0], options.geminiKey, options.summaryFormat);
         setProcessedResult({
           toolName: selectedTool.name,
           fileName: files[0].name,
@@ -867,7 +857,7 @@ export default function App() {
 
       // ── OCR PDF ──────────────────────────────────────────────────────────────
       else if (selectedTool.id === 'ocr') {
-        const result = await OmniPdfApi.ocrPdf(token || '', files[0], options.geminiKey);
+        const result = await OmniPdfApi.ocrPdf('', files[0], options.geminiKey);
         setProcessedResult({
           toolName: selectedTool.name,
           fileName: files[0].name,
@@ -885,7 +875,7 @@ export default function App() {
           alert('Please upload exactly two PDF files to compare.');
           throw new Error('Two files are required for comparison.');
         }
-        const result = await OmniPdfApi.comparePdfs(token || '', files[0], files[1]);
+        const result = await OmniPdfApi.comparePdfs('', files[0], files[1]);
         setProcessedResult({
           toolName: selectedTool.name,
           fileName: 'Comparison Report',
@@ -917,7 +907,7 @@ export default function App() {
         };
 
         const config = suffixMap[selectedTool.id];
-        const result = await OmniPdfApi.runPdfTool(endpoint, token || '', files[0], options);
+        const result = await OmniPdfApi.runPdfTool(endpoint, '', files[0], options);
 
         setProcessedResult({
           toolName: selectedTool.name,
