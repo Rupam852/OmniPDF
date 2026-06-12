@@ -510,6 +510,11 @@ export default function App() {
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
+  // Auto-close any open dropdown whenever the selected tool or page changes
+  useEffect(() => {
+    setOpenDropdown(null);
+  }, [selectedTool, showLandingPage]);
+
   const filteredTools = tools.filter(tool => {
     if (activeTab === 'All') return true;
     if (activeTab === 'Workflows') return tool.category === 'workflow';
