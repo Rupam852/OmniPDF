@@ -20,7 +20,7 @@ app.use(helmet());
 // CORS Configuration - strictly restrict to allowed origins only
 const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
-  : ['http://localhost:3000', 'https://omnipdf.vercel.app', 'https://omnipdf-convertor.vercel.app', 'https://omnipdf-converter.vercel.app'];
+  : ['http://localhost:3000', 'https://omnipdf-converter.vercel.app'];
 
 console.log('[OmniPDF Backend] Allowed Origins:', allowedOrigins);
 
