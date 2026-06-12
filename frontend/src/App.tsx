@@ -1255,7 +1255,7 @@ export default function App() {
                       <li key={tool.id}>
                         <a 
                           href="#" 
-                          onClick={(e) => { e.preventDefault(); setSelectedTool(tool); setProcessedResult(null); }}
+                          onClick={(e) => { e.preventDefault(); setSelectedTool(tool); setProcessedResult(null); setShowLandingPage(false); }}
                           className="dropdown-item-link"
                         >
                           <span className="dropdown-icon" style={{ color: tool.iconColor }}>
@@ -1275,7 +1275,7 @@ export default function App() {
                       <li key={tool.id}>
                         <a 
                           href="#" 
-                          onClick={(e) => { e.preventDefault(); setSelectedTool(tool); setProcessedResult(null); }}
+                          onClick={(e) => { e.preventDefault(); setSelectedTool(tool); setProcessedResult(null); setShowLandingPage(false); }}
                           className="dropdown-item-link"
                         >
                           <span className="dropdown-icon" style={{ color: tool.iconColor }}>
@@ -1311,7 +1311,7 @@ export default function App() {
                       <li key={tool.id}>
                         <a 
                           href="#" 
-                          onClick={(e) => { e.preventDefault(); setSelectedTool(tool); setProcessedResult(null); }}
+                          onClick={(e) => { e.preventDefault(); setSelectedTool(tool); setProcessedResult(null); setShowLandingPage(false); }}
                           className="dropdown-item-link"
                         >
                           <span className="dropdown-icon" style={{ color: tool.iconColor }}>
@@ -1332,7 +1332,7 @@ export default function App() {
                       <li key={tool.id}>
                         <a 
                           href="#" 
-                          onClick={(e) => { e.preventDefault(); setSelectedTool(tool); setProcessedResult(null); }}
+                          onClick={(e) => { e.preventDefault(); setSelectedTool(tool); setProcessedResult(null); setShowLandingPage(false); }}
                           className="dropdown-item-link"
                         >
                           <span className="dropdown-icon" style={{ color: tool.iconColor }}>
@@ -1353,7 +1353,7 @@ export default function App() {
                       <li key={tool.id}>
                         <a 
                           href="#" 
-                          onClick={(e) => { e.preventDefault(); setSelectedTool(tool); setProcessedResult(null); }}
+                          onClick={(e) => { e.preventDefault(); setSelectedTool(tool); setProcessedResult(null); setShowLandingPage(false); }}
                           className="dropdown-item-link"
                         >
                           <span className="dropdown-icon" style={{ color: tool.iconColor }}>
@@ -1374,7 +1374,7 @@ export default function App() {
                       <li key={tool.id}>
                         <a 
                           href="#" 
-                          onClick={(e) => { e.preventDefault(); setSelectedTool(tool); setProcessedResult(null); }}
+                          onClick={(e) => { e.preventDefault(); setSelectedTool(tool); setProcessedResult(null); setShowLandingPage(false); }}
                           className="dropdown-item-link"
                         >
                           <span className="dropdown-icon" style={{ color: tool.iconColor }}>
@@ -1395,7 +1395,7 @@ export default function App() {
                       <li key={tool.id}>
                         <a 
                           href="#" 
-                          onClick={(e) => { e.preventDefault(); setSelectedTool(tool); setProcessedResult(null); }}
+                          onClick={(e) => { e.preventDefault(); setSelectedTool(tool); setProcessedResult(null); setShowLandingPage(false); }}
                           className="dropdown-item-link"
                         >
                           <span className="dropdown-icon" style={{ color: tool.iconColor }}>
@@ -1416,7 +1416,7 @@ export default function App() {
                       <li key={tool.id}>
                         <a 
                           href="#" 
-                          onClick={(e) => { e.preventDefault(); setSelectedTool(tool); setProcessedResult(null); }}
+                          onClick={(e) => { e.preventDefault(); setSelectedTool(tool); setProcessedResult(null); setShowLandingPage(false); }}
                           className="dropdown-item-link"
                         >
                           <span className="dropdown-icon" style={{ color: tool.iconColor }}>
@@ -1437,7 +1437,7 @@ export default function App() {
                       <li key={tool.id}>
                         <a 
                           href="#" 
-                          onClick={(e) => { e.preventDefault(); setSelectedTool(tool); setProcessedResult(null); }}
+                          onClick={(e) => { e.preventDefault(); setSelectedTool(tool); setProcessedResult(null); setShowLandingPage(false); }}
                           className="dropdown-item-link"
                         >
                           <span className="dropdown-icon" style={{ color: tool.iconColor }}>
