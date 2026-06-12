@@ -14,7 +14,7 @@ import {
 import fontkit from '@pdf-lib/fontkit';
 import https from 'https';
 import { AuthenticatedRequest } from '../middleware/auth';
-import { processingLimiter } from '../middleware/rateLimiter';
+import { processingLimiter, aiLimiter } from '../middleware/rateLimiter';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs';
@@ -52,11 +52,36 @@ async function runPythonScript(args: string[]): Promise<{ stdout: string; stderr
 
 const router = Router();
 
+// Allowed MIME types — reject anything else (exe, sh, zip, etc.)
+const ALLOWED_MIMES = new Set([
+  'application/pdf',
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'image/tiff',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-powerpoint',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'text/html',
+  'text/plain',
+]);
+
 // Configure multer for file storage in memory
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
     fileSize: 10 * 1024 * 1024, // 10 MB limit
+  },
+  fileFilter: (_req, file, cb) => {
+    if (ALLOWED_MIMES.has(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error(`Invalid file type "${file.mimetype}". Only PDF, images, and Office documents are accepted.`));
+    }
   },
 });
 
@@ -1258,6 +1283,7 @@ router.post(
 // ─────────────────────────────────────────────────────────────────────────────
 router.post(
   '/ai-summarizer',
+  aiLimiter,
   upload.single('file'),
   async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     const file = req.file;
@@ -1396,6 +1422,7 @@ router.post(
 // ─────────────────────────────────────────────────────────────────────────────
 router.post(
   '/ocr',
+  aiLimiter,
   upload.single('file'),
   async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     const file = req.file;

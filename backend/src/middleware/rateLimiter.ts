@@ -30,3 +30,18 @@ export const processingLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
+
+/**
+ * Strict rate limiter for AI-powered endpoints (OCR, AI Summarizer).
+ * These endpoints call the Gemini API and cost money — limit to 2 per minute.
+ */
+export const aiLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: 2,
+  message: {
+    error: 'AI Rate Limit Exceeded',
+    message: 'AI processing limit reached. Please wait a minute before trying again.',
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});

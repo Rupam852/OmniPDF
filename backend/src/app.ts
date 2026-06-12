@@ -2,6 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import fs from 'fs';
+import path from 'path';
 import apiRouter from './routes';
 import { apiLimiter } from './middleware/rateLimiter';
 import { checkAndInstallPythonDependencies } from './utils/pythonSetup';
@@ -15,20 +17,25 @@ app.set('trust proxy', 1);
 // Security Middleware
 app.use(helmet());
 
-// CORS Configuration - restrict origins in production
-const allowedOrigins = process.env.ALLOWED_ORIGINS 
-  ? process.env.ALLOWED_ORIGINS.split(',') 
+// CORS Configuration - strictly restrict to allowed origins only
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
   : ['http://localhost:3000', 'https://omnipdf.vercel.app', 'https://omnipdf-convertor.vercel.app'];
 
-console.log("[OmniPDF Backend] Allowed Origins:", allowedOrigins.map(o => o.trim()));
+console.log('[OmniPDF Backend] Allowed Origins:', allowedOrigins);
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Dynamically allow the request origin to bypass preflight issues globally
-      callback(null, true);
+      // Allow server-to-server requests (no origin header) and whitelisted origins
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        console.warn(`[CORS] Blocked request from unauthorized origin: ${origin}`);
+        callback(new Error(`CORS policy: Origin "${origin}" is not allowed.`));
+      }
     },
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    methods: ['GET', 'POST', 'OPTIONS'],
     credentials: true,
   })
 );
@@ -48,6 +55,11 @@ app.use('/api', apiRouter);
 
 // Global Error Handler
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  // Handle CORS errors
+  if (err.message && err.message.startsWith('CORS policy')) {
+    res.status(403).json({ error: 'Forbidden', message: err.message });
+    return;
+  }
   console.error('Unhandled Server Error:', err);
   if (err.code === 'LIMIT_FILE_SIZE') {
     res.status(400).json({
@@ -58,18 +70,44 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   }
   res.status(err.status || 500).json({
     error: 'Internal Server Error',
-    message: process.env.NODE_ENV === 'production' 
-      ? 'An unexpected error occurred.' 
+    message: process.env.NODE_ENV === 'production'
+      ? 'An unexpected error occurred.'
       : err.message || 'Server error',
   });
 });
+
+// Cleanup stale temp files (older than 1 hour) on startup to prevent accumulation after crashes
+function cleanupStaleTempFiles() {
+  const tempDir = path.join(__dirname, '../temp');
+  if (!fs.existsSync(tempDir)) return;
+  const ONE_HOUR = 60 * 60 * 1000;
+  const now = Date.now();
+  try {
+    const files = fs.readdirSync(tempDir);
+    let cleaned = 0;
+    for (const file of files) {
+      const filePath = path.join(tempDir, file);
+      const stat = fs.statSync(filePath);
+      if (now - stat.mtimeMs > ONE_HOUR) {
+        fs.unlinkSync(filePath);
+        cleaned++;
+      }
+    }
+    if (cleaned > 0) console.log(`[Startup Cleanup] Removed ${cleaned} stale temp file(s).`);
+  } catch (err) {
+    console.warn('[Startup Cleanup] Could not clean temp directory:', err);
+  }
+}
 
 // Start Server (if file is run directly)
 if (require.main === module) {
   app.listen(PORT, () => {
     console.log(`[OmniPDF Backend] Server listening on port ${PORT}`);
     console.log(`[OmniPDF Backend] Active Environment: ${process.env.NODE_ENV || 'development'}`);
-    
+
+    // Clean stale temp files from previous crashed runs
+    cleanupStaleTempFiles();
+
     // Asynchronously check and setup python dependencies so server starts immediately
     checkAndInstallPythonDependencies().catch((err) => {
       console.error('[Python Setup] Unexpected error in dependency setup:', err);
