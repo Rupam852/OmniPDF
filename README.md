@@ -1,165 +1,388 @@
-# OmniPDF 🚀
+# OmniPDF
 
-OmniPDF is a premium, next-generation, decentralized suite for PDF editing, compression, conversion, organization, and AI-powered intelligence tools. Built with a decoupled cloud-ready architecture, OmniPDF supports seamless local processing in the browser, an advanced cloud backend for complex tasks, and a companion Android application.
+<div align="center">
 
----
+![OmniPDF Banner](https://img.shields.io/badge/OmniPDF-Premium%20PDF%20Suite-3b82f6?style=for-the-badge&logo=adobeacrobatreader&logoColor=white)
 
-## 📱 Android Application (Download Now)
+**A professional, full-stack PDF processing platform — Web + Android + Cloud Backend**
 
-The official OmniPDF Android application brings the same premium document utility features straight to your phone, optimized with a fast tools dashboard, instant search filtering, and custom notifications.
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-omnipdf--converter.vercel.app-10b981?style=flat-square&logo=vercel)](https://omnipdf-converter.vercel.app)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
+[![React](https://img.shields.io/badge/React-18-61dafb?style=flat-square&logo=react)](https://react.dev)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.4-3178c6?style=flat-square&logo=typescript)](https://www.typescriptlang.org)
+[![Flutter](https://img.shields.io/badge/Flutter-Android-02569b?style=flat-square&logo=flutter)](https://flutter.dev)
+[![Node.js](https://img.shields.io/badge/Node.js-Express-339933?style=flat-square&logo=nodedotjs)](https://nodejs.org)
 
-* **Download App (Release APK)**: [Google Drive Download Link](https://drive.google.com/file/d/1pum6bxn_ERFrn64J5wGnx7-tHFBWzUDg/view?usp=sharing)
-* **Mobile Features**:
-  * Clean tools dashboard with dynamic search filtering.
-  * Local tool processing & secure remote integrations.
-  * Custom success/error SnackBar overlays with swipe-to-dismiss support.
-  * High-speed split-file downloads.
-
----
-
-## 🛠️ Key Features
-
-### 📂 Organize & Optimize
-* **Merge PDF**: Combine multiple PDF files in any order you choose.
-* **Split PDF**: Separate pages into standalone documents.
-* **Remove Pages**: Instantly discard unnecessary pages from a document.
-* **Extract Pages**: Extract target page ranges and save as a clean PDF.
-* **Compress PDF**: Highly optimized compression (reducing sizes up to 90% directly in-browser using WebAssembly).
-
-### 🔄 Conversions (To/From PDF)
-* **Convert from PDF**: PDF to Word, PDF to PowerPoint, PDF to Excel, PDF to JPG.
-* **Convert to PDF**: Word to PDF, PowerPoint to PDF, Excel to PDF, HTML to PDF, JPG to PDF.
-* **Scan to PDF**: Transform images/scans directly into compact PDF files.
-
-### 🛡️ Security & Editing
-* **Watermark PDF**: Add custom text watermarks with flexible rotation and real-time volume bar style opacity controllers.
-* **Rotate PDF**: Fix document alignments.
-* **Unlock PDF**: Remove permissions and passwords from encrypted files.
-* **Protect PDF**: Add strong password protection using military-grade encryption keys.
-
-### 🧠 PDF Intelligence (AI Tools)
-* **AI Summarizer**: Query documents, extract key highlight bullets, and generate summaries using secure language models.
-* **OCR PDF**: Convert scanned documents into searchable, editable text PDFs.
+</div>
 
 ---
 
-## 🏗️ Technology Stack
+## 📖 Overview
 
-```mermaid
-graph TD
-    User([User Client]) --> WebApp[Vite + React + TS Web Frontend]
-    User --> MobileApp[Flutter Android Application]
-    WebApp --> Wasm[Local Browser WebAssembly Processing]
-    WebApp --> Api[Express + TS Backend Service]
-    MobileApp --> Api
-    Api --> PyScripts[Python Data Manipulation Scripts]
+**OmniPDF** is a premium, full-stack document processing platform offering **20+ PDF tools** through a modern web interface and native Android application. It features a decoupled cloud architecture with a Node.js/Express backend, Python processing scripts, and a WebAssembly-powered browser compression engine.
+
+### Why OmniPDF?
+- ⚡ **Zero wait** — Common operations (compress, merge, split) run directly in the browser
+- 🔒 **Privacy-first** — No files are stored on any server; in-memory only, deleted after download
+- 🌐 **Cross-platform** — Works on web (any browser) and Android devices
+- 🤖 **AI-powered** — OCR and document summarization via Google Gemini API
+
+---
+
+## ✨ Features
+
+### 📂 Organize PDF
+| Tool | Description |
+|------|-------------|
+| Merge PDF | Combine multiple PDFs into one document in any order |
+| Split PDF | Separate pages into individual files or custom ranges |
+| Remove Pages | Delete specific pages from any PDF |
+| Extract Pages | Export a page range as a clean new PDF |
+| Organize PDF | Reorder pages with drag-and-drop interface |
+
+### ⚙️ Optimize PDF
+| Tool | Description |
+|------|-------------|
+| Compress PDF | Reduce file size up to 90% using in-browser WebAssembly |
+| Repair PDF | Attempt recovery of corrupted or malformed PDFs |
+| OCR PDF | Extract searchable text from scanned documents via AI |
+
+### 🔄 Convert to PDF
+| Tool | Description |
+|------|-------------|
+| JPG to PDF | Convert images to PDF documents |
+| Word to PDF | Convert `.docx` files using Python/LibreOffice pipeline |
+| PowerPoint to PDF | Convert `.pptx` presentations |
+| Excel to PDF | Convert `.xlsx` spreadsheets |
+| HTML to PDF | Render HTML pages to PDF |
+
+### 📤 Convert from PDF
+| Tool | Description |
+|------|-------------|
+| PDF to JPG | Extract pages as high-quality JPEG images |
+| PDF to Word | Convert PDF content to editable Word documents |
+| PDF to PowerPoint | Convert slides back to PowerPoint format |
+| PDF to Excel | Extract tabular data to spreadsheet |
+| PDF to PDF/A | Convert to archival-standard PDF/A format |
+
+### ✏️ Edit PDF
+| Tool | Description |
+|------|-------------|
+| Watermark PDF | Add custom text watermarks with opacity and position controls |
+| Rotate PDF | Rotate pages in 90°/180°/270° increments |
+| Page Numbers | Stamp page numbers with configurable font/position |
+| Crop PDF | Trim and crop page margins |
+| PDF Forms | Extract and process form fields |
+
+### 🔐 PDF Security
+| Tool | Description |
+|------|-------------|
+| Protect PDF | Password-encrypt PDFs with AES encryption |
+| Unlock PDF | Remove password protection from accessible PDFs |
+| Sign PDF | Add digital signature stamps to documents |
+| Redact PDF | Permanently black-out sensitive text |
+| Compare PDF | Side-by-side diff of two PDF versions |
+
+### 🧠 PDF Intelligence (AI)
+| Tool | Description |
+|------|-------------|
+| AI Summarizer | Extract key points and summaries from long documents |
+| OCR PDF | Convert scanned images to searchable text (Gemini Vision) |
+
+---
+
+## 🏗️ Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                     User Clients                         │
+│                                                          │
+│   ┌──────────────────┐      ┌────────────────────────┐  │
+│   │  React Web App   │      │  Flutter Android App   │  │
+│   │  (Vite + TS)     │      │  (Dart)                │  │
+│   └────────┬─────────┘      └──────────┬─────────────┘  │
+│            │                            │                │
+│   ┌────────▼─────────┐                  │                │
+│   │ Browser WASM     │                  │                │
+│   │ (Compression)    │                  │                │
+│   └──────────────────┘                  │                │
+└───────────────────────────────┬─────────┘────────────────┘
+                                │ HTTPS REST API
+                    ┌───────────▼───────────────┐
+                    │   Node.js + Express API   │
+                    │   (TypeScript, Render)    │
+                    │                           │
+                    │  ┌─────────────────────┐  │
+                    │  │  Python Scripts     │  │
+                    │  │  (PyMuPDF, docx,    │  │
+                    │  │   pptx, pdf2docx,   │  │
+                    │  │   Google Gemini)    │  │
+                    │  └─────────────────────┘  │
+                    └───────────────────────────┘
 ```
 
-### 1. Web Frontend (`/frontend`)
-* **Framework**: React 18 (TypeScript) built with Vite for optimal HMR performance.
-* **Styling**: Vanilla CSS with interactive space/mesh gradients, responsive grid card layouts, and animated hover effects.
-* **Performance**: WebAssembly integrations for executing heavy compression algorithms locally.
-* **Transitions**: Infinite keyframes (`shield-shine`) creating reflective metallic effects across actions.
+---
 
-### 2. Backend Service (`/backend`)
-* **Runtime**: Node.js with Express (TypeScript).
-* **Script Helpers**: Executing isolated Python controllers (`pdf-helper.py`, `ocr.py`) to manage PDF manipulation.
-* **APIs**: Rest endpoints for AI, OCR, security password locking, and conversions.
+## 🛠️ Technology Stack
 
-### 3. Mobile Companion App (`/mobile`)
-* **Framework**: Flutter & Dart.
-* **Dashboard UI**: Custom SilverGrid layout, real-time search queries, dynamic page route animations, and custom SnackBar alert widgets.
+### Frontend (`/frontend`)
+| Technology | Version | Purpose |
+|-----------|---------|---------|
+| React | 18 | UI framework |
+| TypeScript | 5.4 | Type safety |
+| Vite | 5 | Build tool & HMR |
+| Vanilla CSS | — | Styling, animations, responsive layout |
+| WebAssembly | — | In-browser PDF compression |
+
+### Backend (`/backend`)
+| Technology | Version | Purpose |
+|-----------|---------|---------|
+| Node.js + Express | 4.19 | REST API server |
+| TypeScript | 5.4 | Type safety |
+| Multer | 1.4 | File upload handling |
+| pdf-lib | 1.17 | Server-side PDF manipulation |
+| Helmet | 7.1 | Security headers |
+| express-rate-limit | 7.2 | DoS & abuse protection |
+| Python 3 | 3.x | PDF conversion pipeline |
+| PyMuPDF (fitz) | — | PDF parsing, OCR, redaction |
+| pdf2docx | — | PDF → Word conversion |
+| Google Generative AI | 0.24 | AI Summarizer & OCR |
+
+### Mobile (`/mobile`)
+| Technology | Version | Purpose |
+|-----------|---------|---------|
+| Flutter | 3.x | Cross-platform UI |
+| Dart | 3.x | App logic |
+| http package | — | API communication |
+| file_picker | — | Document selection |
+
+### Infrastructure
+| Service | Purpose |
+|---------|---------|
+| Vercel | Frontend hosting & CI/CD |
+| Render | Backend API hosting |
+| GitHub | Source control & deployments trigger |
 
 ---
 
-## 🚀 Local Development Setup
+## 🔒 Security Architecture
+
+| Layer | Measure |
+|-------|---------|
+| **CORS** | Strict origin allowlist — only `omnipdf-converter.vercel.app` |
+| **Helmet** | 15 security HTTP headers (CSP, HSTS, X-Frame-Options, etc.) |
+| **Rate Limiting** | API: 100 req/15min · Processing: 5 req/min · AI: 2 req/min |
+| **File Validation** | MIME type whitelist — rejects executables, scripts, archives |
+| **File Size Limit** | 10MB maximum upload size enforced at server level |
+| **No Persistence** | All files processed in-memory, never written to permanent storage |
+| **Error Masking** | Internal errors hidden in production responses |
+| **Temp Cleanup** | Stale temp files (1hr+) auto-purged on server startup |
+
+---
+
+## 🚀 Local Development
 
 ### Prerequisites
-* [Node.js](https://nodejs.org/) (v18+)
-* [Python 3](https://www.python.org/) (with `pip`)
-* [Flutter SDK](https://docs.flutter.dev/get-started/install) (for Android compilation)
+
+- [Node.js](https://nodejs.org/) v18+
+- [Python 3.9+](https://www.python.org/) with `pip`
+- [Flutter SDK](https://docs.flutter.dev/get-started/install) (only for Android app)
 
 ---
 
-### Step 1: Run the Backend API
+### 1. Clone the Repository
 
-1. Navigate to the backend directory:
-   ```bash
-   cd backend
-   ```
-2. Install Node dependencies:
-   ```bash
-   npm install
-   ```
-3. Set up your Python environment:
-   ```bash
-   pip install -r requirements.txt
-   ```
-4. Create a `.env` file from the environment template and populate necessary API secrets (e.g. OCR and AI summarizer keys).
-5. Start the backend compiler & server:
-   ```bash
-   npm run dev
-   ```
-   The backend API will boot up locally at `http://localhost:5000`.
+```bash
+git clone https://github.com/Rupam852/OmniPDF.git
+cd OmniPDF
+```
 
 ---
 
-### Step 2: Run the Web Frontend
+### 2. Setup Backend
 
-1. Navigate to the frontend directory:
-   ```bash
-   cd ../frontend
-   ```
-2. Install Web dependencies:
-   ```bash
-   npm install
-   ```
-3. Configure the local env file (`.env`) pointing to `http://localhost:5000/api` for API helper endpoints.
-4. Launch the local Vite dev server:
-   ```bash
-   npm run dev
-   ```
-   Open your browser and navigate to `http://localhost:5173` to test the website.
+```bash
+cd backend
+npm install
+```
 
----
+Install Python dependencies:
+```bash
+pip install -r requirements.txt
+```
 
-### Step 3: Launch the Mobile Application
+Create your environment file:
+```bash
+# Create backend/.env with the following variables:
+PORT=5000
+NODE_ENV=development
+ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
+ENCRYPTION_KEY=<generate with: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))">
+```
 
-1. Navigate to the mobile directory:
-   ```bash
-   cd ../mobile
-   ```
-2. Fetch Flutter packages:
-   ```bash
-   flutter pub get
-   ```
-3. Boot up your Android emulator or plug in your physical device.
-4. Start compilation:
-   ```bash
-   flutter run
-   ```
-5. Compile a production release APK:
-   ```bash
-   flutter build apk --release
-   ```
+Start the backend server:
+```bash
+npm run dev
+# Server starts at http://localhost:5000
+```
 
 ---
 
-## 🔒 Security & Privacy Code of Conduct
+### 3. Setup Frontend
 
-* **No File Tracking**: All processed files are temporarily cached in-memory and deleted immediately after the output download is completed.
-* **No Database Storage**: OmniPDF does not store user documents.
-* **Direct local execution**: Compression, merging, splitting, and watermarking execute directly inside the user's browser whenever possible.
+```bash
+cd ../frontend
+npm install
+```
+
+Create your environment file:
+```bash
+# Create frontend/.env with:
+VITE_API_URL=http://localhost:5000/api
+```
+
+Start the development server:
+```bash
+npm run dev
+# App opens at http://localhost:5173
+```
 
 ---
 
-## 📧 Support & Contact
+### 4. Setup Android App (Optional)
 
-If you have questions, run into issues, or want to contribute to the repository, reach out directly:
-
-* **Support Email**: [omnipdfadminsupport@gmail.com](mailto:omnipdfadminsupport@gmail.com)
-* **Website**: [OmniPDF Web Portal](https://omnipdf-convertor.vercel.app)
+```bash
+cd ../mobile
+flutter pub get
+flutter run          # Run on connected device/emulator
+flutter build apk --release   # Build production APK
+```
 
 ---
 
-&copy; 2026 OmniPDF. Licensed under MIT. All rights reserved.
+## 📁 Project Structure
+
+```
+OmniPDF/
+├── frontend/                   # React + Vite web application
+│   ├── src/
+│   │   ├── App.tsx             # Main app component & routing
+│   │   ├── components/         # Reusable UI components
+│   │   │   └── FileUploadZone.tsx
+│   │   ├── services/           # API client & utilities
+│   │   │   ├── api.ts          # Backend API client
+│   │   │   └── compressPdf.ts  # WebAssembly compression
+│   │   └── index.css           # Global styles & design tokens
+│   └── index.html
+│
+├── backend/                    # Node.js + Express REST API
+│   ├── src/
+│   │   ├── app.ts              # Express server, CORS, middleware
+│   │   ├── routes/
+│   │   │   └── tools.ts        # All 20+ PDF tool endpoints
+│   │   ├── middleware/
+│   │   │   ├── auth.ts         # Request type definitions
+│   │   │   └── rateLimiter.ts  # Rate limiting configuration
+│   │   ├── scripts/            # Python processing scripts
+│   │   │   ├── compress.py
+│   │   │   ├── ocr.py
+│   │   │   ├── redact.py
+│   │   │   ├── pdf_to_word.py
+│   │   │   └── ...             # 15+ more scripts
+│   │   └── utils/
+│   │       └── pythonSetup.ts  # Auto Python dependency installer
+│   └── requirements.txt        # Python dependencies
+│
+└── mobile/                     # Flutter Android application
+    ├── lib/
+    │   └── main.dart           # App entry & tool dashboard
+    └── android/                # Android native configuration
+```
+
+---
+
+## 🌐 Deployment
+
+### Frontend → Vercel
+
+The frontend auto-deploys on every push to `main` via Vercel's GitHub integration.
+
+**Required Vercel Environment Variables:**
+```
+VITE_API_URL = https://your-backend.onrender.com/api
+```
+
+### Backend → Render
+
+The backend deploys on Render with the following configuration:
+
+- **Build Command:** `npm install && npm run build`
+- **Start Command:** `npm start`
+
+**Required Render Environment Variables:**
+```
+NODE_ENV         = production
+PORT             = 10000
+ALLOWED_ORIGINS  = https://omnipdf-converter.vercel.app
+ENCRYPTION_KEY   = <your-64-char-hex-key>
+```
+
+---
+
+## 📋 API Reference
+
+Base URL: `https://your-backend.onrender.com/api`
+
+| Method | Endpoint | Description | Rate Limit |
+|--------|----------|-------------|------------|
+| POST | `/tools/merge` | Merge multiple PDFs | 5/min |
+| POST | `/tools/split` | Split PDF into parts | 5/min |
+| POST | `/tools/compress` | Compress PDF file | 5/min |
+| POST | `/tools/protect` | Password-protect PDF | 5/min |
+| POST | `/tools/unlock` | Remove PDF password | 5/min |
+| POST | `/tools/watermark` | Add text watermark | 5/min |
+| POST | `/tools/rotate` | Rotate PDF pages | 5/min |
+| POST | `/tools/redact` | Redact sensitive text | 5/min |
+| POST | `/tools/ocr` | OCR scanned PDF | **2/min** |
+| POST | `/tools/ai-summarizer` | AI document summary | **2/min** |
+| POST | `/tools/pdf-to-word` | Convert PDF to Word | 5/min |
+| POST | `/tools/jpg-to-pdf` | Convert images to PDF | 5/min |
+| POST | `/tools/compare` | Compare two PDFs | 5/min |
+
+All endpoints accept `multipart/form-data` with file uploads.  
+File size limit: **10MB per file**.  
+Accepted types: PDF, JPEG, PNG, DOCX, XLSX, PPTX, HTML.
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Please follow these steps:
+
+1. Fork the repository
+2. Create your feature branch: `git checkout -b feature/your-feature-name`
+3. Commit your changes: `git commit -m 'feat: add your feature'`
+4. Push to the branch: `git push origin feature/your-feature-name`
+5. Open a Pull Request
+
+---
+
+## 📧 Support
+
+- **Website:** [omnipdf-converter.vercel.app](https://omnipdf-converter.vercel.app)
+- **Support Email:** omnipdfadminsupport@gmail.com
+- **Issues:** [GitHub Issues](https://github.com/Rupam852/OmniPDF/issues)
+
+---
+
+## 📄 License
+
+© 2026 OmniPDF. Licensed under the [MIT License](LICENSE).
+
+---
+
+<div align="center">
+
+Built with ❤️ using React, Node.js, Python & Flutter
+
+</div>
