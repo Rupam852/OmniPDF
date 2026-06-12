@@ -22,19 +22,10 @@ export default function App() {
   const [selectedTool, setSelectedTool] = useState<Tool | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
+  const [openDropdown, setOpenDropdown] = useState<'convert' | 'alltools' | null>(null);
 
-  // Force-close hover dropdowns by blurring focused nav element
-  const closeDropdowns = () => {
-    if (document.activeElement instanceof HTMLElement) {
-      document.activeElement.blur();
-    }
-    // Remove hover by briefly disabling pointer-events on the header
-    const header = document.querySelector('.app-header') as HTMLElement | null;
-    if (header) {
-      header.style.pointerEvents = 'none';
-      setTimeout(() => { header.style.pointerEvents = ''; }, 300);
-    }
-  };
+  // Force-close dropdowns on tool click
+  const closeDropdowns = () => setOpenDropdown(null);
 
   // Dedicated state for processed results to render the success/download page
   const [processedResult, setProcessedResult] = useState<{
@@ -1250,16 +1241,20 @@ export default function App() {
           </li>
           
           {/* CONVERT PDF Dropdown */}
-          <li className="nav-item-dropdown normal-dropdown-container">
+          <li 
+            className="nav-item-dropdown normal-dropdown-container"
+            onMouseEnter={() => setOpenDropdown('convert')}
+            onMouseLeave={() => setOpenDropdown(null)}
+          >
             <a 
               href="#" 
               onClick={(e) => { e.preventDefault(); setSelectedTool(null); setActiveTab('Convert to PDF'); setProcessedResult(null); }} 
               className="nav-link"
             >
-              CONVERT PDF <span className="dropdown-indicator">▼</span>
+              CONVERT PDF <span className={`dropdown-indicator ${openDropdown === 'convert' ? 'open' : ''}`}>▼</span>
             </a>
             
-            <div className="normal-dropdown">
+            <div className={`normal-dropdown ${openDropdown === 'convert' ? 'dropdown-open' : ''}`}>
               <div className="normal-dropdown-grid">
                 <div className="dropdown-col">
                   <div className="dropdown-col-title">Convert to PDF</div>
@@ -1305,16 +1300,20 @@ export default function App() {
           </li>
           
           {/* ALL PDF TOOLS Megamenu */}
-          <li className="nav-item-dropdown mega-dropdown-container">
+          <li 
+            className="nav-item-dropdown mega-dropdown-container"
+            onMouseEnter={() => setOpenDropdown('alltools')}
+            onMouseLeave={() => setOpenDropdown(null)}
+          >
             <a 
               href="#" 
               onClick={(e) => { e.preventDefault(); setSelectedTool(null); setActiveTab('All'); setProcessedResult(null); }} 
               className="nav-link"
             >
-              ALL PDF TOOLS <span className="dropdown-indicator">▼</span>
+              ALL PDF TOOLS <span className={`dropdown-indicator ${openDropdown === 'alltools' ? 'open' : ''}`}>▼</span>
             </a>
             
-            <div className="mega-dropdown">
+            <div className={`mega-dropdown ${openDropdown === 'alltools' ? 'dropdown-open' : ''}`}>
               <div className="mega-dropdown-grid">
                 {/* Organize Column */}
                 <div className="dropdown-col">

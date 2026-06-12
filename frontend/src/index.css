@@ -1468,20 +1468,20 @@ h1, h2, h3, h4, h5, h6 {
   height: 16px;
 }
 
-/* Hover States to trigger dropdowns with smooth animation transitions */
-.nav-item-dropdown:hover .mega-dropdown {
+/* JS-state-controlled dropdown visibility (replaces CSS :hover) */
+.mega-dropdown.dropdown-open {
   opacity: 1;
   visibility: visible;
   transform: translateY(0);
 }
 
-.nav-item-dropdown:hover .normal-dropdown {
+.normal-dropdown.dropdown-open {
   opacity: 1;
   visibility: visible;
   transform: translateX(-50%) translateY(0);
 }
 
-.nav-item-dropdown:hover .dropdown-indicator {
+.dropdown-indicator.open {
   transform: rotate(180deg);
 }
 
