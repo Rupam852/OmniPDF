@@ -1,8 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { FileUploadZone } from './components/FileUploadZone';
 import { OmniPdfApi } from './services/api';
 import { compressPdfInBrowser } from './services/compressPdf';
 
+type ToastType = 'success' | 'error' | 'warning' | 'info';
+interface Toast {
+  id: number;
+  type: ToastType;
+  title: string;
+  message: string;
+  exiting?: boolean;
+}
 
 interface Tool {
   id: string;
@@ -21,8 +29,37 @@ export default function App() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
   const [openDropdown, setOpenDropdown] = useState<'convert' | 'alltools' | null>(null);
 
-  // Force-close dropdowns on tool click
-  const closeDropdowns = () => setOpenDropdown(null);
+  // ── Toast Notification System ────────────────────────────────────────────
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  let toastCounter = 0;
+
+  const showToast = useCallback((type: ToastType, title: string, message = '') => {
+    const id = Date.now() + toastCounter++;
+    setToasts(prev => [...prev, { id, type, title, message }]);
+    // Auto-remove after 4.3s (4s progress + 0.3s exit animation)
+    setTimeout(() => {
+      setToasts(prev => prev.map(t => t.id === id ? { ...t, exiting: true } : t));
+      setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 350);
+    }, 4000);
+  }, []);
+
+  const dismissToast = useCallback((id: number) => {
+    setToasts(prev => prev.map(t => t.id === id ? { ...t, exiting: true } : t));
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 350);
+  }, []);
+
+  const toastIcons: Record<ToastType, string> = {
+    success: '✓',
+    error: '✕',
+    warning: '!',
+    info: 'i',
+  };
+  const toastTitles: Record<ToastType, string> = {
+    success: 'Success',
+    error: 'Error',
+    warning: 'Warning',
+    info: 'Info',
+  };
 
   // Dedicated state for processed results to render the success/download page
   const [processedResult, setProcessedResult] = useState<{
@@ -36,7 +73,8 @@ export default function App() {
     files?: { fileName: string; downloadUrl: string; }[];
   } | null>(null);
 
-
+  // Force-close dropdowns on tool click
+  const closeDropdowns = () => setOpenDropdown(null);
 
   const tabs = [
     'All',
@@ -526,7 +564,7 @@ export default function App() {
     const NOT_IMPLEMENTED_TOOLS: string[] = [];
 
     if (NOT_IMPLEMENTED_TOOLS.includes(selectedTool.id)) {
-      alert(`"${selectedTool.name}" requires a server-side binary (e.g. LibreOffice, Ghostscript) that is not currently installed. This tool is coming soon!`);
+      showToast('warning', 'Coming Soon', `"${selectedTool.name}" requires an external server component not yet installed.`);
       throw new Error('Tool not yet implemented on this server.');
     }
 
@@ -1080,7 +1118,7 @@ export default function App() {
       // ── COMPARE ──────────────────────────────────────────────────────────────
       else if (selectedTool.id === 'compare') {
         if (files.length < 2) {
-          alert('Please upload exactly two PDF files to compare.');
+          showToast('warning', 'Two Files Required', 'Please upload exactly two PDF files to compare.');
           throw new Error('Two files are required for comparison.');
         }
         const result = await OmniPdfApi.comparePdfs('', files[0], files[1]);
@@ -1149,12 +1187,16 @@ export default function App() {
 
       // ── FALLBACK ─────────────────────────────────────────────────────────────
       else {
-        alert(`"${selectedTool.name}" is not yet supported. Coming soon!`);
+        showToast('warning', 'Coming Soon', `"${selectedTool.name}" is not yet supported. Stay tuned!`);
         throw new Error(`No handler for tool: ${selectedTool.id}`);
       }
 
     } catch (err: any) {
-      alert(`Operation failed: ${err.message || err}`);
+      const msg = err.message || String(err);
+      // Don't show a second toast if we already showed one (re-throw from above)
+      if (!msg.includes('not yet implemented') && !msg.includes('No handler') && !msg.includes('Two files')) {
+        showToast('error', 'Operation Failed', msg);
+      }
       throw err;
     }
   };
@@ -1966,7 +2008,7 @@ export default function App() {
                     <button
                       onClick={() => {
                         navigator.clipboard.writeText(processedResult.summary || '');
-                        alert('Summary copied to clipboard!');
+                        showToast('success', 'Copied!', 'Summary copied to clipboard.');
                       }}
                       className="copy-summary-btn"
                     >
@@ -2094,8 +2136,24 @@ export default function App() {
       <footer className="app-footer">
         &copy; {new Date().getFullYear()} OmniPDF. Decoupled Cloud Architecture Blueprint.
       </footer>
+
+      {/* ─── Toast Notification Container ─── */}
+      <div className="toast-container">
+        {toasts.map(toast => (
+          <div
+            key={toast.id}
+            className={`toast toast-${toast.type}${toast.exiting ? ' toast-exit' : ''}`}
+          >
+            <div className="toast-icon">{toastIcons[toast.type]}</div>
+            <div className="toast-body">
+              <div className="toast-title">{toast.title || toastTitles[toast.type]}</div>
+              {toast.message && <div className="toast-message">{toast.message}</div>}
+            </div>
+            <button className="toast-close" onClick={() => dismissToast(toast.id)}>✕</button>
+            <div className="toast-progress" />
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
-
-
