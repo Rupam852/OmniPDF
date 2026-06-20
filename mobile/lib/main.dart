@@ -705,6 +705,17 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
     _cropBottomController = TextEditingController(text: '10');
     _signatureTextController = TextEditingController(text: 'Signed by OmniPDF');
     _redactTermController = TextEditingController();
+
+    // Auto-expand options panel for tools that have required or key settings
+    const toolsWithSettings = [
+      'protect', 'unlock', 'compress', 'split', 'watermark', 'page-numbers',
+      'rotate', 'remove-pages', 'extract-pages', 'organize-pdf', 'crop',
+      'sign', 'redact', 'ai_summarizer', 'ocr',
+      'pdf-to-word', 'pdf-to-powerpoint', 'pdf-to-excel',
+    ];
+    if (toolsWithSettings.contains(widget.tool['id'])) {
+      _isOptionsExpanded = true;
+    }
   }
 
   @override
@@ -979,6 +990,26 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
       showCustomSnackBar(
         context: context,
         message: 'Please enter a term to redact from the PDF.',
+        backgroundColor: Colors.redAccent,
+        icon: Icons.error_outline_rounded,
+      );
+      return;
+    }
+
+    if (widget.tool['id'] == 'remove-pages' && _removePagesController.text.trim().isEmpty) {
+      showCustomSnackBar(
+        context: context,
+        message: 'Please enter page numbers to remove (e.g. 1,3,5).',
+        backgroundColor: Colors.redAccent,
+        icon: Icons.error_outline_rounded,
+      );
+      return;
+    }
+
+    if (widget.tool['id'] == 'extract-pages' && _extractPagesController.text.trim().isEmpty) {
+      showCustomSnackBar(
+        context: context,
+        message: 'Please enter page ranges to extract (e.g. 1-3,5).',
         backgroundColor: Colors.redAccent,
         icon: Icons.error_outline_rounded,
       );
@@ -2149,6 +2180,90 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
                                   ),
                                 ),
                               ],
+                              const SizedBox(height: 16),
+                            ],
+
+                            // Rotate PDF configuration panel
+                            if (widget.tool['id'] == 'rotate') ...[
+                              const Text(
+                                'Rotation Settings',
+                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF60A5FA)),
+                              ),
+                              const SizedBox(height: 8),
+                              DropdownButtonFormField<String>(
+                                value: _rotateAngle,
+                                dropdownColor: const Color(0xFF0B1329),
+                                decoration: const InputDecoration(
+                                  labelText: 'Rotation Angle',
+                                  labelStyle: TextStyle(fontSize: 12, color: Colors.grey),
+                                  border: OutlineInputBorder(),
+                                  contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                ),
+                                items: const [
+                                  DropdownMenuItem(value: '90', child: Text('90° Clockwise')),
+                                  DropdownMenuItem(value: '180', child: Text('180° (Flip)')),
+                                  DropdownMenuItem(value: '270', child: Text('270° Clockwise')),
+                                ],
+                                onChanged: (val) {
+                                  if (val != null) setState(() { _rotateAngle = val; });
+                                },
+                              ),
+                              const SizedBox(height: 8),
+                              TextField(
+                                controller: _rotatePagesController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Pages to Rotate (e.g. all, 1,3,5)',
+                                  labelStyle: TextStyle(fontSize: 12, color: Colors.grey),
+                                  border: OutlineInputBorder(),
+                                  contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                  helperText: 'Leave blank or enter "all" to rotate every page.',
+                                  helperStyle: TextStyle(fontSize: 10),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                            ],
+
+                            // Remove Pages configuration panel
+                            if (widget.tool['id'] == 'remove-pages') ...[
+                              const Text(
+                                'Remove Pages Settings',
+                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF60A5FA)),
+                              ),
+                              const SizedBox(height: 8),
+                              TextField(
+                                controller: _removePagesController,
+                                keyboardType: TextInputType.text,
+                                decoration: const InputDecoration(
+                                  labelText: 'Pages to Remove (e.g. 1,3,5)',
+                                  labelStyle: TextStyle(fontSize: 12, color: Colors.grey),
+                                  border: OutlineInputBorder(),
+                                  contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                  helperText: 'Enter comma-separated 1-indexed page numbers.',
+                                  helperStyle: TextStyle(fontSize: 10),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                            ],
+
+                            // Extract Pages configuration panel
+                            if (widget.tool['id'] == 'extract-pages') ...[
+                              const Text(
+                                'Extract Pages Settings',
+                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF60A5FA)),
+                              ),
+                              const SizedBox(height: 8),
+                              TextField(
+                                controller: _extractPagesController,
+                                keyboardType: TextInputType.text,
+                                decoration: const InputDecoration(
+                                  labelText: 'Page Ranges (e.g. 1-3,5,7-9)',
+                                  labelStyle: TextStyle(fontSize: 12, color: Colors.grey),
+                                  border: OutlineInputBorder(),
+                                  contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                  helperText: 'Ranges like 1-3 and single pages like 5 are both accepted.',
+                                  helperStyle: TextStyle(fontSize: 10),
+                                ),
+                              ),
                               const SizedBox(height: 16),
                             ],
 
