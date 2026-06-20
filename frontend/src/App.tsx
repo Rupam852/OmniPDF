@@ -569,7 +569,6 @@ export default function App() {
     }
 
     try {
-      console.log(`Processing tool: ${selectedTool.id}`);
 
       // Helper: base64 → Blob URL
       const base64ToBlobUrl = (base64: string, mimeType = 'application/pdf'): string => {
