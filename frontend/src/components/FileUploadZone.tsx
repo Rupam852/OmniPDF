@@ -426,10 +426,16 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
 
     const interval = setInterval(() => {
       setProgress(prev => {
-        if (prev >= 85) { clearInterval(interval); return 85; }
-        return prev + 10;
+        // Slow down progress updates incrementally so the bar keeps moving,
+        // but never hits 100% until the API response actually resolves.
+        if (prev >= 98) {
+          return Math.min(99.5, prev + 0.1);
+        }
+        const remaining = 100 - prev;
+        const increment = Math.max(0.1, remaining * 0.15); // Logarithmic step
+        return parseFloat((prev + increment).toFixed(1));
       });
-    }, 500);
+    }, 300);
 
     try {
       const options: Record<string, any> = {
@@ -468,8 +474,11 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
       }
 
       await onProcess(files, options);
+      clearInterval(interval);
       setProgress(100);
-      setTimeout(() => { setIsProcessing(false); setProgress(0); }, 800);
+      await new Promise(resolve => setTimeout(resolve, 800));
+      setIsProcessing(false);
+      setProgress(0);
     } catch (err: any) {
       clearInterval(interval);
       setIsProcessing(false);
