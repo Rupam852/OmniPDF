@@ -231,7 +231,7 @@ Production URL: `https://omnipdf-backed.onrender.com/api`
 
 <div align="center">
 
-© 2026 OmniPDF. Licensed under the [MIT License](LICENSE).  
+© 2026 OmniPDF.  
 Built with ❤️ using React, Node.js, Python & Flutter
 
 </div>
