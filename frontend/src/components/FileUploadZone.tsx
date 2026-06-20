@@ -47,6 +47,8 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [selectedPreviewIndex, setSelectedPreviewIndex] = useState<number>(0);
   const [bigPreviewUrls, setBigPreviewUrls] = useState<Record<string, string>>({});
+  const [isFileLoading, setIsFileLoading] = useState(false);
+  const [fileLoadingMessage, setFileLoadingMessage] = useState('');
 
 
   // ─── Tool-specific option states ─────────────────────────────────────────
@@ -173,6 +175,8 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
   useEffect(() => {
     const detectPages = async () => {
       if (files.length > 0 && files[0].type === 'application/pdf') {
+        setIsFileLoading(true);
+        setFileLoadingMessage('Reading document structure and counting pages...');
         try {
           const arrayBuffer = await files[0].arrayBuffer();
           const loadingTask = pdfjs.getDocument({ data: new Uint8Array(arrayBuffer) });
@@ -181,6 +185,9 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
         } catch (error) {
           console.error('Error detecting PDF page count:', error);
           setPageCount(null);
+        } finally {
+          setIsFileLoading(false);
+          setFileLoadingMessage('');
         }
       } else {
         setPageCount(null);
@@ -287,69 +294,81 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
     else if (e.type === 'dragleave') setDragActive(false);
   };
 
-  const validateAndAddFiles = (incoming: File[]) => {
-    const valid = incoming.filter(f => {
-      // For jpg-to-pdf, accept images too
-      if (toolId === 'jpg-to-pdf') {
-        return ['image/jpeg', 'image/jpg', 'image/png'].includes(f.type);
-      }
-      return acceptedMimeTypes.includes(f.type);
-    });
+  const validateAndAddFiles = async (incoming: File[]) => {
+    setIsFileLoading(true);
+    setFileLoadingMessage('Importing files into workspace...');
+    setErrorMessage(null);
 
-    if (valid.length === 0) {
-      setErrorMessage(
-        toolId === 'jpg-to-pdf'
-          ? 'Please upload JPG or PNG image files.'
-          : 'Invalid file type. Please upload a valid PDF document.'
-      );
-      return;
-    }
+    // Let the UI render the loading spinner first
+    await new Promise(resolve => setTimeout(resolve, 80));
 
-    const maxCombinedLimit = 15 * 1024 * 1024; // 15MB total limit
+    try {
+      const valid = incoming.filter(f => {
+        // For jpg-to-pdf, accept images too
+        if (toolId === 'jpg-to-pdf') {
+          return ['image/jpeg', 'image/jpg', 'image/png'].includes(f.type);
+        }
+        return acceptedMimeTypes.includes(f.type);
+      });
 
-    if (!allowMultiple) {
-      const singleFile = valid[0];
-      if (singleFile.size > maxCombinedLimit) {
-        setErrorMessage(`"${singleFile.name}" is too large. Maximum allowed size is 15MB.`);
+      if (valid.length === 0) {
+        setErrorMessage(
+          toolId === 'jpg-to-pdf'
+            ? 'Please upload JPG or PNG image files.'
+            : 'Invalid file type. Please upload a valid PDF document.'
+        );
         return;
       }
-      setFiles([singleFile]);
-      setErrorMessage(null);
-    } else {
-      const addedFiles: File[] = [];
-      const skippedFiles: string[] = [];
-      let currentTotalSize = files.reduce((sum, f) => sum + f.size, 0);
 
-      for (const file of valid) {
-        if (currentTotalSize + file.size <= maxCombinedLimit) {
-          addedFiles.push(file);
-          currentTotalSize += file.size;
+      const maxCombinedLimit = 15 * 1024 * 1024; // 15MB total limit
+
+      if (!allowMultiple) {
+        const singleFile = valid[0];
+        if (singleFile.size > maxCombinedLimit) {
+          setErrorMessage(`"${singleFile.name}" is too large. Maximum allowed size is 15MB.`);
+          return;
+        }
+        setFiles([singleFile]);
+        setErrorMessage(null);
+      } else {
+        const addedFiles: File[] = [];
+        const skippedFiles: string[] = [];
+        let currentTotalSize = files.reduce((sum, f) => sum + f.size, 0);
+
+        for (const file of valid) {
+          if (currentTotalSize + file.size <= maxCombinedLimit) {
+            addedFiles.push(file);
+            currentTotalSize += file.size;
+          } else {
+            skippedFiles.push(file.name);
+          }
+        }
+
+        if (addedFiles.length === 0 && skippedFiles.length > 0) {
+          setErrorMessage(`Files could not be added. Adding them would exceed the 15MB combined limit.`);
+          return;
+        }
+
+        const currentCount = files.length;
+        const incomingCount = addedFiles.length;
+        const totalCount = currentCount + incomingCount;
+        const limit = toolId === 'compress' ? 10 : 100;
+        if (totalCount > limit) {
+          setErrorMessage(`Maximum upload limit is ${limit} files for this tool.`);
+          return;
+        }
+
+        setFiles(prev => [...prev, ...addedFiles]);
+
+        if (skippedFiles.length > 0) {
+          setErrorMessage(`Some files were skipped to stay within the 15MB combined limit: ${skippedFiles.join(', ')}`);
         } else {
-          skippedFiles.push(file.name);
+          setErrorMessage(null);
         }
       }
-
-      if (addedFiles.length === 0 && skippedFiles.length > 0) {
-        setErrorMessage(`Files could not be added. Adding them would exceed the 15MB combined limit.`);
-        return;
-      }
-
-      const currentCount = files.length;
-      const incomingCount = addedFiles.length;
-      const totalCount = currentCount + incomingCount;
-      const limit = toolId === 'compress' ? 10 : 100;
-      if (totalCount > limit) {
-        setErrorMessage(`Maximum upload limit is ${limit} files for this tool.`);
-        return;
-      }
-
-      setFiles(prev => [...prev, ...addedFiles]);
-
-      if (skippedFiles.length > 0) {
-        setErrorMessage(`Some files were skipped to stay within the 15MB combined limit: ${skippedFiles.join(', ')}`);
-      } else {
-        setErrorMessage(null);
-      }
+    } finally {
+      setIsFileLoading(false);
+      setFileLoadingMessage('');
     }
   };
 
@@ -1171,16 +1190,6 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
               )}
             </div>
 
-            {/* Progress Bar */}
-            {isProcessing && (
-              <div className="progress-container">
-                <div className="progress-bar">
-                  <div className="progress-fill" style={{ width: `${progress}%` }} />
-                </div>
-                <div className="progress-text">Processing... {progress}%</div>
-              </div>
-            )}
-
             {/* Process Button */}
             {!isProcessing && (
               <button onClick={handleTriggerProcess} className="process-btn" id="process-btn">
@@ -1195,6 +1204,58 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
       {errorMessage && (
         <div className="error-container">
           <span className="error-text">⚠️ {errorMessage}</span>
+        </div>
+      )}
+
+      {/* ─── Premium Glassmorphic Loading Overlays ─── */}
+      {isProcessing && (
+        <div className="web-loading-overlay">
+          <div className="web-loading-card">
+            <div className="web-loading-spinner-wrapper">
+              <div className="web-loading-spinner-outer" />
+              <div className="web-loading-spinner-inner" />
+              <div className="web-loading-spinner-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                </svg>
+              </div>
+            </div>
+            <h3 className="web-loading-title">Processing {toolName}</h3>
+            <p className="web-loading-subtitle">
+              {progress < 30 
+                ? 'Uploading files securely...' 
+                : progress < 70 
+                ? 'Performing PDF operations...' 
+                : 'Packaging results for download...'}
+            </p>
+            <div className="web-loading-progress-container">
+              <div className="web-loading-progress-fill" style={{ width: `${progress}%` }} />
+            </div>
+            <div className="web-loading-progress-text">{progress}%</div>
+          </div>
+        </div>
+      )}
+
+      {isFileLoading && (
+        <div className="web-loading-overlay">
+          <div className="web-loading-card" style={{ maxWidth: '380px', padding: '30px 24px' }}>
+            <div className="web-loading-spinner-wrapper" style={{ width: '80px', height: '80px', marginBottom: '20px' }}>
+              <div className="web-loading-spinner-outer" style={{ borderWidth: '3px' }} />
+              <div className="web-loading-spinner-inner" style={{ borderWidth: '2px' }} />
+              <div className="web-loading-spinner-icon" style={{ fontSize: '22px' }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="17 8 12 3 7 8" />
+                  <line x1="12" y1="3" x2="12" y2="15" />
+                </svg>
+              </div>
+            </div>
+            <h3 className="web-loading-title" style={{ fontSize: '18px' }}>Preparing Files</h3>
+            <p className="web-loading-subtitle" style={{ fontSize: '13px', marginBottom: '0', color: '#94a3b8' }}>
+              {fileLoadingMessage || 'Reading file metadata...'}
+            </p>
+          </div>
         </div>
       )}
     </div>
