@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
@@ -625,6 +626,35 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
   bool _isProcessing = false;
   bool _isPickingFile = false;
   double _progress = 0.0;
+  Timer? _progressTimer;
+
+  void _startProgressTimer({double startValue = 0.1}) {
+    _progressTimer?.cancel();
+    _progress = startValue;
+    _progressTimer = Timer.periodic(const Duration(milliseconds: 300), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      setState(() {
+        if (_progress >= 0.98) {
+          _progress = (_progress + 0.001).clamp(0.0, 0.995);
+        } else {
+          // As we approach 100%, slow down the increments logarithmically
+          double remaining = 1.0 - _progress;
+          double increment = remaining * 0.15; // Logarithmic decay step
+          if (increment < 0.005) increment = 0.005;
+          _progress = (_progress + increment).clamp(0.0, 0.98);
+        }
+      });
+    });
+  }
+
+  void _stopProgressTimer() {
+    _progressTimer?.cancel();
+    _progressTimer = null;
+  }
+
   List<PlatformFile> _pickedFiles = [];
 
   // Success screen controllers
@@ -708,6 +738,7 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
 
   @override
   void dispose() {
+    _progressTimer?.cancel();
     _keyController.dispose();
     _targetSizeController.dispose();
     _protectPasswordController.dispose();
@@ -1139,12 +1170,12 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
     // ── STANDARD OPERATION REQUEST FLOW ──
     setState(() {
       _isProcessing = true;
-      _progress = 0.1;
       _isCompleted = false;
       _responseDataBase64 = null;
       _processedFiles = [];
       _summaryText = null;
     });
+    _startProgressTimer(startValue: 0.1);
 
     try {
       final endpointMap = {
@@ -1243,9 +1274,7 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
         request.fields['term'] = _redactTermController.text.trim();
       }
 
-      setState(() {
-        _progress = 0.3;
-      });
+      // Preparing files...
 
       // Add file(s)
       if (widget.tool['id'] == 'compare') {
@@ -1289,9 +1318,7 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
         }
       }
 
-      setState(() {
-        _progress = 0.6;
-      });
+      // Sending request...
 
       // Send with 90-second timeout
       final streamedResponse = await request.send().timeout(
@@ -1305,10 +1332,18 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
 
       if (response.statusCode == 200) {
         final resData = jsonDecode(response.body);
+        _stopProgressTimer();
+        setState(() {
+          _progress = 1.0;
+        });
+
+        // Small delay to let the user see the 100% complete state
+        await Future.delayed(const Duration(milliseconds: 800));
+        if (!mounted) return;
+
         setState(() {
           _isProcessing = false;
           _isCompleted = true;
-          _progress = 1.0;
 
           if (widget.tool['id'] == 'ai_summarizer' || widget.tool['id'] == 'ocr') {
             _summaryText = resData['summary'] ?? 'No text returned.';
@@ -1362,8 +1397,10 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
           }
         });
       } else {
+        _stopProgressTimer();
         setState(() {
           _isProcessing = false;
+          _progress = 0.0;
         });
         String errMsg = 'Request failed.';
         try {
@@ -1378,8 +1415,10 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
         );
       }
     } catch (e) {
+      _stopProgressTimer();
       setState(() {
         _isProcessing = false;
+        _progress = 0.0;
       });
       if (!mounted) return;
       String friendlyError;
