@@ -13,7 +13,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 // Global memory API key store for the active app session
 String globalGeminiApiKey = '';
-String globalApiBaseUrl = 'https://omnipdf-backed.onrender.com/api';
 
 void showCustomSnackBar({
   required BuildContext context,
@@ -68,11 +67,10 @@ void main() async {
     debugPrint("Firebase init error: $e");
   }
   
-  // Load saved API Key and API Base URL permanently from local storage
+  // Load saved API Key permanently from local storage
   try {
     final prefs = await SharedPreferences.getInstance();
     globalGeminiApiKey = prefs.getString('gemini_api_key') ?? '';
-    globalApiBaseUrl = prefs.getString('api_base_url') ?? 'https://omnipdf-backed.onrender.com/api';
   } catch (e) {
     debugPrint("SharedPreferences load error: $e");
   }
@@ -971,7 +969,7 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
 
         for (int i = 0; i < _pickedFiles.length; i++) {
           final platformFile = _pickedFiles[i];
-          final uri = Uri.parse('$globalApiBaseUrl/tools/compress');
+          final uri = Uri.parse('https://omnipdf-backed.onrender.com/api/tools/compress');
           var request = http.MultipartRequest('POST', uri);
 
           final double originalSize = platformFile.size.toDouble();
@@ -1077,7 +1075,7 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
       };
 
       final endpoint = endpointMap[widget.tool['id']] ?? widget.tool['id'];
-      final uri = Uri.parse('$globalApiBaseUrl/tools/$endpoint');
+      final uri = Uri.parse('https://omnipdf-backed.onrender.com/api/tools/$endpoint');
 
       var request = http.MultipartRequest('POST', uri);
       if (apiKey.isNotEmpty) {
@@ -2423,19 +2421,16 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   late final TextEditingController _keyController;
-  late final TextEditingController _urlController;
 
   @override
   void initState() {
     super.initState();
     _keyController = TextEditingController(text: globalGeminiApiKey);
-    _urlController = TextEditingController(text: globalApiBaseUrl);
   }
 
   @override
   void dispose() {
     _keyController.dispose();
-    _urlController.dispose();
     super.dispose();
   }
 
@@ -2443,7 +2438,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Application Settings'),
+        title: const Text('Gemini API Settings'),
         backgroundColor: const Color(0xFF0B1329),
       ),
       body: SingleChildScrollView(
@@ -2452,34 +2447,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Backend API Server URL',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Set the API URL for OmniPDF tools. Use https://omnipdf-backed.onrender.com/api for production, or http://10.0.2.2:5000/api for local emulator testing.',
-              style: TextStyle(color: Colors.grey, fontSize: 13),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _urlController,
-              decoration: const InputDecoration(
-                labelText: 'Backend API Base URL',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.link_rounded),
-              ),
-            ),
-            const SizedBox(height: 30),
-            const Text(
-              'Google Gemini API Key',
+              'Bring Your Own Key (BYOK) Configuration',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             const Text(
               'Provide your own Gemini API key. The key is stored locally in memory and sent via secure headers to run AI Summarizer and OCR PDF tools.',
-              style: TextStyle(color: Colors.grey, fontSize: 13),
+              style: TextStyle(color: Colors.grey),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 30),
             TextField(
               controller: _keyController,
               obscureText: true,
@@ -2493,20 +2469,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ElevatedButton(
               onPressed: () async {
                 final apiKey = _keyController.text.trim();
-                final apiUrl = _urlController.text.trim();
                 globalGeminiApiKey = apiKey;
-                globalApiBaseUrl = apiUrl;
                 try {
                   final prefs = await SharedPreferences.getInstance();
                   await prefs.setString('gemini_api_key', apiKey);
-                  await prefs.setString('api_base_url', apiUrl);
                 } catch (e) {
-                  debugPrint("Failed to save settings to SharedPreferences: $e");
+                  debugPrint("Failed to save API Key to SharedPreferences: $e");
                 }
                 if (!mounted) return;
                 showCustomSnackBar(
                   context: context,
-                  message: 'Settings saved successfully!',
+                  message: 'API Key saved permanently!',
                   backgroundColor: Colors.green,
                   icon: Icons.check_circle_outline_rounded,
                 );
@@ -2518,7 +2491,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              child: const Text('Save Settings'),
+              child: const Text('Save Key'),
             ),
           ],
         ),
