@@ -636,6 +636,7 @@ class ToolRunnerScreen extends StatefulWidget {
 
 class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
   bool _isProcessing = false;
+  bool _isPickingFile = false;
   double _progress = 0.0;
   List<PlatformFile> _pickedFiles = [];
 
@@ -836,12 +837,14 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
 
       final bool allowMultiple = ['merge', 'jpg-to-pdf', 'compare', 'compress'].contains(widget.tool['id']);
 
+      setState(() { _isPickingFile = true; });
       final result = await FilePicker.platform.pickFiles(
         type: fileType,
         allowedExtensions: allowedExtensions,
         allowMultiple: allowMultiple,
       );
       if (!mounted) return;
+      setState(() { _isPickingFile = false; });
       if (result != null && result.files.isNotEmpty) {
         final List<PlatformFile> validFiles = [];
         final double maxCombinedLimit = 15.0 * 1024.0 * 1024.0;
@@ -921,6 +924,7 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
       }
     } catch (e) {
       if (!mounted) return;
+      setState(() { _isPickingFile = false; });
       showCustomSnackBar(
         context: context,
         message: 'Failed to pick files: $e',
@@ -1457,6 +1461,121 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
     }
   }
 
+  /// Beautiful full-screen loading overlay with animated spinner and progress
+  Widget _buildLoadingOverlay() {
+    final bool isPicking = _isPickingFile && !_isProcessing;
+    String statusMsg;
+    if (isPicking) {
+      statusMsg = 'Preparing your file\u2026';
+    } else if (_progress < 0.3) {
+      statusMsg = 'Uploading file to server\u2026';
+    } else if (_progress < 0.7) {
+      statusMsg = 'Processing your PDF\u2026';
+    } else {
+      statusMsg = 'Finalizing & packaging result\u2026';
+    }
+
+    return Positioned.fill(
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          color: const Color(0xFF080D1A).withOpacity(0.88),
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 40.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Circular progress with icon/percentage in center
+                  Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      SizedBox(
+                        width: 100,
+                        height: 100,
+                        child: CircularProgressIndicator(
+                          value: (!isPicking && _progress > 0) ? _progress : null,
+                          strokeWidth: 5,
+                          backgroundColor: const Color(0xFF1E293B),
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            widget.tool['color'] as Color? ?? const Color(0xFF3B82F6),
+                          ),
+                        ),
+                      ),
+                      if (!isPicking && _progress > 0)
+                        Text(
+                          '${(_progress * 100).toInt()}%',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: widget.tool['color'] as Color? ?? const Color(0xFF3B82F6),
+                          ),
+                        )
+                      else
+                        Icon(
+                          widget.tool['icon'] as IconData? ?? Icons.picture_as_pdf_outlined,
+                          size: 36,
+                          color: widget.tool['color'] as Color? ?? const Color(0xFF3B82F6),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 32),
+                  // Tool name
+                  Text(
+                    widget.tool['name'] as String? ?? 'Processing',
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  // Animated status message
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 500),
+                    child: Text(
+                      statusMsg,
+                      key: ValueKey(statusMsg),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Color(0xFF94A3B8),
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+                  // Progress bar
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: LinearProgressIndicator(
+                      value: (!isPicking && _progress > 0) ? _progress : null,
+                      minHeight: 8,
+                      backgroundColor: const Color(0xFF1E293B),
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        widget.tool['color'] as Color? ?? const Color(0xFF3B82F6),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    isPicking
+                        ? 'Reading file contents\u2026'
+                        : (_progress > 0
+                            ? 'Step ${_progress < 0.35 ? 1 : _progress < 0.65 ? 2 : 3} of 3'
+                            : 'Initializing\u2026'),
+                    style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isAiRequired = ['ai_summarizer', 'ocr'].contains(widget.tool['id']);
@@ -1711,7 +1830,7 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
       );
     }
 
-    return Scaffold(
+    final baseWidget = Scaffold(
       appBar: AppBar(
         title: Text(widget.tool['name']),
         backgroundColor: const Color(0xFF0B1329),
@@ -2551,29 +2670,33 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
               ),
               const SizedBox(height: 20),
 
-              if (_isProcessing) ...[
-                LinearProgressIndicator(
-                  value: _progress,
-                  backgroundColor: const Color(0xFF1E293B),
-                  color: const Color(0xFF3B82F6),
+              ElevatedButton(
+                onPressed: _isProcessing ? null : _runOperation,
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 52),
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                  disabledBackgroundColor: Colors.green.withOpacity(0.4),
+                  disabledForegroundColor: Colors.white54,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
-                const SizedBox(height: 10),
-                Text('Processing: ${( _progress * 100).toInt()}%'),
-              ] else
-                ElevatedButton(
-                  onPressed: _runOperation,
-                  style: ElevatedButton.styleFrom(
-                    minimumSize: const Size(double.infinity, 52),
-                    backgroundColor: Colors.green,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  child: Text('⚡ ${widget.tool['name']}'),
-                ),
-                ],
+                child: Text('⚡ ${widget.tool['name']}'),
               ),
+              ],
             ),
+          ),
     );
+
+    // Full-screen loading overlay (file picking + processing)
+    if (_isPickingFile || _isProcessing) {
+      return Stack(
+        children: [
+          baseWidget,
+          _buildLoadingOverlay(),
+        ],
+      );
+    }
+    return baseWidget;
   }
 }
 
