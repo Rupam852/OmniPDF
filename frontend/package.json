@@ -10,7 +10,6 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "firebase": "^10.11.1",
     "lucide-react": "^0.378.0",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^6.0.227",
