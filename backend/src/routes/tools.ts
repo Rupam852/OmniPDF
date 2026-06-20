@@ -77,7 +77,43 @@ const upload = multer({
     fileSize: 15 * 1024 * 1024, // 15 MB limit
   },
   fileFilter: (_req, file, cb) => {
+    // Check by MIME type first
     if (ALLOWED_MIMES.has(file.mimetype)) {
+      cb(null, true);
+      return;
+    }
+
+    // Fallback to file extension check (e.g. for Flutter/mobile uploads which may default to application/octet-stream)
+    const ext = path.extname(file.originalname || '').toLowerCase();
+    const allowedExtensions = [
+      '.pdf', '.jpg', '.jpeg', '.png', '.gif', '.webp', '.tiff', '.tif',
+      '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.html', '.htm', '.txt'
+    ];
+
+    if (allowedExtensions.includes(ext)) {
+      // Correct the mimetype if it was sent as generic application/octet-stream
+      if (file.mimetype === 'application/octet-stream') {
+        const mimeMap: Record<string, string> = {
+          '.pdf': 'application/pdf',
+          '.jpg': 'image/jpeg',
+          '.jpeg': 'image/jpeg',
+          '.png': 'image/png',
+          '.gif': 'image/gif',
+          '.webp': 'image/webp',
+          '.tiff': 'image/tiff',
+          '.tif': 'image/tiff',
+          '.doc': 'application/msword',
+          '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          '.xls': 'application/vnd.ms-excel',
+          '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          '.ppt': 'application/vnd.ms-powerpoint',
+          '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+          '.html': 'text/html',
+          '.htm': 'text/html',
+          '.txt': 'text/plain'
+        };
+        file.mimetype = mimeMap[ext] || file.mimetype;
+      }
       cb(null, true);
     } else {
       cb(new Error(`Invalid file type "${file.mimetype}". Only PDF, images, and Office documents are accepted.`));
@@ -1168,7 +1204,18 @@ router.post(
       const pdfDoc = await PDFDocument.create();
 
       for (const file of files) {
-        const mime = file.mimetype;
+        let mime = file.mimetype;
+        
+        // Extension fallback if mime type is generic octet-stream
+        if (mime === 'application/octet-stream') {
+          const ext = path.extname(file.originalname || '').toLowerCase();
+          if (ext === '.jpg' || ext === '.jpeg') {
+            mime = 'image/jpeg';
+          } else if (ext === '.png') {
+            mime = 'image/png';
+          }
+        }
+
         let image;
         if (mime === 'image/jpeg' || mime === 'image/jpg') {
           image = await pdfDoc.embedJpg(file.buffer);

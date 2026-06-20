@@ -68,6 +68,13 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
     });
     return;
   }
+  if (err.message && err.message.startsWith('Invalid file type')) {
+    res.status(400).json({
+      error: 'Invalid File Type',
+      message: err.message,
+    });
+    return;
+  }
   res.status(err.status || 500).json({
     error: 'Internal Server Error',
     message: process.env.NODE_ENV === 'production'

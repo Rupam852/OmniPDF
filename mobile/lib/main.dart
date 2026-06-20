@@ -3,6 +3,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/services.dart';
@@ -13,6 +14,49 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 // Global memory API key store for the active app session
 String globalGeminiApiKey = '';
+
+MediaType _getMediaType(String filename) {
+  final parts = filename.split('.');
+  if (parts.length < 2) {
+    return MediaType('application', 'octet-stream');
+  }
+  final ext = parts.last.toLowerCase();
+  switch (ext) {
+    case 'pdf':
+      return MediaType('application', 'pdf');
+    case 'jpg':
+    case 'jpeg':
+      return MediaType('image', 'jpeg');
+    case 'png':
+      return MediaType('image', 'png');
+    case 'gif':
+      return MediaType('image', 'gif');
+    case 'webp':
+      return MediaType('image', 'webp');
+    case 'tiff':
+    case 'tif':
+      return MediaType('image', 'tiff');
+    case 'doc':
+      return MediaType('application', 'msword');
+    case 'docx':
+      return MediaType('application', 'vnd.openxmlformats-officedocument.wordprocessingml.document');
+    case 'xls':
+      return MediaType('application', 'vnd.ms-excel');
+    case 'xlsx':
+      return MediaType('application', 'vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    case 'ppt':
+      return MediaType('application', 'vnd.ms-powerpoint');
+    case 'pptx':
+      return MediaType('application', 'vnd.openxmlformats-officedocument.presentationml.presentation');
+    case 'html':
+    case 'htm':
+      return MediaType('text', 'html');
+    case 'txt':
+      return MediaType('text', 'plain');
+    default:
+      return MediaType('application', 'octet-stream');
+  }
+}
 
 void showCustomSnackBar({
   required BuildContext context,
@@ -983,12 +1027,14 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
               'file',
               platformFile.bytes!,
               filename: platformFile.name,
+              contentType: _getMediaType(platformFile.name),
             ));
           } else if (platformFile.path != null) {
             request.files.add(await http.MultipartFile.fromPath(
               'file',
               platformFile.path!,
               filename: platformFile.name,
+              contentType: _getMediaType(platformFile.name),
             ));
           }
 
@@ -1165,12 +1211,14 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
               fieldName,
               platformFile.bytes!,
               filename: platformFile.name,
+              contentType: _getMediaType(platformFile.name),
             ));
           } else if (platformFile.path != null) {
             request.files.add(await http.MultipartFile.fromPath(
               fieldName,
               platformFile.path!,
               filename: platformFile.name,
+              contentType: _getMediaType(platformFile.name),
             ));
           }
         }
@@ -1182,12 +1230,14 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
               isMultiple ? 'files' : 'file',
               platformFile.bytes!,
               filename: platformFile.name,
+              contentType: _getMediaType(platformFile.name),
             ));
           } else if (platformFile.path != null) {
             request.files.add(await http.MultipartFile.fromPath(
               isMultiple ? 'files' : 'file',
               platformFile.path!,
               filename: platformFile.name,
+              contentType: _getMediaType(platformFile.name),
             ));
           }
         }
