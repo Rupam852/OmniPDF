@@ -1030,6 +1030,30 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
       return;
     }
 
+    // AI key required check
+    if ((widget.tool['id'] == 'ai_summarizer' || widget.tool['id'] == 'ocr') &&
+        _keyController.text.trim().isEmpty) {
+      showCustomSnackBar(
+        context: context,
+        message: '🔑 Gemini API Key is required for this tool. Tap the key icon in the top-right to add it.',
+        backgroundColor: const Color(0xFF7C3AED),
+        icon: Icons.vpn_key_outlined,
+        duration: const Duration(seconds: 5),
+      );
+      return;
+    }
+
+    // Protect PDF password required check
+    if (widget.tool['id'] == 'protect' && _protectPasswordController.text.trim().isEmpty) {
+      showCustomSnackBar(
+        context: context,
+        message: 'Please enter a password to protect the PDF.',
+        backgroundColor: Colors.redAccent,
+        icon: Icons.lock_outline_rounded,
+      );
+      return;
+    }
+
     // ── SEQUENTIAL MULTIPLE FILE COMPRESSION LOOP ──
     if (widget.tool['id'] == 'compress' && _pickedFiles.length > 1) {
       setState(() {
@@ -1282,7 +1306,13 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
         _progress = 0.6;
       });
 
-      var streamedResponse = await request.send();
+      // Send with 90-second timeout
+      final streamedResponse = await request.send().timeout(
+        const Duration(seconds: 90),
+        onTimeout: () {
+          throw Exception('Server is taking longer than expected. Please try again — the server may be waking up (free tier).');
+        },
+      );
       var response = await http.Response.fromStream(streamedResponse);
       if (!mounted) return;
 
@@ -1365,11 +1395,23 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
         _isProcessing = false;
       });
       if (!mounted) return;
+      String friendlyError;
+      final eStr = e.toString();
+      if (eStr.contains('SocketException') || eStr.contains('NetworkException') || eStr.contains('Failed host lookup')) {
+        friendlyError = 'No internet connection. Please check your network and try again.';
+      } else if (eStr.contains('TimeoutException') || eStr.contains('taking longer')) {
+        friendlyError = 'Server is taking longer than expected. It may be waking up — please wait 30 seconds and try again.';
+      } else if (eStr.contains('Connection refused') || eStr.contains('Connection reset')) {
+        friendlyError = 'Could not connect to the server. Please try again shortly.';
+      } else {
+        friendlyError = eStr.replaceAll('Exception: ', '');
+      }
       showCustomSnackBar(
         context: context,
-        message: 'Network Error: $e',
+        message: friendlyError,
         backgroundColor: Colors.redAccent,
-        icon: Icons.error_outline_rounded,
+        icon: Icons.wifi_off_rounded,
+        duration: const Duration(seconds: 6),
       );
     }
   }
