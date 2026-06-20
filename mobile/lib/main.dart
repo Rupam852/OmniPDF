@@ -789,23 +789,43 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
       if (!mounted) return;
       if (result != null && result.files.isNotEmpty) {
         final List<PlatformFile> validFiles = [];
-        final List<String> tooLargeNames = [];
+        final double maxCombinedLimit = 15.0 * 1024.0 * 1024.0;
+        double currentTotalSize = 0.0;
+        for (var f in _pickedFiles) {
+          currentTotalSize += f.size.toDouble();
+        }
 
-        for (var file in result.files) {
-          if (file.size > 10 * 1024 * 1024) {
-            tooLargeNames.add(file.name);
+        if (!allowMultiple) {
+          final file = result.files.first;
+          if (file.size > maxCombinedLimit) {
+            showCustomSnackBar(
+              context: context,
+              message: '"${file.name}" is too large. Maximum allowed size is 15MB.',
+              backgroundColor: Colors.redAccent,
+              icon: Icons.error_outline_rounded,
+            );
           } else {
             validFiles.add(file);
           }
-        }
+        } else {
+          final List<String> skippedNames = [];
+          for (var file in result.files) {
+            if (currentTotalSize + file.size <= maxCombinedLimit) {
+              validFiles.add(file);
+              currentTotalSize += file.size.toDouble();
+            } else {
+              skippedNames.add(file.name);
+            }
+          }
 
-        if (tooLargeNames.isNotEmpty) {
-          showCustomSnackBar(
-            context: context,
-            message: 'File(s) too large: ${tooLargeNames.join(', ')}. Maximum allowed size is 10MB.',
-            backgroundColor: Colors.redAccent,
-            icon: Icons.error_outline_rounded,
-          );
+          if (skippedNames.isNotEmpty) {
+            showCustomSnackBar(
+              context: context,
+              message: 'Some files were skipped to stay within the 15MB combined limit: ${skippedNames.join(', ')}.',
+              backgroundColor: Colors.orangeAccent,
+              icon: Icons.warning_amber_rounded,
+            );
+          }
         }
 
         if (validFiles.isNotEmpty) {
