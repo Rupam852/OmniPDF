@@ -74,7 +74,7 @@ const ALLOWED_MIMES = new Set([
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10 MB limit
+    fileSize: 15 * 1024 * 1024, // 15 MB limit
   },
   fileFilter: (_req, file, cb) => {
     if (ALLOWED_MIMES.has(file.mimetype)) {

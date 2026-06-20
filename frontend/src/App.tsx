@@ -632,88 +632,179 @@ export default function App() {
 
       // ── PROTECT ──────────────────────────────────────────────────────────────
       else if (selectedTool.id === 'protect') {
-        const result = await OmniPdfApi.runPdfTool('protect', '', files[0], {
-          password: options.password || '',
-        });
-        if (result.fileData) {
+        const protectedList: { fileName: string; downloadUrl: string }[] = [];
+        for (const file of files) {
+          const result = await OmniPdfApi.runPdfTool('protect', '', file, {
+            password: options.password || '',
+          });
+          if (result.fileData) {
+            protectedList.push({
+              fileName: makeFileName(file.name, '_protected'),
+              downloadUrl: base64ToBlobUrl(result.fileData),
+            });
+          }
+        }
+
+        if (protectedList.length === 1) {
           setProcessedResult({
             toolName: selectedTool.name,
             fileName: files[0].name,
-            downloadUrl: base64ToBlobUrl(result.fileData),
-            successMessage: result.message || 'PDF protected with security stamp!',
+            downloadUrl: protectedList[0].downloadUrl,
+            successMessage: 'PDF protected with security stamp successfully!',
             actionText: 'Download Protected PDF',
-            fileNameToDownload: makeFileName(files[0].name, '_protected'),
+            fileNameToDownload: protectedList[0].fileName,
+          });
+        } else {
+          setProcessedResult({
+            toolName: selectedTool.name,
+            fileName: `${files.length} PDFs`,
+            files: protectedList,
+            successMessage: `Successfully protected ${files.length} PDFs with security stamp!`,
+            actionText: 'Download Protected PDFs',
           });
         }
       }
 
       // ── ROTATE ───────────────────────────────────────────────────────────────
       else if (selectedTool.id === 'rotate') {
-        const result = await OmniPdfApi.runPdfTool('rotate', '', files[0], {
-          angle: options.angle || '90',
-          pages: options.pages || 'all',
-        });
-        if (result.fileData) {
+        const rotatedList: { fileName: string; downloadUrl: string }[] = [];
+        for (const file of files) {
+          const result = await OmniPdfApi.runPdfTool('rotate', '', file, {
+            angle: options.angle || '90',
+            pages: options.pages || 'all',
+          });
+          if (result.fileData) {
+            rotatedList.push({
+              fileName: makeFileName(file.name, '_rotated'),
+              downloadUrl: base64ToBlobUrl(result.fileData),
+            });
+          }
+        }
+
+        if (rotatedList.length === 1) {
           setProcessedResult({
             toolName: selectedTool.name,
             fileName: files[0].name,
-            downloadUrl: base64ToBlobUrl(result.fileData),
-            successMessage: result.message || 'PDF pages rotated successfully!',
+            downloadUrl: rotatedList[0].downloadUrl,
+            successMessage: 'PDF pages rotated successfully!',
             actionText: 'Download Rotated PDF',
-            fileNameToDownload: makeFileName(files[0].name, '_rotated'),
+            fileNameToDownload: rotatedList[0].fileName,
+          });
+        } else {
+          setProcessedResult({
+            toolName: selectedTool.name,
+            fileName: `${files.length} PDFs`,
+            files: rotatedList,
+            successMessage: `Successfully rotated pages of ${files.length} PDFs!`,
+            actionText: 'Download Rotated PDFs',
           });
         }
       }
 
       // ── WATERMARK ─────────────────────────────────────────────────────────────
       else if (selectedTool.id === 'watermark') {
-        const result = await OmniPdfApi.runPdfTool('watermark', '', files[0], {
-          watermarkText: options.watermarkText || 'OmniPDF',
-          opacity: options.opacity || '0.15',
-          fontSize: options.watermarkFontSize || '40',
-        });
-        if (result.fileData) {
+        const watermarkedList: { fileName: string; downloadUrl: string }[] = [];
+        for (const file of files) {
+          const result = await OmniPdfApi.runPdfTool('watermark', '', file, {
+            watermarkText: options.watermarkText || 'OmniPDF',
+            opacity: options.opacity || '0.15',
+            fontSize: options.watermarkFontSize || '40',
+            position: options.position || 'center',
+          });
+          if (result.fileData) {
+            watermarkedList.push({
+              fileName: makeFileName(file.name, '_watermarked'),
+              downloadUrl: base64ToBlobUrl(result.fileData),
+            });
+          }
+        }
+
+        if (watermarkedList.length === 1) {
           setProcessedResult({
             toolName: selectedTool.name,
             fileName: files[0].name,
-            downloadUrl: base64ToBlobUrl(result.fileData),
-            successMessage: result.message || 'Watermark applied successfully!',
+            downloadUrl: watermarkedList[0].downloadUrl,
+            successMessage: 'Watermark applied successfully!',
             actionText: 'Download Watermarked PDF',
-            fileNameToDownload: makeFileName(files[0].name, '_watermarked'),
+            fileNameToDownload: watermarkedList[0].fileName,
+          });
+        } else {
+          setProcessedResult({
+            toolName: selectedTool.name,
+            fileName: `${files.length} PDFs`,
+            files: watermarkedList,
+            successMessage: `Successfully watermarked ${files.length} PDFs!`,
+            actionText: 'Download Watermarked PDFs',
           });
         }
       }
 
       // ── REMOVE PAGES ─────────────────────────────────────────────────────────
       else if (selectedTool.id === 'remove-pages') {
-        const result = await OmniPdfApi.runPdfTool('remove-pages', '', files[0], {
-          pageNumbers: options.pageNumbers || '',
-        });
-        if (result.fileData) {
+        const processedList: { fileName: string; downloadUrl: string }[] = [];
+        for (const file of files) {
+          const result = await OmniPdfApi.runPdfTool('remove-pages', '', file, {
+            pageNumbers: options.pageNumbers || '',
+          });
+          if (result.fileData) {
+            processedList.push({
+              fileName: makeFileName(file.name, '_pages_removed'),
+              downloadUrl: base64ToBlobUrl(result.fileData),
+            });
+          }
+        }
+
+        if (processedList.length === 1) {
           setProcessedResult({
             toolName: selectedTool.name,
             fileName: files[0].name,
-            downloadUrl: base64ToBlobUrl(result.fileData),
-            successMessage: result.message || 'Pages removed successfully!',
+            downloadUrl: processedList[0].downloadUrl,
+            successMessage: 'Pages removed successfully!',
             actionText: 'Download PDF',
-            fileNameToDownload: makeFileName(files[0].name, '_pages_removed'),
+            fileNameToDownload: processedList[0].fileName,
+          });
+        } else {
+          setProcessedResult({
+            toolName: selectedTool.name,
+            fileName: `${files.length} PDFs`,
+            files: processedList,
+            successMessage: `Successfully removed pages from ${files.length} PDFs!`,
+            actionText: 'Download PDFs',
           });
         }
       }
 
       // ── EXTRACT PAGES ────────────────────────────────────────────────────────
       else if (selectedTool.id === 'extract-pages') {
-        const result = await OmniPdfApi.runPdfTool('extract-pages', '', files[0], {
-          pageRanges: options.pageRanges || '',
-        });
-        if (result.fileData) {
+        const processedList: { fileName: string; downloadUrl: string }[] = [];
+        for (const file of files) {
+          const result = await OmniPdfApi.runPdfTool('extract-pages', '', file, {
+            pageRanges: options.pageRanges || '',
+          });
+          if (result.fileData) {
+            processedList.push({
+              fileName: makeFileName(file.name, '_extracted'),
+              downloadUrl: base64ToBlobUrl(result.fileData),
+            });
+          }
+        }
+
+        if (processedList.length === 1) {
           setProcessedResult({
             toolName: selectedTool.name,
             fileName: files[0].name,
-            downloadUrl: base64ToBlobUrl(result.fileData),
-            successMessage: result.message || 'Pages extracted successfully!',
+            downloadUrl: processedList[0].downloadUrl,
+            successMessage: 'Pages extracted successfully!',
             actionText: 'Download Extracted PDF',
-            fileNameToDownload: makeFileName(files[0].name, '_extracted'),
+            fileNameToDownload: processedList[0].fileName,
+          });
+        } else {
+          setProcessedResult({
+            toolName: selectedTool.name,
+            fileName: `${files.length} PDFs`,
+            files: processedList,
+            successMessage: `Successfully extracted pages from ${files.length} PDFs!`,
+            actionText: 'Download Extracted PDFs',
           });
         }
       }
@@ -737,52 +828,106 @@ export default function App() {
 
       // ── PAGE NUMBERS ─────────────────────────────────────────────────────────
       else if (selectedTool.id === 'page-numbers') {
-        const result = await OmniPdfApi.runPdfTool('page-numbers', '', files[0], {
-          position: options.position || 'bottom-center',
-          startNumber: options.startNumber || '1',
-          prefix: options.prefix || '',
-          fontSize: options.pgNumFontSize || '10',
-        });
-        if (result.fileData) {
+        const processedList: { fileName: string; downloadUrl: string }[] = [];
+        for (const file of files) {
+          const result = await OmniPdfApi.runPdfTool('page-numbers', '', file, {
+            position: options.position || 'bottom-center',
+            startNumber: options.startNumber || '1',
+            prefix: options.prefix || '',
+            fontSize: options.pgNumFontSize || '10',
+          });
+          if (result.fileData) {
+            processedList.push({
+              fileName: makeFileName(file.name, '_numbered'),
+              downloadUrl: base64ToBlobUrl(result.fileData),
+            });
+          }
+        }
+
+        if (processedList.length === 1) {
           setProcessedResult({
             toolName: selectedTool.name,
             fileName: files[0].name,
-            downloadUrl: base64ToBlobUrl(result.fileData),
-            successMessage: result.message || 'Page numbers added successfully!',
+            downloadUrl: processedList[0].downloadUrl,
+            successMessage: 'Page numbers added successfully!',
             actionText: 'Download PDF with Page Numbers',
-            fileNameToDownload: makeFileName(files[0].name, '_numbered'),
+            fileNameToDownload: processedList[0].fileName,
+          });
+        } else {
+          setProcessedResult({
+            toolName: selectedTool.name,
+            fileName: `${files.length} PDFs`,
+            files: processedList,
+            successMessage: `Successfully added page numbers to ${files.length} PDFs!`,
+            actionText: 'Download Numbered PDFs',
           });
         }
       }
 
       // ── REPAIR ───────────────────────────────────────────────────────────────
       else if (selectedTool.id === 'repair') {
-        const result = await OmniPdfApi.runPdfTool('repair', '', files[0]);
-        if (result.fileData) {
+        const processedList: { fileName: string; downloadUrl: string }[] = [];
+        for (const file of files) {
+          const result = await OmniPdfApi.runPdfTool('repair', '', file);
+          if (result.fileData) {
+            processedList.push({
+              fileName: makeFileName(file.name, '_repaired'),
+              downloadUrl: base64ToBlobUrl(result.fileData),
+            });
+          }
+        }
+
+        if (processedList.length === 1) {
           setProcessedResult({
             toolName: selectedTool.name,
             fileName: files[0].name,
-            downloadUrl: base64ToBlobUrl(result.fileData),
-            successMessage: result.message || 'PDF repaired successfully!',
+            downloadUrl: processedList[0].downloadUrl,
+            successMessage: 'PDF repaired successfully!',
             actionText: 'Download Repaired PDF',
-            fileNameToDownload: makeFileName(files[0].name, '_repaired'),
+            fileNameToDownload: processedList[0].fileName,
+          });
+        } else {
+          setProcessedResult({
+            toolName: selectedTool.name,
+            fileName: `${files.length} PDFs`,
+            files: processedList,
+            successMessage: `Successfully repaired ${files.length} PDFs!`,
+            actionText: 'Download Repaired PDFs',
           });
         }
       }
 
       // ── UNLOCK ───────────────────────────────────────────────────────────────
       else if (selectedTool.id === 'unlock') {
-        const result = await OmniPdfApi.runPdfTool('unlock', '', files[0], {
-          password: options.password || '',
-        });
-        if (result.fileData) {
+        const processedList: { fileName: string; downloadUrl: string }[] = [];
+        for (const file of files) {
+          const result = await OmniPdfApi.runPdfTool('unlock', '', file, {
+            password: options.password || '',
+          });
+          if (result.fileData) {
+            processedList.push({
+              fileName: makeFileName(file.name, '_unlocked'),
+              downloadUrl: base64ToBlobUrl(result.fileData),
+            });
+          }
+        }
+
+        if (processedList.length === 1) {
           setProcessedResult({
             toolName: selectedTool.name,
             fileName: files[0].name,
-            downloadUrl: base64ToBlobUrl(result.fileData),
-            successMessage: result.message || 'PDF unlocked successfully!',
+            downloadUrl: processedList[0].downloadUrl,
+            successMessage: 'PDF unlocked successfully!',
             actionText: 'Download Unlocked PDF',
-            fileNameToDownload: makeFileName(files[0].name, '_unlocked'),
+            fileNameToDownload: processedList[0].fileName,
+          });
+        } else {
+          setProcessedResult({
+            toolName: selectedTool.name,
+            fileName: `${files.length} PDFs`,
+            files: processedList,
+            successMessage: `Successfully unlocked ${files.length} PDFs!`,
+            actionText: 'Download Unlocked PDFs',
           });
         }
       }
@@ -819,54 +964,117 @@ export default function App() {
 
       // ── PDF TO JPG ───────────────────────────────────────────────────────────
       else if (selectedTool.id === 'pdf-to-jpg') {
-        const result = await OmniPdfApi.runPdfTool('pdf-to-jpg', '', files[0]);
-        if (result.fileData) {
-          const base64ToZipBlobUrl = (base64: string): string => {
-            const byteCharacters = atob(base64);
-            const byteArray = new Uint8Array(byteCharacters.length);
-            for (let i = 0; i < byteCharacters.length; i++) {
-              byteArray[i] = byteCharacters.charCodeAt(i);
-            }
-            const blob = new Blob([byteArray], { type: 'application/zip' });
-            return URL.createObjectURL(blob);
-          };
+        const processedList: { fileName: string; downloadUrl: string }[] = [];
+        const base64ToZipBlobUrl = (base64: string): string => {
+          const byteCharacters = atob(base64);
+          const byteArray = new Uint8Array(byteCharacters.length);
+          for (let i = 0; i < byteCharacters.length; i++) {
+            byteArray[i] = byteCharacters.charCodeAt(i);
+          }
+          const blob = new Blob([byteArray], { type: 'application/zip' });
+          return URL.createObjectURL(blob);
+        };
+
+        for (const file of files) {
+          const result = await OmniPdfApi.runPdfTool('pdf-to-jpg', '', file);
+          if (result.fileData) {
+            processedList.push({
+              fileName: result.fileName || `${file.name.replace(/\.[^/.]+$/, '')}_images.zip`,
+              downloadUrl: base64ToZipBlobUrl(result.fileData),
+            });
+          }
+        }
+
+        if (processedList.length === 1) {
           setProcessedResult({
             toolName: selectedTool.name,
             fileName: files[0].name,
-            downloadUrl: base64ToZipBlobUrl(result.fileData),
-            successMessage: result.message || 'PDF pages converted to JPEG successfully!',
+            downloadUrl: processedList[0].downloadUrl,
+            successMessage: 'PDF pages converted to JPEG successfully!',
             actionText: 'Download ZIP Archive',
-            fileNameToDownload: result.fileName || `${files[0].name.replace(/\.[^/.]+$/, '')}_images.zip`,
+            fileNameToDownload: processedList[0].fileName,
+          });
+        } else {
+          setProcessedResult({
+            toolName: selectedTool.name,
+            fileName: `${files.length} PDFs`,
+            files: processedList,
+            successMessage: `Successfully converted pages of ${files.length} PDFs to JPEG archives!`,
+            actionText: 'Download ZIP Archives',
           });
         }
       }
 
       // ── AI SUMMARIZER ─────────────────────────────────────────────────────────
       else if (selectedTool.id === 'ai-summarizer') {
-        const result = await OmniPdfApi.summarizePdf('', files[0], options.geminiKey, options.summaryFormat);
-        setProcessedResult({
-          toolName: selectedTool.name,
-          fileName: files[0].name,
-          summary: result.summary,
-          downloadUrl: result.fileData ? base64ToBlobUrl(result.fileData) : undefined,
-          fileNameToDownload: result.fileName || `summary_${files[0].name}.pdf`,
-          successMessage: 'Your PDF has been summarized with Gemini AI!',
-          actionText: 'Download Summary PDF',
-        });
+        const processedList: { fileName: string; downloadUrl?: string }[] = [];
+        const summaries: string[] = [];
+
+        for (const file of files) {
+          const result = await OmniPdfApi.summarizePdf('', file, options.geminiKey, options.summaryFormat);
+          summaries.push(`--- SUMMARY FOR ${file.name} ---\n${result.summary || ''}`);
+          processedList.push({
+            fileName: result.fileName || `summary_${file.name}.pdf`,
+            downloadUrl: result.fileData ? base64ToBlobUrl(result.fileData) : undefined,
+          });
+        }
+
+        if (processedList.length === 1) {
+          setProcessedResult({
+            toolName: selectedTool.name,
+            fileName: files[0].name,
+            summary: summaries[0].replace(/--- SUMMARY FOR .* ---\n/, ''),
+            downloadUrl: processedList[0].downloadUrl,
+            fileNameToDownload: processedList[0].fileName,
+            successMessage: 'Your PDF has been summarized with Gemini AI!',
+            actionText: 'Download Summary PDF',
+          });
+        } else {
+          setProcessedResult({
+            toolName: selectedTool.name,
+            fileName: `${files.length} PDFs`,
+            summary: summaries.join('\n\n'),
+            files: processedList as { fileName: string; downloadUrl: string }[],
+            successMessage: `Successfully summarized ${files.length} PDFs with Gemini AI!`,
+            actionText: 'Download Summary PDFs',
+          });
+        }
       }
 
       // ── OCR PDF ──────────────────────────────────────────────────────────────
       else if (selectedTool.id === 'ocr') {
-        const result = await OmniPdfApi.ocrPdf('', files[0], options.geminiKey);
-        setProcessedResult({
-          toolName: selectedTool.name,
-          fileName: files[0].name,
-          summary: result.summary,
-          downloadUrl: result.fileData ? base64ToBlobUrl(result.fileData) : undefined,
-          fileNameToDownload: result.fileName || `ocr_${files[0].name}`,
-          successMessage: 'Your PDF has been OCR-processed with Gemini AI!',
-          actionText: 'Download OCR PDF',
-        });
+        const processedList: { fileName: string; downloadUrl?: string }[] = [];
+        const summaries: string[] = [];
+
+        for (const file of files) {
+          const result = await OmniPdfApi.ocrPdf('', file, options.geminiKey);
+          summaries.push(`--- OCR TEXT FOR ${file.name} ---\n${result.summary || ''}`);
+          processedList.push({
+            fileName: result.fileName || `ocr_${file.name}`,
+            downloadUrl: result.fileData ? base64ToBlobUrl(result.fileData) : undefined,
+          });
+        }
+
+        if (processedList.length === 1) {
+          setProcessedResult({
+            toolName: selectedTool.name,
+            fileName: files[0].name,
+            summary: summaries[0].replace(/--- OCR TEXT FOR .* ---\n/, ''),
+            downloadUrl: processedList[0].downloadUrl,
+            fileNameToDownload: processedList[0].fileName,
+            successMessage: 'Your PDF has been OCR-processed with Gemini AI!',
+            actionText: 'Download OCR PDF',
+          });
+        } else {
+          setProcessedResult({
+            toolName: selectedTool.name,
+            fileName: `${files.length} PDFs`,
+            summary: summaries.join('\n\n'),
+            files: processedList as { fileName: string; downloadUrl: string }[],
+            successMessage: `Successfully OCR-processed ${files.length} PDFs with Gemini AI!`,
+            actionText: 'Download OCR PDFs',
+          });
+        }
       }
 
       // ── COMPARE ──────────────────────────────────────────────────────────────
@@ -907,16 +1115,36 @@ export default function App() {
         };
 
         const config = suffixMap[selectedTool.id];
-        const result = await OmniPdfApi.runPdfTool(endpoint, '', files[0], options);
+        const processedList: { fileName: string; downloadUrl: string }[] = [];
 
-        setProcessedResult({
-          toolName: selectedTool.name,
-          fileName: files[0].name,
-          downloadUrl: result.fileData ? base64ToBlobUrl(result.fileData, config.mime) : undefined,
-          fileNameToDownload: result.fileName || makeFileName(files[0].name, `_processed${config.suffix}`),
-          successMessage: result.message || config.msg,
-          actionText: config.action,
-        });
+        for (const file of files) {
+          const result = await OmniPdfApi.runPdfTool(endpoint, '', file, options);
+          if (result.fileData) {
+            processedList.push({
+              fileName: result.fileName || makeFileName(file.name, `_processed${config.suffix}`),
+              downloadUrl: base64ToBlobUrl(result.fileData, config.mime),
+            });
+          }
+        }
+
+        if (processedList.length === 1) {
+          setProcessedResult({
+            toolName: selectedTool.name,
+            fileName: files[0].name,
+            downloadUrl: processedList[0].downloadUrl,
+            fileNameToDownload: processedList[0].fileName,
+            successMessage: config.msg,
+            actionText: config.action,
+          });
+        } else {
+          setProcessedResult({
+            toolName: selectedTool.name,
+            fileName: `${files.length} Files`,
+            files: processedList,
+            successMessage: `Successfully processed ${files.length} files!`,
+            actionText: `Download Processed Files`,
+          });
+        }
       }
 
       // ── FALLBACK ─────────────────────────────────────────────────────────────
@@ -1677,6 +1905,28 @@ export default function App() {
 
             {processedResult.files && processedResult.files.length > 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '30px' }}>
+                {processedResult.files.length > 1 && (
+                  <button
+                    onClick={() => {
+                      processedResult.files?.forEach((f) => {
+                        const link = document.createElement('a');
+                        link.href = f.downloadUrl || '#';
+                        link.download = f.fileName;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                      });
+                    }}
+                    className="download-btn"
+                    style={{
+                      background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                      boxShadow: '0 4px 14px rgba(16, 185, 129, 0.4)',
+                      marginBottom: '16px'
+                    }}
+                  >
+                    ⚡ Download All Files ({processedResult.files.length})
+                  </button>
+                )}
                 {processedResult.files.map((f, i) => (
                   <button
                     key={i}
@@ -1689,8 +1939,17 @@ export default function App() {
                       document.body.removeChild(link);
                     }}
                     className="download-btn"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      textOverflow: 'ellipsis',
+                      overflow: 'hidden',
+                      whiteSpace: 'nowrap'
+                    }}
                   >
-                    Download Part {i + 1}: {f.fileName}
+                    <span>📥 Download: {f.fileName}</span>
                   </button>
                 ))}
               </div>
@@ -1758,7 +2017,7 @@ export default function App() {
             <FileUploadZone
               toolName={selectedTool.name}
               toolId={selectedTool.id}
-              allowMultiple={selectedTool.id === 'merge' || selectedTool.id === 'jpg-to-pdf' || selectedTool.id === 'scan-to-pdf' || selectedTool.id === 'compress' || selectedTool.id === 'compare'}
+              allowMultiple={selectedTool.id !== 'split' && selectedTool.id !== 'organize-pdf'}
               isIntelligence={
                 selectedTool.category === 'intelligence' ||
                 ['ocr', 'pdf-to-word', 'pdf-to-powerpoint', 'pdf-to-excel'].includes(selectedTool.id)

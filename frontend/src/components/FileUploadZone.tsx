@@ -305,27 +305,52 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
       return;
     }
 
-    const maxLimit = 10 * 1024 * 1024;
-    const tooLarge = valid.find(f => f.size > maxLimit);
-    if (tooLarge) {
-      setErrorMessage(`"${tooLarge.name}" is too large. Maximum allowed size is 10MB.`);
-      return;
-    }
+    const maxCombinedLimit = 15 * 1024 * 1024; // 15MB total limit
 
     if (!allowMultiple) {
-      setFiles([valid[0]]);
+      const singleFile = valid[0];
+      if (singleFile.size > maxCombinedLimit) {
+        setErrorMessage(`"${singleFile.name}" is too large. Maximum allowed size is 15MB.`);
+        return;
+      }
+      setFiles([singleFile]);
+      setErrorMessage(null);
     } else {
+      const addedFiles: File[] = [];
+      const skippedFiles: string[] = [];
+      let currentTotalSize = files.reduce((sum, f) => sum + f.size, 0);
+
+      for (const file of valid) {
+        if (currentTotalSize + file.size <= maxCombinedLimit) {
+          addedFiles.push(file);
+          currentTotalSize += file.size;
+        } else {
+          skippedFiles.push(file.name);
+        }
+      }
+
+      if (addedFiles.length === 0 && skippedFiles.length > 0) {
+        setErrorMessage(`Files could not be added. Adding them would exceed the 15MB combined limit.`);
+        return;
+      }
+
       const currentCount = files.length;
-      const incomingCount = valid.length;
+      const incomingCount = addedFiles.length;
       const totalCount = currentCount + incomingCount;
       const limit = toolId === 'compress' ? 10 : 100;
       if (totalCount > limit) {
         setErrorMessage(`Maximum upload limit is ${limit} files for this tool.`);
         return;
       }
-      setFiles(prev => [...prev, ...valid]);
+
+      setFiles(prev => [...prev, ...addedFiles]);
+
+      if (skippedFiles.length > 0) {
+        setErrorMessage(`Some files were skipped to stay within the 15MB combined limit: ${skippedFiles.join(', ')}`);
+      } else {
+        setErrorMessage(null);
+      }
     }
-    setErrorMessage(null);
   };
 
   const handleDrop = (e: DragEvent) => {
@@ -439,8 +464,8 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
     : acceptedMimeTypes.join(',');
 
   const supportText = toolId === 'jpg-to-pdf'
-    ? 'Supports JPG and PNG images up to 10MB each'
-    : 'Supports PDFs up to 10MB';
+    ? 'Supports JPG and PNG images (Max 15MB combined)'
+    : 'Supports PDFs (Max 15MB combined)';
 
 
 

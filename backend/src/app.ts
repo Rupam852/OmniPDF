@@ -44,8 +44,8 @@ app.use(
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 
 // Body Parsing Middleware
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.json({ limit: '15mb' }));
+app.use(express.urlencoded({ extended: true, limit: '15mb' }));
 
 // Apply general API rate limiter to all api routes
 app.use('/api', apiLimiter);
@@ -64,7 +64,7 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   if (err.code === 'LIMIT_FILE_SIZE') {
     res.status(400).json({
       error: 'File Too Large',
-      message: 'Uploaded file exceeds the maximum size limit of 10MB.',
+      message: 'Uploaded file exceeds the maximum size limit of 15MB.',
     });
     return;
   }
