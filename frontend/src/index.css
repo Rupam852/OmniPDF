@@ -3682,3 +3682,121 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
+
+/* ─── LANDING PAGE TOOLS GRID & CARD STYLES ─── */
+
+.landing-tool-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 24px;
+  max-width: 1200px;
+  margin: 32px auto 64px;
+  padding: 0 24px;
+}
+
+.landing-tool-card {
+  background: rgba(22, 30, 49, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 16px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.landing-tool-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.03) 0%, transparent 60%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.landing-tool-card:hover {
+  transform: translateY(-5px);
+  background: rgba(22, 30, 49, 0.7);
+  border-color: rgba(59, 130, 246, 0.3);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3), 0 0 20px rgba(59, 130, 246, 0.08);
+}
+
+.landing-tool-card:hover::before {
+  opacity: 1;
+}
+
+.landing-tool-icon-wrapper {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+  font-size: 18px;
+  font-weight: 700;
+  box-shadow: inset 0 2px 4px rgba(255, 255, 255, 0.05);
+}
+
+.landing-tool-icon-wrapper svg {
+  width: 20px;
+  height: 20px;
+}
+
+.landing-tool-card-title {
+  font-family: var(--font-header);
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+  letter-spacing: -0.01em;
+}
+
+.landing-tool-card-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.55;
+  margin-bottom: 20px;
+  flex-grow: 1;
+}
+
+.landing-tool-card-footer {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-accent);
+  margin-top: auto;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  padding-top: 14px;
+  transition: color 0.2s ease;
+}
+
+.landing-tool-card:hover .landing-tool-card-footer {
+  color: #60a5fa;
+}
+
+.landing-tool-card-footer span:last-child {
+  transition: transform 0.2s ease;
+}
+
+.landing-tool-card:hover .landing-tool-card-footer span:last-child {
+  transform: translateX(4px);
+}
+
+@media (max-width: 640px) {
+  .landing-tool-grid {
+    grid-template-columns: 1fr;
+    padding: 0 16px;
+  }
+}
