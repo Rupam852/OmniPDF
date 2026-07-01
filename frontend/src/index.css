@@ -3771,4 +3771,48 @@ h1, h2, h3, h4, h5, h6 {
     grid-template-columns: 1fr;
     padding: 0 16px;
   }
+  .landing-category-tabs {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    justify-content: flex-start;
+    padding: 6px;
+    width: 100%;
+    border-radius: 8px;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    margin-bottom: 24px;
+  }
+  .landing-category-tabs::-webkit-scrollbar {
+    display: none;
+  }
+  .landing-tab-btn {
+    flex-shrink: 0;
+    white-space: nowrap;
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+  .faq-question-btn {
+    padding: 14px 16px;
+    font-size: 14px;
+  }
+  .faq-answer {
+    padding: 0 16px;
+  }
+  .faq-item.open .faq-answer {
+    padding-bottom: 16px;
+  }
+  .mobile-promo-info {
+    align-items: center;
+    text-align: center;
+  }
+  .mobile-promo-info .shine-btn {
+    align-self: center !important;
+    width: 100%;
+    max-width: 280px;
+  }
+  .landing-section-title {
+    font-size: 24px;
+    line-height: 1.2;
+  }
 }
