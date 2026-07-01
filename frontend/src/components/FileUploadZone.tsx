@@ -283,37 +283,83 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
 
   useEffect(() => {
     const detectPages = async () => {
-      if (files.length > 0 && (files[0].type === 'application/pdf' || files[0].name.toLowerCase().endsWith('.pdf'))) {
+      const pdfFiles = files.filter(f => f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf'));
+      if (pdfFiles.length > 0) {
         setIsFileLoading(true);
         setFileLoadingMessage('Reading document structure and counting pages...');
         try {
-          const arrayBuffer = await files[0].arrayBuffer();
-          const loadingTask = pdfjs.getDocument({ data: new Uint8Array(arrayBuffer) });
-          const pdfDoc = await loadingTask.promise;
-          setPageCount(pdfDoc.numPages);
-          
-          if (pdfDoc.numPages === 0) {
-            setErrorMessage("This PDF document contains no pages.");
-            setFiles([]);
-          } else if (toolId === 'split' && pdfDoc.numPages === 1) {
-            setErrorMessage("This PDF has only 1 page. A single-page PDF document cannot be split.");
-            setFiles([]);
-          }
-        } catch (error: any) {
-          console.error('Error detecting PDF page count:', error);
-          setPageCount(null);
-          if (error.name === 'PasswordException' || error.message?.toLowerCase().includes('password')) {
-            if (toolId !== 'unlock') {
-              setErrorMessage("This PDF is password-protected. Please decrypt it using the 'Unlock PDF' tool first.");
-              setFiles([]);
+          let firstPdfPageCount: number | null = null;
+          for (const file of pdfFiles) {
+            try {
+              const arrayBuffer = await file.arrayBuffer();
+              const loadingTask = pdfjs.getDocument({ data: new Uint8Array(arrayBuffer) });
+              const pdfDoc = await loadingTask.promise;
+              
+              if (file === pdfFiles[0]) {
+                firstPdfPageCount = pdfDoc.numPages;
+              }
+
+              if (pdfDoc.numPages === 0) {
+                throw new Error('NO_PAGES');
+              }
+
+              if (toolId === 'split' && pdfDoc.numPages === 1) {
+                throw new Error('SPLIT_ONE_PAGE');
+              }
+
+              if (toolId === 'unlock') {
+                throw new Error('NOT_ENCRYPTED');
+              }
+            } catch (error: any) {
+              if (error.message === 'NOT_ENCRYPTED') {
+                setErrorMessage(pdfFiles.length === 1
+                  ? "This PDF is not password-protected. It does not need to be unlocked."
+                  : `The file "${file.name}" is not password-protected. It does not need to be unlocked.`
+                );
+                setFiles([]);
+                return;
+              }
+              if (error.message === 'SPLIT_ONE_PAGE') {
+                setErrorMessage("This PDF has only 1 page. A single-page PDF document cannot be split.");
+                setFiles([]);
+                return;
+              }
+              if (error.message === 'NO_PAGES') {
+                setErrorMessage(pdfFiles.length === 1
+                  ? "This PDF document contains no pages."
+                  : `The file "${file.name}" contains no pages.`
+                );
+                setFiles([]);
+                return;
+              }
+
+              if (error.name === 'PasswordException' || error.message?.toLowerCase().includes('password')) {
+                if (toolId !== 'unlock') {
+                  setErrorMessage(pdfFiles.length === 1
+                    ? "This PDF is password-protected. Please decrypt it using the 'Unlock PDF' tool first."
+                    : `The file "${file.name}" is password-protected. Please decrypt it using the 'Unlock PDF' tool first.`
+                  );
+                  setFiles([]);
+                  return;
+                }
+                // If it is unlock, password protection is expected and correct, so we continue checking other files
+              } else if (error.name === 'InvalidPDFException' || error.message?.toLowerCase().includes('invalid pdf') || error.message?.toLowerCase().includes('pdf header')) {
+                setErrorMessage(`The file "${file.name}" appears to be corrupted or invalid. Please check the file and try again.`);
+                setFiles([]);
+                return;
+              } else {
+                setErrorMessage(`Failed to read the file "${file.name}": ${error.message || 'Invalid format.'}`);
+                setFiles([]);
+                return;
+              }
             }
-          } else if (error.name === 'InvalidPDFException' || error.message?.toLowerCase().includes('invalid pdf') || error.message?.toLowerCase().includes('pdf header')) {
-            setErrorMessage("The PDF file appears to be corrupted or invalid. Please check the file and try again.");
-            setFiles([]);
-          } else {
-            setErrorMessage(`Failed to read the PDF: ${error.message || 'Invalid format.'}`);
-            setFiles([]);
           }
+          setPageCount(firstPdfPageCount);
+        } catch (globalError: any) {
+          console.error('Error validating PDFs:', globalError);
+          setPageCount(null);
+          setErrorMessage(`An error occurred while reading the PDFs: ${globalError.message}`);
+          setFiles([]);
         } finally {
           setIsFileLoading(false);
           setFileLoadingMessage('');
@@ -323,7 +369,7 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
       }
     };
     detectPages();
-  }, [files]);
+  }, [files, toolId]);
 
   useEffect(() => {
     const newBigUrls = { ...bigPreviewUrls };
@@ -562,11 +608,27 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files?.length) {
       validateAndAddFiles(Array.from(e.target.files));
+      e.target.value = '';
     }
   };
 
-  const removeFile = (index: number) => setFiles(prev => prev.filter((_, i) => i !== index));
-  const clearFiles = () => { setFiles([]); setErrorMessage(null); };
+  const removeFile = (index: number) => {
+    setFiles(prev => {
+      const updated = prev.filter((_, i) => i !== index);
+      if (updated.length === 0 && fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      return updated;
+    });
+  };
+
+  const clearFiles = () => {
+    setFiles([]);
+    setErrorMessage(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
 
   const handleTriggerProcess = async () => {
     if (files.length === 0) {

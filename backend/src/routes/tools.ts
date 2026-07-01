@@ -1164,6 +1164,11 @@ router.post(
           error: 'Authentication Failed',
           message: 'Incorrect password. Please enter the correct password to unlock this PDF.',
         });
+      } else if (error.stderr && error.stderr.includes('NOT_ENCRYPTED')) {
+        res.status(400).json({
+          error: 'Not Encrypted',
+          message: 'This PDF is not password-protected. It does not need to be unlocked.',
+        });
       } else {
         res.status(500).json({
           error: 'Unlock Failed',

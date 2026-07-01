@@ -807,6 +807,22 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
           return;
         }
 
+        if (widget.tool['id'] == 'unlock' && !isEncrypted) {
+          setState(() {
+            _pickedFiles.clear();
+            _pageCount = null;
+          });
+          if (mounted) {
+            showCustomSnackBar(
+              context: context,
+              message: "This PDF is not password-protected. It does not need to be unlocked.",
+              backgroundColor: Colors.redAccent,
+              icon: Icons.lock_open_rounded,
+            );
+          }
+          return;
+        }
+
         // 2. Page Count Detection
         final count = _parsePdfPageCount(bytes);
         if (count == 0 || count == null) {

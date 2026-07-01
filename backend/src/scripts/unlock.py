@@ -3,11 +3,16 @@ import sys
 
 def unlock_pdf(input_path, output_path, password=""):
     doc = fitz.open(input_path)
-    if doc.is_encrypted:
-        success = doc.authenticate(password)
-        if not success:
-            print("AUTH_FAILED", file=sys.stderr)
-            sys.exit(1)
+    if not doc.is_encrypted:
+        print("NOT_ENCRYPTED", file=sys.stderr)
+        doc.close()
+        sys.exit(1)
+        
+    success = doc.authenticate(password)
+    if not success:
+        print("AUTH_FAILED", file=sys.stderr)
+        doc.close()
+        sys.exit(1)
     
     try:
         # Save the document decrypted (encryption=fitz.PDF_ENCRYPT_NONE removes encryption)
