@@ -1045,6 +1045,27 @@ h1, h2, h3, h4, h5, h6 {
   .card-desc {
     display: none;
   }
+  
+  .app-main {
+    padding: 20px 12px 60px 12px !important;
+  }
+  
+  .workspace-main-panel, .changes-sidebar {
+    padding: 16px !important;
+    border-radius: 14px !important;
+  }
+
+  .file-list-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 10px !important;
+  }
+
+  .file-list-header > div {
+    width: 100% !important;
+    justify-content: space-between !important;
+    gap: 8px !important;
+  }
 }
 
 /* FileUploadZone Responsive Styles */
@@ -1552,6 +1573,7 @@ h1, h2, h3, h4, h5, h6 {
   flex-direction: column;
   gap: 24px;
   max-width: 760px;
+  width: 100%;
   margin: 30px auto;
   align-items: stretch;
   font-family: var(--font-body);
