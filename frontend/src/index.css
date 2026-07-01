@@ -3741,15 +3741,20 @@ h1, h2, h3, h4, h5, h6 {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 12px;
+  padding: 10px 12px;
   color: var(--text-secondary);
   font-size: 12px;
   font-weight: 550;
-  border-radius: 6px;
+  border-radius: 4px;
   cursor: pointer;
   transition: all 0.15s ease;
   user-select: none;
   text-align: left;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.custom-switch-option-item:last-child {
+  border-bottom: none;
 }
 
 .custom-switch-option-item:hover {
@@ -3760,13 +3765,6 @@ h1, h2, h3, h4, h5, h6 {
 .custom-switch-option-item.active {
   background: rgba(59, 130, 246, 0.15);
   color: #60a5fa;
-}
-
-.custom-switch-option-item .tool-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  flex-shrink: 0;
 }
 
 .header-back-btn {
