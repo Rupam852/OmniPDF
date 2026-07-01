@@ -30,6 +30,7 @@ export default function App() {
   const [openDropdown, setOpenDropdown] = useState<'convert' | 'alltools' | null>(null);
   const [landingCategory, setLandingCategory] = useState<string>('all');
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
+  const [isLandingMobileMenuOpen, setIsLandingMobileMenuOpen] = useState<boolean>(false);
 
   // ── Toast Notification System ────────────────────────────────────────────
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -1308,24 +1309,78 @@ export default function App() {
                 Privacy Policy
               </a>
             </li>
+          </ul>
+
+          <button 
+            className="landing-mobile-menu-btn" 
+            onClick={() => setIsLandingMobileMenuOpen(!isLandingMobileMenuOpen)}
+            aria-label="Toggle Landing Navigation"
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <line x1="3" y1="12" x2="21" y2="12"></line>
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+          </button>
+        </nav>
+
+        {/* Mobile Navigation Drawer */}
+        {isLandingMobileMenuOpen && (
+          <div className="landing-mobile-menu-overlay" onClick={() => setIsLandingMobileMenuOpen(false)}></div>
+        )}
+        <div className={`landing-mobile-menu-drawer ${isLandingMobileMenuOpen ? 'open' : ''}`}>
+          <button className="landing-drawer-close" onClick={() => setIsLandingMobileMenuOpen(false)}>✕</button>
+          <ul className="landing-drawer-links">
             <li>
               <a 
-                href="https://neo-files-transfer.pages.dev/download/fa1ff58a1e36" 
-                className="landing-nav-btn"
+                href="#features" 
+                onClick={(e) => { 
+                  e.preventDefault(); 
+                  setIsLandingMobileMenuOpen(false);
+                  document.getElementById('features-section')?.scrollIntoView({ behavior: 'smooth' }); 
+                }}
               >
-                📥 Get Android Client
+                Features
               </a>
             </li>
             <li>
-              <button 
-                onClick={() => setShowLandingPage(false)} 
-                className="landing-nav-btn primary"
+              <a 
+                href="#how-it-works" 
+                onClick={(e) => { 
+                  e.preventDefault(); 
+                  setIsLandingMobileMenuOpen(false);
+                  document.getElementById('steps-section')?.scrollIntoView({ behavior: 'smooth' }); 
+                }}
               >
-                Open Workspace
-              </button>
+                How It Works
+              </a>
+            </li>
+            <li>
+              <a 
+                href="#faq" 
+                onClick={(e) => { 
+                  e.preventDefault(); 
+                  setIsLandingMobileMenuOpen(false);
+                  document.getElementById('faq-section')?.scrollIntoView({ behavior: 'smooth' }); 
+                }}
+              >
+                FAQ
+              </a>
+            </li>
+            <li>
+              <a 
+                href="#privacy" 
+                onClick={(e) => { 
+                  e.preventDefault(); 
+                  setIsLandingMobileMenuOpen(false);
+                  setShowPrivacyModal(true); 
+                }}
+              >
+                Privacy Policy
+              </a>
             </li>
           </ul>
-        </nav>
+        </div>
 
         {/* Hero Section */}
         <main className="landing-hero">
