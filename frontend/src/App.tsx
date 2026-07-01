@@ -1345,13 +1345,13 @@ export default function App() {
               className="shine-btn shine-btn-primary" 
               onClick={() => setShowLandingPage(false)}
             >
-              🚀 Launch Web Workspace
+              Launch Web Workspace
             </button>
             <a 
               href="https://neo-files-transfer.pages.dev/download/fa1ff58a1e36" 
               className="shine-btn shine-btn-secondary"
             >
-              🤖 Download Android APK
+              Download Android APK
             </a>
           </div>
 
