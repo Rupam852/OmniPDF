@@ -1546,7 +1546,7 @@ export default function App() {
                 className="shine-btn shine-btn-primary"
                 style={{ alignSelf: 'center', marginTop: '12px' }}
               >
-                📥 Download Optimized APK
+                Download Optimized APK
               </a>
             </div>
           </div>
@@ -1996,7 +1996,7 @@ export default function App() {
               className="nav-link android-download-link"
               style={{ color: '#10b981', fontWeight: 'bold' }}
             >
-              📥 DOWNLOAD APP
+              DOWNLOAD APP
             </a>
           </li>
         </ul>
@@ -2158,7 +2158,7 @@ export default function App() {
                 style={{ color: '#10b981', fontWeight: 'bold', display: 'inline-block', textAlign: 'center', width: '100%', padding: '12px' }}
                 onClick={() => setIsMobileMenuOpen(false)}
               >
-                📥 DOWNLOAD APP
+                DOWNLOAD APP
               </a>
             </li>
           </ul>
