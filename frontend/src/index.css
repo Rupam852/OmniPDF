@@ -1999,12 +1999,25 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .landing-hero {
+  width: 100%;
   max-width: 850px;
   text-align: center;
   display: flex;
   flex-direction: column;
   align-items: center;
   margin-bottom: 60px;
+}
+
+.landing-directory-section {
+  width: 100%;
+  max-width: 1200px;
+  box-sizing: border-box;
+}
+
+.landing-steps-section {
+  width: 100%;
+  max-width: 1100px;
+  box-sizing: border-box;
 }
 
 .landing-tagline {
