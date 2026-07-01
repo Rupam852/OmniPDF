@@ -31,6 +31,7 @@ export default function App() {
   const [landingCategory, setLandingCategory] = useState<string>('all');
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
   const [isLandingMobileMenuOpen, setIsLandingMobileMenuOpen] = useState<boolean>(false);
+  const [isSwitchDropdownOpen, setIsSwitchDropdownOpen] = useState<boolean>(false);
 
   // ── Toast Notification System ────────────────────────────────────────────
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -1694,22 +1695,36 @@ export default function App() {
           </div>
           
           <div className="header-actions">
-            <div className="quick-switch-wrapper">
-              <select
-                value={selectedTool.id}
-                onChange={(e) => {
-                  const target = tools.find(t => t.id === e.target.value);
-                  if (target) {
-                    setSelectedTool(target);
-                    setProcessedResult(null);
-                  }
-                }}
-                className="quick-switch-select"
+            <div className="custom-switch-dropdown-wrapper">
+              <button 
+                className="custom-switch-trigger"
+                onClick={() => setIsSwitchDropdownOpen(!isSwitchDropdownOpen)}
               >
-                {tools.map(t => (
-                  <option key={t.id} value={t.id}>{t.name}</option>
-                ))}
-              </select>
+                <span>{selectedTool.name}</span>
+                <span className={`custom-switch-arrow ${isSwitchDropdownOpen ? 'open' : ''}`}>▼</span>
+              </button>
+              
+              {isSwitchDropdownOpen && (
+                <>
+                  <div className="custom-switch-overlay" onClick={() => setIsSwitchDropdownOpen(false)} />
+                  <div className="custom-switch-options-list">
+                    {tools.map(t => (
+                      <div
+                        key={t.id}
+                        className={`custom-switch-option-item ${t.id === selectedTool.id ? 'active' : ''}`}
+                        onClick={() => {
+                          setSelectedTool(t);
+                          setProcessedResult(null);
+                          setIsSwitchDropdownOpen(false);
+                        }}
+                      >
+                        <span className="tool-dot" style={{ backgroundColor: t.iconColor }}></span>
+                        {t.name}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
 
             <button 
