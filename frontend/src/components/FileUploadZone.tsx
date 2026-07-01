@@ -155,6 +155,12 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
   const [progress, setProgress] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [selectedPreviewIndex, setSelectedPreviewIndex] = useState<number>(0);
+  const [showPreview, setShowPreview] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth >= 768;
+    }
+    return true;
+  });
   const [bigPreviewUrls, setBigPreviewUrls] = useState<Record<string, string>>({});
   const [isFileLoading, setIsFileLoading] = useState(false);
   const [fileLoadingMessage, setFileLoadingMessage] = useState('');
@@ -952,15 +958,29 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
       ) : (
         <div className="tool-workspace-layout-vertical">
           {/* Big Preview Box spanning across the top */}
-          {files.length > 0 && files[selectedPreviewIndex] && toolId !== 'unlock' && toolId !== 'protect' && (
+          {showPreview && files.length > 0 && files[selectedPreviewIndex] && toolId !== 'unlock' && toolId !== 'protect' && (
             <div className="big-dynamic-preview-container">
               <div className="big-preview-header">
                 <span className="big-preview-title">
                   🔍 Live Preview: {files[selectedPreviewIndex].name}
                 </span>
-                <span className="big-preview-subtitle">
-                  Click any file below to change preview
-                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowPreview(false)}
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.08)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    color: '#94a3b8',
+                    cursor: 'pointer',
+                    fontSize: '12px',
+                    fontWeight: 'bold',
+                    padding: '4px 10px',
+                    borderRadius: '4px',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  ✕ Close Preview
+                </button>
               </div>
               <div className="big-preview-content">
                 {renderBigPreview(files[selectedPreviewIndex])}
@@ -973,6 +993,25 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
               <div className="file-list-header">
                 <span>Selected Files ({files.length})</span>
                 <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  {files.length > 0 && toolId !== 'unlock' && toolId !== 'protect' && (
+                    <button
+                      type="button"
+                      onClick={() => setShowPreview(!showPreview)}
+                      className="add-more-btn"
+                      style={{
+                        background: showPreview ? 'rgba(59, 130, 246, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+                        color: showPreview ? '#60a5fa' : '#cbd5e1',
+                        border: showPreview ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid rgba(255, 255, 255, 0.1)',
+                        padding: '6px 12px',
+                        borderRadius: '6px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                      }}
+                    >
+                      {showPreview ? '👁️ Hide Preview' : '👁️ Show Preview'}
+                    </button>
+                  )}
                   {toolId === 'scan-to-pdf' && (
                     <button
                       type="button"
