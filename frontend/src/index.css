@@ -112,13 +112,11 @@ h1, h2, h3, h4, h5, h6 {
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   text-decoration: none;
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
 }
 
 .btn-primary:hover {
   background: linear-gradient(135deg, #60a5fa 0%, #2563eb 100%);
   transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
 }
 
 .btn-primary:active {
@@ -1306,13 +1304,11 @@ h1, h2, h3, h4, h5, h6 {
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   text-align: center;
   width: 100%;
-  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);
 }
 
 .process-btn:hover {
   background: linear-gradient(135deg, #34d399 0%, #059669 100%);
   transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.45);
 }
 
 .error-container {
@@ -1923,48 +1919,26 @@ h1, h2, h3, h4, h5, h6 {
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   border: none;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
   text-decoration: none;
   outline: none;
-}
-
-.shine-btn::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -150%;
-  width: 50%;
-  height: 100%;
-  background: linear-gradient(
-    to right,
-    rgba(255, 255, 255, 0) 0%,
-    rgba(255, 255, 255, 0.45) 50%,
-    rgba(255, 255, 255, 0) 100%
-  );
-  transform: skewX(-25deg);
-  animation: shield-shine 3s infinite ease-in-out;
 }
 
 .shine-btn-primary {
   background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
   color: white;
-  box-shadow: 0 4px 20px rgba(59, 130, 246, 0.4);
 }
 
 .shine-btn-primary:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 8px 25px rgba(59, 130, 246, 0.6);
+  transform: translateY(-2px);
 }
 
 .shine-btn-secondary {
   background: linear-gradient(135deg, #10b981 0%, #047857 100%);
   color: white;
-  box-shadow: 0 4px 20px rgba(16, 185, 129, 0.4);
 }
 
 .shine-btn-secondary:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 8px 25px rgba(16, 185, 129, 0.6);
+  transform: translateY(-2px);
 }
 
 /* ─── LANDING PAGE CONTAINER ─── */
@@ -2559,12 +2533,10 @@ h1, h2, h3, h4, h5, h6 {
 .landing-nav-btn.primary {
   background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
   border: none;
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
 }
 
 .landing-nav-btn.primary:hover {
   background: linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%);
-  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
 }
 
 /* ─── PRIVACY MODAL OVERLAY ─── */
