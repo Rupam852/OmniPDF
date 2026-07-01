@@ -28,6 +28,8 @@ export default function App() {
   const [selectedTool, setSelectedTool] = useState<Tool | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
   const [openDropdown, setOpenDropdown] = useState<'convert' | 'alltools' | null>(null);
+  const [landingCategory, setLandingCategory] = useState<string>('all');
+  const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
 
   // ── Toast Notification System ────────────────────────────────────────────
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -1239,10 +1241,24 @@ export default function App() {
   if (showLandingPage) {
     return (
       <div className="landing-page-container">
+        {/* Navigation Bar */}
         <nav className="landing-nav">
-          <a href="#" className="landing-nav-logo" onClick={(e) => e.preventDefault()}>
-            Omni<span>PDF</span>
-          </a>
+          <div className="landing-nav-logo-wrapper" onClick={() => setShowLandingPage(true)}>
+            <svg className="logo-svg" width="32" height="32" viewBox="0 0 24 24" fill="none">
+              <defs>
+                <linearGradient id="logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#10b981" />
+                  <stop offset="50%" stopColor="#3b82f6" />
+                  <stop offset="100%" stopColor="#8b5cf6" />
+                </linearGradient>
+              </defs>
+              <rect x="3" y="5" width="12" height="14" rx="2" fill="url(#logo-grad)" opacity="0.7" />
+              <rect x="9" y="3" width="12" height="14" rx="2" fill="url(#logo-grad)" />
+              <path d="M12 7h6M12 11h4M12 13h6" stroke="#ffffff" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+            <span className="logo-text">Omni<span>PDF</span></span>
+          </div>
+
           <ul className="landing-nav-links">
             <li className="landing-nav-text-item">
               <a 
@@ -1265,7 +1281,19 @@ export default function App() {
                   document.getElementById('steps-section')?.scrollIntoView({ behavior: 'smooth' }); 
                 }}
               >
-                How it Works
+                How It Works
+              </a>
+            </li>
+            <li className="landing-nav-text-item">
+              <a 
+                href="#faq" 
+                className="landing-nav-link" 
+                onClick={(e) => { 
+                  e.preventDefault(); 
+                  document.getElementById('faq-section')?.scrollIntoView({ behavior: 'smooth' }); 
+                }}
+              >
+                FAQ
               </a>
             </li>
             <li className="landing-nav-text-item">
@@ -1285,7 +1313,7 @@ export default function App() {
                 href="https://neo-files-transfer.pages.dev/download/fa1ff58a1e36" 
                 className="landing-nav-btn"
               >
-                Download APK
+                📥 Get Android Client
               </a>
             </li>
             <li>
@@ -1293,24 +1321,23 @@ export default function App() {
                 onClick={() => setShowLandingPage(false)} 
                 className="landing-nav-btn primary"
               >
-                Open Web App
+                Open Workspace
               </button>
             </li>
           </ul>
         </nav>
 
+        {/* Hero Section */}
         <main className="landing-hero">
           <div className="landing-tagline animate-fade-in">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-            </svg>
-            Omnipotent PDF Solutions
+            <span className="glow-dot"></span>
+            Decentralized & Premium Browser Utility Hub
           </div>
           <h1 className="landing-title animate-fade-in delay-1">
-            Ultimate PDF Tools, <span>Decentralized & Free</span>
+            Modular PDF Sandbox. <span>100% Confidential.</span>
           </h1>
           <p className="landing-subtitle animate-fade-in delay-2">
-            Experience the next-gen web & mobile platform for all your PDF requirements. Edit, compress, merge, split, and run AI summaries on your documents with military-grade safety.
+            Merge, compress, convert, organize, encrypt, and run Gemini AI summarization on your documents locally inside browser memory. Your files never touch a cloud database.
           </p>
 
           <div className="landing-actions animate-fade-in delay-3">
@@ -1318,104 +1345,279 @@ export default function App() {
               className="shine-btn shine-btn-primary" 
               onClick={() => setShowLandingPage(false)}
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <circle cx="12" cy="12" r="10" />
-                <polygon points="12 8 8 12 12 16 12 12 16 12 12 8" />
-              </svg>
-              Continue with Web
+              🚀 Launch Web Workspace
             </button>
             <a 
               href="https://neo-files-transfer.pages.dev/download/fa1ff58a1e36" 
               className="shine-btn shine-btn-secondary"
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="7 10 12 15 17 10" />
-                <line x1="12" y1="15" x2="12" y2="3" />
-              </svg>
-              Download Android App
+              🤖 Download Android APK
             </a>
+          </div>
+
+          {/* High-Fidelity Workspace Mockup */}
+          <div className="landing-mockup-wrapper animate-fade-in delay-3">
+            <div className="landing-mockup-window">
+              <div className="mockup-window-header">
+                <div className="mockup-window-dots">
+                  <span className="mockup-window-dot red"></span>
+                  <span className="mockup-window-dot yellow"></span>
+                  <span className="mockup-window-dot green"></span>
+                </div>
+                <div className="mockup-window-address">omnipdf.app/workspace/compress</div>
+                <div></div>
+              </div>
+              <div className="mockup-window-body">
+                <div className="mockup-sidebar">
+                  <div className="mockup-sidebar-item active">
+                    <span className="sidebar-dot green"></span> Compress PDF
+                  </div>
+                  <div className="mockup-sidebar-item">
+                    <span className="sidebar-dot blue"></span> Merge PDF
+                  </div>
+                  <div className="mockup-sidebar-item">
+                    <span className="sidebar-dot blue"></span> Split PDF
+                  </div>
+                  <div className="mockup-sidebar-item">
+                    <span className="sidebar-dot purple"></span> AI Summarizer
+                  </div>
+                </div>
+                <div className="mockup-workspace-main">
+                  <div className="mockup-dropzone">
+                    <div className="mockup-dropzone-icon">📥</div>
+                    <div className="mockup-dropzone-text">annual_financial_statement.pdf</div>
+                    <div className="mockup-dropzone-sub">Size: 4.8 MB | Pages: 24 | Type: PDF Document</div>
+                    <div className="mockup-progress-bar">
+                      <div className="mockup-progress-fill"></div>
+                    </div>
+                  </div>
+                  <div className="mockup-options-card">
+                    <div className="mockup-option-row">
+                      <span>Compression Level</span>
+                      <span className="badge-pill">Medium (Recommended)</span>
+                    </div>
+                    <div className="mockup-option-row">
+                      <span>Output File Size</span>
+                      <span className="text-highlight">~1.2 MB (-75%)</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </main>
 
-        {/* Quick Tools Directory */}
-        <h2 className="landing-section-title animate-fade-in delay-2">Quick Feature Access</h2>
-        <p className="landing-section-subtitle animate-fade-in delay-3">Select any specialized tool to navigate straight to the workspace</p>
-        <div className="quick-directory animate-fade-in delay-4">
-          {tools.slice(0, 8).map((tool) => (
-            <div 
-              key={tool.id} 
-              className="directory-badge"
-              onClick={() => {
-                setSelectedTool(tool);
-                setShowLandingPage(false);
-                setProcessedResult(null);
-              }}
-            >
-              <span className="directory-badge-icon" style={{ color: tool.iconColor }}>
-                {tool.iconPath}
-              </span>
-              {tool.name}
-            </div>
-          ))}
-        </div>
+        {/* Dynamic Category Switcher */}
+        <section className="landing-directory-section animate-fade-in delay-4">
+          <h2 className="landing-section-title">Explore the OmniPDF Suite</h2>
+          <p className="landing-section-subtitle">Select any specialized tool to launch directly into the workspace.</p>
+          
+          <div className="landing-category-tabs">
+            {[
+              { id: 'all', label: 'All Tools' },
+              { id: 'optimize', label: 'Optimize & Convert' },
+              { id: 'organize', label: 'Organize & Edit' },
+              { id: 'security', label: 'Security & Access' },
+              { id: 'ai', label: 'AI Intelligence' },
+            ].map(cat => (
+              <button
+                key={cat.id}
+                className={`landing-tab-btn ${landingCategory === cat.id ? 'active' : ''}`}
+                onClick={() => setLandingCategory(cat.id)}
+              >
+                {cat.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="landing-tool-grid">
+            {tools.filter(tool => {
+              if (landingCategory === 'all') return true;
+              if (landingCategory === 'optimize') {
+                return ['compress', 'jpg-to-pdf', 'pdf-to-jpg', 'word-to-pdf', 'powerpoint-to-pdf', 'excel-to-pdf', 'html-to-pdf'].includes(tool.id);
+              }
+              if (landingCategory === 'organize') {
+                return ['merge', 'split', 'rotate', 'organize-pdf', 'remove-pages', 'extract-pages', 'crop', 'watermark', 'page-numbers', 'sign'].includes(tool.id);
+              }
+              if (landingCategory === 'security') {
+                return ['protect', 'unlock', 'redact'].includes(tool.id);
+              }
+              if (landingCategory === 'ai') {
+                return ['ocr', 'ai-summarizer'].includes(tool.id);
+              }
+              return true;
+            }).map((tool) => (
+              <div 
+                key={tool.id} 
+                className="landing-tool-card"
+                onClick={() => {
+                  setSelectedTool(tool);
+                  setShowLandingPage(false);
+                  setProcessedResult(null);
+                }}
+              >
+                <div 
+                  className="landing-tool-icon-wrapper"
+                  style={{ backgroundColor: `${tool.iconColor}15`, color: tool.iconColor }}
+                >
+                  {tool.iconPath}
+                </div>
+                <h3 className="landing-tool-card-title">{tool.name}</h3>
+                <p className="landing-tool-card-desc">{tool.description}</p>
+                <div className="landing-tool-card-footer">
+                  <span>Launch Tool</span>
+                  <span>→</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
 
         {/* How It Works Stepper */}
-        <h2 className="landing-section-title animate-fade-in delay-2">Streamlined PDF Workflow</h2>
-        <p className="landing-section-subtitle animate-fade-in delay-3">Create, optimize, and manage files in three effortless steps</p>
-        <div id="steps-section" className="landing-steps animate-fade-in delay-4">
-          <div className="landing-step-card">
-            <div className="landing-step-num">1</div>
-            <h4 className="landing-step-title">Select Any Tool</h4>
-            <p className="landing-step-desc">Pick from our premium toolbox for merging, compressing, organizing, encrypting, or AI parsing.</p>
+        <section id="steps-section" className="landing-steps-section">
+          <h2 className="landing-section-title">Streamlined PDF Workflow</h2>
+          <p className="landing-section-subtitle">Optimize, edit, and export files in three effortless steps.</p>
+          <div className="landing-steps animate-fade-in">
+            <div className="landing-step-card">
+              <div className="landing-step-num">1</div>
+              <h4 className="landing-step-title">Select Any Tool</h4>
+              <p className="landing-step-desc">Pick from our premium sandbox for merging, compressing, organizing, encrypting, or AI summary analysis.</p>
+            </div>
+            <div className="landing-step-card">
+              <div className="landing-step-num">2</div>
+              <h4 className="landing-step-title">Local Workspace</h4>
+              <p className="landing-step-desc">Upload files into our secure interface. All heavy processing happens quickly and locally in your browser memory.</p>
+            </div>
+            <div className="landing-step-card">
+              <div className="landing-step-num">3</div>
+              <h4 className="landing-step-title">Secure Download</h4>
+              <p className="landing-step-desc">Download your output instantly. Files are never stored or tracked, keeping your documents 100% confidential.</p>
+            </div>
           </div>
-          <div className="landing-step-card">
-            <div className="landing-step-num">2</div>
-            <h4 className="landing-step-title">Drag & Drop Workspace</h4>
-            <p className="landing-step-desc">Upload files into our secure interface. All heavy processing happens quickly and efficiently.</p>
-          </div>
-          <div className="landing-step-card">
-            <div className="landing-step-num">3</div>
-            <h4 className="landing-step-title">Secure Download</h4>
-            <p className="landing-step-desc">Download your output instantly. Files are never stored or tracked for maximum confidentiality.</p>
-          </div>
-        </div>
+        </section>
 
-        <section id="features-section" className="landing-features animate-fade-in delay-5">
+        {/* Security & Features Spotlight */}
+        <section id="features-section" className="landing-features">
           <div className="landing-feature-card">
-            <div className="landing-feature-icon" style={{ backgroundColor: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6' }}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <div className="landing-feature-icon" style={{ backgroundColor: 'rgba(16, 185, 129, 0.15)', color: '#10b981' }}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
               </svg>
             </div>
-            <h3 className="landing-feature-title">Secure & Confidential</h3>
-            <p className="landing-feature-desc">All processing is performed directly in-browser or securely on-cloud, ensuring absolute privacy for your sensitive data.</p>
+            <h3 className="landing-feature-title">Absolute File Privacy</h3>
+            <p className="landing-feature-desc">All primary operations run inside your browser cache. Documents never touch cloud databases or remote servers unless explicitly required for AI.</p>
           </div>
           <div className="landing-feature-card">
-            <div className="landing-feature-icon" style={{ backgroundColor: 'rgba(16, 185, 129, 0.15)', color: '#10b981' }}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <div className="landing-feature-icon" style={{ backgroundColor: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6' }}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
               </svg>
             </div>
-            <h3 className="landing-feature-title">High Speed Compression</h3>
-            <p className="landing-feature-desc">Reduce document sizes by up to 90% in seconds without compromising readable content, layouts, or fonts.</p>
+            <h3 className="landing-feature-title">High Speed Local Processing</h3>
+            <p className="landing-feature-desc">Compress document sizes by up to 90% in seconds without quality compromises, using hardware-accelerated local WebAssembly libraries.</p>
           </div>
           <div className="landing-feature-card">
             <div className="landing-feature-icon" style={{ backgroundColor: 'rgba(139, 92, 246, 0.15)', color: '#8b5cf6' }}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
               </svg>
             </div>
-            <h3 className="landing-feature-title">AI Summarization</h3>
-            <p className="landing-feature-desc">Instantly query documents and extract comprehensive highlights, semantic summaries, and bullet points using advanced local/cloud AI models.</p>
+            <h3 className="landing-feature-title">Integrated AI Engines</h3>
+            <p className="landing-feature-desc">Transcribe pages via OCR or query deep content hierarchies with semantic summaries using your own local Gemini API developer keys.</p>
+          </div>
+        </section>
+
+        {/* Mobile Promo Card */}
+        <section className="landing-mobile-promo">
+          <div className="mobile-promo-card">
+            <div className="mobile-promo-info">
+              <span className="promo-badge">NEW RELEASE</span>
+              <h3 className="promo-title">OmniPDF Mobile Client is Here</h3>
+              <p className="promo-desc">Take the entire PDF modular workspace with you on your Android device. Offline validations, password check protection, and compression on the go.</p>
+              <a 
+                href="https://neo-files-transfer.pages.dev/download/fa1ff58a1e36" 
+                className="shine-btn shine-btn-primary"
+                style={{ alignSelf: 'flex-start', marginTop: '12px' }}
+              >
+                📥 Download Optimized APK
+              </a>
+            </div>
+            <div className="mobile-promo-mockup">
+              <div className="phone-outline">
+                <div className="phone-screen">
+                  <div className="phone-header">
+                    <div className="phone-camera"></div>
+                    <div className="phone-battery">100%</div>
+                  </div>
+                  <div className="phone-app-content">
+                    <div className="phone-logo">Omni<span>PDF</span></div>
+                    <div className="phone-card-preview">Merge PDF</div>
+                    <div className="phone-card-preview">Compress PDF</div>
+                    <div className="phone-card-preview">AI Summarizer</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* FAQ Section */}
+        <section id="faq-section" className="landing-faq-section">
+          <h2 className="landing-section-title">Frequently Asked Questions</h2>
+          <p className="landing-section-subtitle">Common queries regarding OmniPDF's architecture and security.</p>
+          
+          <div className="faq-accordion-container">
+            {[
+              {
+                q: "Are my files safe? How are they processed?",
+                a: "Absolutely. OmniPDF processes all standard operations (merging, splitting, compressing, watermarking, rotating, etc.) directly inside your browser's local memory. Your files are never uploaded to any remote server, ensuring total confidentiality."
+              },
+              {
+                q: "Do I need to pay or register an account?",
+                a: "No. All features of the OmniPDF suite are 100% free, require no registration, signups, or subscription plans, and contain no hidden limits."
+              },
+              {
+                q: "How does the AI Summarizer and OCR work?",
+                a: "AI operations securely connect to the Google Gemini API directly from your browser. We require you to supply your own API key which remains locally cached in your browser. No middleman servers track your requests."
+              },
+              {
+                q: "Can I use OmniPDF offline?",
+                a: "Yes. Once the website is loaded, all standard processing tools (like merge, split, compress, and rotate) can be used completely offline without an active internet connection."
+              }
+            ].map((faq, index) => {
+              const isOpen = openFaqIndex === index;
+              return (
+                <div key={index} className={`faq-item ${isOpen ? 'open' : ''}`}>
+                  <button 
+                    className="faq-question-btn"
+                    onClick={() => setOpenFaqIndex(isOpen ? null : index)}
+                  >
+                    <span>{faq.q}</span>
+                    <span className="faq-arrow">{isOpen ? '−' : '+'}</span>
+                  </button>
+                  <div className="faq-answer">
+                    <p>{faq.a}</p>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </section>
 
         <footer className="landing-footer">
-          <p>&copy; {new Date().getFullYear()} OmniPDF. Designed for extreme productivity.</p>
-          <p style={{ marginTop: '8px', color: '#64748b', fontSize: '13px' }}>
-            Support: <a href="mailto:omnipdfadminsupport@gmail.com" style={{ color: '#3b82f6', textDecoration: 'none' }}>omnipdfadminsupport@gmail.com</a>
-          </p>
+          <div className="landing-footer-grid">
+            <div className="footer-col-brand">
+              <span className="logo-text">Omni<span>PDF</span></span>
+              <p>The privacy-first PDF utility hub for developers and professionals.</p>
+            </div>
+            <div className="footer-col-links">
+              <h4>Support Contact</h4>
+              <p>Email: <a href="mailto:omnipdfadminsupport@gmail.com">omnipdfadminsupport@gmail.com</a></p>
+            </div>
+          </div>
+          <div className="footer-bottom">
+            <p>&copy; {new Date().getFullYear()} OmniPDF. Engineered for productivity.</p>
+          </div>
         </footer>
 
         {showPrivacyModal && (
@@ -1454,7 +1656,66 @@ export default function App() {
   return (
     <div className="app-wrapper">
       {/* Navigation Bar */}
-      <header className="app-header">
+      {selectedTool ? (
+        <header className="app-header dashboard-header">
+          <div className="header-left">
+            <a 
+              href="#" 
+              onClick={(e) => { e.preventDefault(); setShowLandingPage(true); setSelectedTool(null); setProcessedResult(null); }} 
+              className="logo-link"
+            >
+              <div className="landing-nav-logo-wrapper">
+                <svg className="logo-svg" width="28" height="28" viewBox="0 0 24 24" fill="none">
+                  <defs>
+                    <linearGradient id="logo-grad-header" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#10b981" />
+                      <stop offset="50%" stopColor="#3b82f6" />
+                      <stop offset="100%" stopColor="#8b5cf6" />
+                    </linearGradient>
+                  </defs>
+                  <rect x="3" y="5" width="12" height="14" rx="2" fill="url(#logo-grad-header)" opacity="0.7" />
+                  <rect x="9" y="3" width="12" height="14" rx="2" fill="url(#logo-grad-header)" />
+                  <path d="M12 7h6M12 11h4M12 13h6" stroke="#ffffff" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+                <span className="logo-text">Omni<span>PDF</span></span>
+              </div>
+            </a>
+            <span className="header-breadcrumb-separator">/</span>
+            <span className="header-active-tool">
+              <span className="tool-dot" style={{ backgroundColor: selectedTool.iconColor }}></span>
+              {selectedTool.name}
+            </span>
+          </div>
+          
+          <div className="header-actions">
+            <div className="quick-switch-wrapper">
+              <select
+                value={selectedTool.id}
+                onChange={(e) => {
+                  const target = tools.find(t => t.id === e.target.value);
+                  if (target) {
+                    setSelectedTool(target);
+                    setProcessedResult(null);
+                  }
+                }}
+                className="quick-switch-select"
+              >
+                {tools.map(t => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <button 
+              onClick={() => { setSelectedTool(null); setProcessedResult(null); }} 
+              className="header-back-btn"
+            >
+              📋 Tools Dashboard
+            </button>
+          </div>
+        </header>
+      ) : (
+        <header className="app-header">
         <a 
           href="#" 
           onClick={(e) => { e.preventDefault(); setShowLandingPage(true); setSelectedTool(null); setActiveTab('All'); setProcessedResult(null); }} 
@@ -1750,6 +2011,7 @@ export default function App() {
           </svg>
         </button>
       </header>
+      )}
 
       {/* Mobile Drawer Overlay */}
       {isMobileMenuOpen && (
