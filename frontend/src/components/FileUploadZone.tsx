@@ -162,6 +162,7 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
     return true;
   });
   const [bigPreviewUrls, setBigPreviewUrls] = useState<Record<string, string>>({});
+  const [pdfPagePreviews, setPdfPagePreviews] = useState<Record<string, string>>({});
   const [isFileLoading, setIsFileLoading] = useState(false);
   const [fileLoadingMessage, setFileLoadingMessage] = useState('');
 
@@ -316,6 +317,27 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
               if (toolId === 'unlock') {
                 throw new Error('NOT_ENCRYPTED');
               }
+
+              // Render first page preview for PDF
+              try {
+                const page = await pdfDoc.getPage(1);
+                const viewport = page.getViewport({ scale: 1.5 });
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+                if (context) {
+                  canvas.height = viewport.height;
+                  canvas.width = viewport.width;
+                  await page.render({
+                    canvasContext: context,
+                    viewport: viewport,
+                    canvas: canvas
+                  }).promise;
+                  const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+                  setPdfPagePreviews(prev => ({ ...prev, [file.name]: dataUrl }));
+                }
+              } catch (previewError) {
+                console.error('Failed to generate preview for', file.name, previewError);
+              }
             } catch (error: any) {
               if (error.message === 'NOT_ENCRYPTED') {
                 setErrorMessage(pdfFiles.length === 1
@@ -416,6 +438,16 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
     if (!cachedUrl) return null;
 
     if (ext === 'pdf') {
+      const generatedPreview = pdfPagePreviews[file.name];
+      if (generatedPreview) {
+        return (
+          <img
+            src={generatedPreview}
+            alt="PDF Page 1 Preview"
+            className="large-image-preview"
+          />
+        );
+      }
       return (
         <iframe
           src={`${cachedUrl}#toolbar=0`}
