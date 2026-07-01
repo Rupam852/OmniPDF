@@ -1724,7 +1724,7 @@ export default function App() {
           onClick={(e) => { e.preventDefault(); setShowLandingPage(true); setSelectedTool(null); setActiveTab('All'); setProcessedResult(null); }} 
           className="logo"
         >
-          Omni<span>PDF</span>
+          <span>Omni<span>PDF</span></span>
         </a>
         <ul className="nav-links">
           <li>
