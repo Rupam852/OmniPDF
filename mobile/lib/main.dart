@@ -130,8 +130,7 @@ class OmniPdfApp extends StatelessWidget {
         colorScheme: const ColorScheme.dark(
           primary: Color(0xFF3B82F6),
           secondary: Color(0xFF1D4ED8),
-          surface: Color(0xFF0B1329),
-          background: Color(0xFF080D1A),
+          surface: Color(0xFF080D1A),
         ),
         fontFamily: 'Roboto',
         useMaterial3: true,
@@ -460,7 +459,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 LayoutBuilder(
                   builder: (context, constraints) {
                     final double screenWidth = constraints.maxWidth;
-                    final double textScale = MediaQuery.of(context).textScaleFactor;
+                    final double textScale = MediaQuery.of(context).textScaler.scale(1.0);
                     final int crossAxisCount = screenWidth > 900 ? 4 : (screenWidth > 600 ? 3 : 2);
                     final double totalSpacing = (crossAxisCount - 1) * 14.0;
                     final double cellWidth = (screenWidth - totalSpacing) / crossAxisCount;
@@ -481,7 +480,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.search_off_rounded, size: 64, color: Colors.grey.withOpacity(0.5)),
+                              Icon(Icons.search_off_rounded, size: 64, color: Colors.grey.withValues(alpha: 0.5)),
                               const SizedBox(height: 16),
                               Text(
                                 'No tools found matching "$_searchQuery"',
@@ -509,17 +508,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
                               colors: [
-                                const Color(0xFF0F172A).withOpacity(0.9),
-                                const Color(0xFF0B1329).withOpacity(0.95),
+                                const Color(0xFF0F172A).withValues(alpha: 0.9),
+                                const Color(0xFF0B1329).withValues(alpha: 0.95),
                               ],
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                             ),
                             borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: Colors.white.withOpacity(0.06)),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
                             boxShadow: [
                               BoxShadow(
-                                color: (tool['color'] as Color).withOpacity(0.04),
+                                color: (tool['color'] as Color).withValues(alpha: 0.04),
                                 blurRadius: 12,
                                 spreadRadius: 1,
                                 offset: const Offset(0, 4),
@@ -548,11 +547,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                       Container(
                                         padding: const EdgeInsets.all(10),
                                         decoration: BoxDecoration(
-                                          color: (tool['color'] as Color).withOpacity(0.12),
+                                          color: (tool['color'] as Color).withValues(alpha: 0.12),
                                           borderRadius: BorderRadius.circular(10),
                                           boxShadow: [
                                             BoxShadow(
-                                              color: (tool['color'] as Color).withOpacity(0.1),
+                                              color: (tool['color'] as Color).withValues(alpha: 0.1),
                                               blurRadius: 8,
                                               spreadRadius: 1,
                                             )
@@ -823,44 +822,47 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
           return;
         }
 
-        // 2. Page Count Detection
-        final count = _parsePdfPageCount(bytes);
-        if (count == 0 || count == null) {
-          setState(() {
-            _pickedFiles.clear();
-            _pageCount = null;
-          });
-          if (mounted) {
-            showCustomSnackBar(
-              context: context,
-              message: "This PDF document contains no pages.",
-              backgroundColor: Colors.redAccent,
-              icon: Icons.error_outline_rounded,
-            );
+        // 2. Page Count Detection (skip for unlock — encrypted PDFs can't be parsed)
+        if (widget.tool['id'] != 'unlock') {
+          final count = _parsePdfPageCount(bytes);
+          if (count == 0 || count == null) {
+            setState(() {
+              _pickedFiles.clear();
+              _pageCount = null;
+            });
+            if (mounted) {
+              showCustomSnackBar(
+                context: context,
+                message: "This PDF document contains no pages.",
+                backgroundColor: Colors.redAccent,
+                icon: Icons.error_outline_rounded,
+              );
+            }
+            return;
           }
-          return;
+
+          // 3. 1-Page PDF Split check
+          if (widget.tool['id'] == 'split' && count == 1) {
+            setState(() {
+              _pickedFiles.clear();
+              _pageCount = null;
+            });
+            if (mounted) {
+              showCustomSnackBar(
+                context: context,
+                message: "This PDF has only 1 page. A single-page PDF document cannot be split.",
+                backgroundColor: Colors.redAccent,
+                icon: Icons.error_outline_rounded,
+              );
+            }
+            return;
+          }
+
+          setState(() {
+            _pageCount = count;
+          });
         }
 
-        // 3. 1-Page PDF Split check
-        if (widget.tool['id'] == 'split' && count == 1) {
-          setState(() {
-            _pickedFiles.clear();
-            _pageCount = null;
-          });
-          if (mounted) {
-            showCustomSnackBar(
-              context: context,
-              message: "This PDF has only 1 page. A single-page PDF document cannot be split.",
-              backgroundColor: Colors.redAccent,
-              icon: Icons.error_outline_rounded,
-            );
-          }
-          return;
-        }
-
-        setState(() {
-          _pageCount = count;
-        });
       } else {
         setState(() {
           _pageCount = null;
@@ -942,7 +944,7 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
       setState(() { _isPickingFile = false; });
       if (result != null && result.files.isNotEmpty) {
         final List<PlatformFile> validFiles = [];
-        final double maxCombinedLimit = 15.0 * 1024.0 * 1024.0;
+        const double maxCombinedLimit = 15.0 * 1024.0 * 1024.0;
         double currentTotalSize = 0.0;
         for (var f in _pickedFiles) {
           currentTotalSize += f.size.toDouble();
@@ -1064,6 +1066,7 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
     }
 
     if (widget.tool['id'] == 'protect' && _protectPasswordController.text.trim().isEmpty) {
+      if (!mounted) return;
       showCustomSnackBar(
         context: context,
         message: 'A password must be provided to protect this PDF.',
@@ -1074,6 +1077,7 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
     }
 
     if (widget.tool['id'] == 'unlock' && _protectPasswordController.text.trim().isEmpty) {
+      if (!mounted) return;
       showCustomSnackBar(
         context: context,
         message: 'A password must be provided to unlock this PDF.',
@@ -1086,6 +1090,7 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
 
 
     if (widget.tool['id'] == 'redact' && _redactTermController.text.trim().isEmpty) {
+      if (!mounted) return;
       showCustomSnackBar(
         context: context,
         message: 'Please enter a term to redact from the PDF.',
@@ -1096,6 +1101,7 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
     }
 
     if (widget.tool['id'] == 'remove-pages' && _removePagesController.text.trim().isEmpty) {
+      if (!mounted) return;
       showCustomSnackBar(
         context: context,
         message: 'Please enter page numbers to remove (e.g. 1,3,5).',
@@ -1106,6 +1112,7 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
     }
 
     if (widget.tool['id'] == 'extract-pages' && _extractPagesController.text.trim().isEmpty) {
+      if (!mounted) return;
       showCustomSnackBar(
         context: context,
         message: 'Please enter page ranges to extract (e.g. 1-3,5).',
@@ -1116,6 +1123,7 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
     }
 
     if (widget.tool['id'] == 'compare' && _pickedFiles.length != 2) {
+      if (!mounted) return;
       showCustomSnackBar(
         context: context,
         message: 'Please select exactly two PDF files to compare.',
@@ -1128,6 +1136,7 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
     // AI key required check
     if ((widget.tool['id'] == 'ai_summarizer' || widget.tool['id'] == 'ocr') &&
         _keyController.text.trim().isEmpty) {
+      if (!mounted) return;
       showCustomSnackBar(
         context: context,
         message: '🔑 Gemini API Key is required for this tool. Tap the key icon in the top-right to add it.',
@@ -1138,8 +1147,9 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
       return;
     }
 
-    // Protect PDF password required check
+    // Protect PDF password required check (duplicate guard already above; kept for safety)
     if (widget.tool['id'] == 'protect' && _protectPasswordController.text.trim().isEmpty) {
+      if (!mounted) return;
       showCustomSnackBar(
         context: context,
         message: 'Please enter a password to protect the PDF.',
@@ -1624,7 +1634,7 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
       child: Material(
         color: Colors.transparent,
         child: Container(
-          color: const Color(0xFF080D1A).withOpacity(0.88),
+          color: const Color(0xFF080D1A).withValues(alpha: 0.88),
           child: Center(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 40.0),
@@ -1755,7 +1765,7 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Colors.green.withOpacity(0.12),
+                      color: Colors.green.withValues(alpha: 0.12),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
@@ -1793,7 +1803,7 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
                       color: const Color(0xFF1E293B),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
-                        side: BorderSide(color: Colors.white.withOpacity(0.08)),
+                        side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
                       ),
                       child: Padding(
                         padding: const EdgeInsets.all(16.0),
@@ -1936,7 +1946,7 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
                           ),
                         ),
                       );
-                    }).toList(),
+                    }),
                     const SizedBox(height: 20),
                   ],
                   OutlinedButton(
@@ -1953,7 +1963,7 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
                     },
                     style: OutlinedButton.styleFrom(
                       minimumSize: const Size(double.infinity, 50),
-                      side: BorderSide(color: Colors.white.withOpacity(0.15)),
+                      side: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8)),
                     ),
@@ -2096,7 +2106,7 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
                     margin: const EdgeInsets.only(bottom: 8),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
-                      side: BorderSide(color: Colors.white.withOpacity(0.08)),
+                      side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
                     ),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -2107,7 +2117,7 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
                             width: 24,
                             height: 24,
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.08),
+                              color: Colors.white.withValues(alpha: 0.08),
                               shape: BoxShape.circle,
                             ),
                             child: Center(
@@ -2191,7 +2201,7 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
                 color: const Color(0xFF1E293B),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
-                  side: BorderSide(color: Colors.white.withOpacity(0.08)),
+                  side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
                 ),
                 child: Theme(
                   data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
@@ -2209,7 +2219,7 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
                     ),
                     subtitle: Text(
                       'Configure output options for this tool',
-                      style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.5)),
+                      style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.5)),
                     ),
                     children: [
                       Padding(
@@ -2415,7 +2425,7 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
                               ),
                               const SizedBox(height: 8),
                               DropdownButtonFormField<String>(
-                                value: _splitMode,
+                                initialValue: _splitMode,
                                 dropdownColor: const Color(0xFF0B1329),
                                 decoration: const InputDecoration(
                                   labelText: 'Split Mode',
@@ -2455,7 +2465,7 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
                               ),
                               const SizedBox(height: 8),
                               DropdownButtonFormField<String>(
-                                value: _rotateAngle,
+                                initialValue: _rotateAngle,
                                 dropdownColor: const Color(0xFF0B1329),
                                 decoration: const InputDecoration(
                                   labelText: 'Rotation Angle',
@@ -2574,7 +2584,7 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
                               ),
                               const SizedBox(height: 8),
                               DropdownButtonFormField<String>(
-                                value: _watermarkPosition,
+                                initialValue: _watermarkPosition,
                                 dropdownColor: const Color(0xFF0B1329),
                                 decoration: const InputDecoration(
                                   labelText: 'Position Placement',
@@ -2605,7 +2615,7 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
                               ),
                               const SizedBox(height: 8),
                               DropdownButtonFormField<String>(
-                                value: _pageNumPosition,
+                                initialValue: _pageNumPosition,
                                 dropdownColor: const Color(0xFF0B1329),
                                 decoration: const InputDecoration(
                                   labelText: 'Position',
@@ -2664,7 +2674,7 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
                               ),
                               const SizedBox(height: 8),
                               DropdownButtonFormField<String>(
-                                value: _organizeMode,
+                                initialValue: _organizeMode,
                                 dropdownColor: const Color(0xFF0B1329),
                                 decoration: const InputDecoration(
                                   labelText: 'Organize Mode',
@@ -2821,7 +2831,7 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
                   minimumSize: const Size(double.infinity, 52),
                   backgroundColor: Colors.green,
                   foregroundColor: Colors.white,
-                  disabledBackgroundColor: Colors.green.withOpacity(0.4),
+                  disabledBackgroundColor: Colors.green.withValues(alpha: 0.4),
                   disabledForegroundColor: Colors.white54,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
@@ -2901,6 +2911,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 20),
             ElevatedButton(
               onPressed: () async {
+                final BuildContext ctx = context;
                 final apiKey = _keyController.text.trim();
                 globalGeminiApiKey = apiKey;
                 try {
@@ -2909,14 +2920,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 } catch (e) {
                   debugPrint("Failed to save API Key to SharedPreferences: $e");
                 }
-                if (!mounted) return;
+                if (!ctx.mounted) return;
                 showCustomSnackBar(
-                  context: context,
+                  context: ctx,
                   message: 'API Key saved permanently!',
                   backgroundColor: Colors.green,
                   icon: Icons.check_circle_outline_rounded,
                 );
-                Navigator.pop(context);
+                Navigator.pop(ctx);
               },
               style: ElevatedButton.styleFrom(
                 minimumSize: const Size(double.infinity, 50),

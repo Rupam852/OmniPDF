@@ -19,15 +19,18 @@ def unlock_pdf(input_path, output_path, password=""):
         doc.save(output_path, encryption=fitz.PDF_ENCRYPT_NONE)
     except Exception as e:
         print(f"Standard decrypt save failed: {e}. Trying page insertion fallback...", file=sys.stderr)
+        new_doc = None
         try:
             # Create a brand new document to strip encryption and restrictions
             new_doc = fitz.open()
             new_doc.insert_pdf(doc)
             new_doc.save(output_path)
-            new_doc.close()
         except Exception as e2:
             print(f"Fallback decryption failed: {e2}", file=sys.stderr)
             sys.exit(1)
+        finally:
+            if new_doc is not None:
+                new_doc.close()
     finally:
         doc.close()
 

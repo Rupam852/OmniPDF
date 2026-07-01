@@ -614,7 +614,19 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
 
   const removeFile = (index: number) => {
     setFiles(prev => {
+      const removed = prev[index];
       const updated = prev.filter((_, i) => i !== index);
+      // Revoke the blob URL for the removed file to prevent memory leaks
+      if (removed) {
+        setBigPreviewUrls(urls => {
+          const next = { ...urls };
+          if (next[removed.name]) {
+            URL.revokeObjectURL(next[removed.name]);
+            delete next[removed.name];
+          }
+          return next;
+        });
+      }
       if (updated.length === 0 && fileInputRef.current) {
         fileInputRef.current.value = '';
       }
@@ -648,6 +660,14 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
     }
 
     // Per-tool validation
+    if (toolId === 'unlock' && !pdfPassword.trim()) {
+      setErrorMessage('Please enter the PDF password to unlock this document.');
+      return;
+    }
+    if (toolId === 'protect' && !pdfPassword.trim()) {
+      setErrorMessage('Please enter a password to protect this PDF.');
+      return;
+    }
     if (toolId === 'redact' && !redactTerm.trim()) {
       setErrorMessage('Please enter a term to redact from the PDF.');
       return;

@@ -585,12 +585,19 @@ export default function App() {
         return URL.createObjectURL(blob);
       };
 
-      // Helper: build a download filename
+      // Helper: build a download filename (appends suffix before extension)
       const makeFileName = (originalName: string, suffix: string): string => {
         const dotIndex = originalName.lastIndexOf('.');
         const base = dotIndex !== -1 ? originalName.substring(0, dotIndex) : originalName;
         const ext  = dotIndex !== -1 ? originalName.substring(dotIndex)   : '.pdf';
         return `${base}${suffix}${ext}`;
+      };
+
+      // Helper: build a converted filename (replaces extension entirely, for format conversions)
+      const makeConvertedFileName = (originalName: string, newExt: string): string => {
+        const dotIndex = originalName.lastIndexOf('.');
+        const base = dotIndex !== -1 ? originalName.substring(0, dotIndex) : originalName;
+        return `${base}${newExt}`;
       };
 
       // ── MERGE ────────────────────────────────────────────────────────────────
@@ -634,7 +641,7 @@ export default function App() {
         for (const file of files) {
           const result = await compressPdfInBrowser(
             file,
-            options.targetSize || 500,
+            options.targetSize ?? 500,
             options.targetUnit || 'KB'
           );
           const blob = new Blob([result.bytes as any], { type: 'application/pdf' });
@@ -1161,8 +1168,16 @@ export default function App() {
         for (const file of files) {
           const result = await OmniPdfApi.runPdfTool(endpoint, '', file, options);
           if (result.fileData) {
+            // For format-conversion tools, replace the extension entirely (e.g. report.docx → report.pdf)
+            // For in-place tools (crop, sign, redact…), keep original extension and add suffix
+            const isFormatConversion = ['word-to-pdf', 'powerpoint-to-pdf', 'excel-to-pdf', 'html-to-pdf',
+              'pdf-to-word', 'pdf-to-powerpoint', 'pdf-to-excel', 'pdf-to-pdfa'].includes(endpoint);
+            const outputFileName = result.fileName ||
+              (isFormatConversion
+                ? makeConvertedFileName(file.name, config.suffix)
+                : makeFileName(file.name, `_processed${config.suffix}`));
             processedList.push({
-              fileName: result.fileName || makeFileName(file.name, `_processed${config.suffix}`),
+              fileName: outputFileName,
               downloadUrl: base64ToBlobUrl(result.fileData, config.mime),
             });
           }
