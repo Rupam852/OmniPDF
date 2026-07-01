@@ -139,6 +139,7 @@ h1, h2, h3, h4, h5, h6 {
   line-height: 1.15;
   background: linear-gradient(135deg, #ffffff 40%, #e2e8f0 70%, #94a3b8 100%);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
@@ -2082,12 +2083,14 @@ h1, h2, h3, h4, h5, h6 {
   letter-spacing: -0.025em;
   background: linear-gradient(135deg, #ffffff 30%, #94a3b8 100%);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
 .landing-title span {
   background: linear-gradient(135deg, #60a5fa 0%, #c084fc 100%);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
@@ -2335,6 +2338,7 @@ h1, h2, h3, h4, h5, h6 {
   margin-bottom: 12px;
   background: linear-gradient(135deg, #ffffff 40%, #94a3b8 100%);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
   letter-spacing: -0.02em;
 }
@@ -3192,6 +3196,7 @@ h1, h2, h3, h4, h5, h6 {
 .landing-nav-logo-wrapper .logo-text span {
   background: linear-gradient(135deg, #3b82f6, #8b5cf6);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
