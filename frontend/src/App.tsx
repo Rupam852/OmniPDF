@@ -1537,33 +1537,17 @@ export default function App() {
         {/* Mobile Promo Card */}
         <section className="landing-mobile-promo">
           <div className="mobile-promo-card">
-            <div className="mobile-promo-info">
+            <div className="mobile-promo-info" style={{ alignItems: 'center', textAlign: 'center', width: '100%' }}>
               <span className="promo-badge">NEW RELEASE</span>
               <h3 className="promo-title">OmniPDF Mobile Client is Here</h3>
-              <p className="promo-desc">Take the entire PDF modular workspace with you on your Android device. Offline validations, password check protection, and compression on the go.</p>
+              <p className="promo-desc" style={{ maxWidth: '600px' }}>Take the entire PDF modular workspace with you on your Android device. Offline validations, password check protection, and compression on the go.</p>
               <a 
                 href="https://neo-files-transfer.pages.dev/download/fa1ff58a1e36" 
                 className="shine-btn shine-btn-primary"
-                style={{ alignSelf: 'flex-start', marginTop: '12px' }}
+                style={{ alignSelf: 'center', marginTop: '12px' }}
               >
                 📥 Download Optimized APK
               </a>
-            </div>
-            <div className="mobile-promo-mockup">
-              <div className="phone-outline">
-                <div className="phone-screen">
-                  <div className="phone-header">
-                    <div className="phone-camera"></div>
-                    <div className="phone-battery">100%</div>
-                  </div>
-                  <div className="phone-app-content">
-                    <div className="phone-logo">Omni<span>PDF</span></div>
-                    <div className="phone-card-preview">Merge PDF</div>
-                    <div className="phone-card-preview">Compress PDF</div>
-                    <div className="phone-card-preview">AI Summarizer</div>
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
         </section>

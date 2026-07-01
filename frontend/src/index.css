@@ -3399,14 +3399,15 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .mobile-promo-card {
-  display: grid;
-  grid-template-columns: 1.2fr 1fr;
+  display: flex;
+  flex-direction: column;
   align-items: center;
+  text-align: center;
   background: linear-gradient(135deg, rgba(22, 30, 49, 0.9), rgba(15, 23, 42, 0.95));
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 20px;
   padding: 40px;
-  gap: 32px;
+  gap: 20px;
   position: relative;
   overflow: hidden;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
@@ -3802,7 +3803,6 @@ h1, h2, h3, h4, h5, h6 {
 /* Responsive Overrides */
 @media (max-width: 768px) {
   .mobile-promo-card {
-    grid-template-columns: 1fr;
     padding: 24px;
     gap: 24px;
   }
