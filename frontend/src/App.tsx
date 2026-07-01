@@ -1355,56 +1355,7 @@ export default function App() {
             </a>
           </div>
 
-          {/* High-Fidelity Workspace Mockup */}
-          <div className="landing-mockup-wrapper animate-fade-in delay-3">
-            <div className="landing-mockup-window">
-              <div className="mockup-window-header">
-                <div className="mockup-window-dots">
-                  <span className="mockup-window-dot red"></span>
-                  <span className="mockup-window-dot yellow"></span>
-                  <span className="mockup-window-dot green"></span>
-                </div>
-                <div className="mockup-window-address">omnipdf.app/workspace/compress</div>
-                <div></div>
-              </div>
-              <div className="mockup-window-body">
-                <div className="mockup-sidebar">
-                  <div className="mockup-sidebar-item active">
-                    <span className="sidebar-dot green"></span> Compress PDF
-                  </div>
-                  <div className="mockup-sidebar-item">
-                    <span className="sidebar-dot blue"></span> Merge PDF
-                  </div>
-                  <div className="mockup-sidebar-item">
-                    <span className="sidebar-dot blue"></span> Split PDF
-                  </div>
-                  <div className="mockup-sidebar-item">
-                    <span className="sidebar-dot purple"></span> AI Summarizer
-                  </div>
-                </div>
-                <div className="mockup-workspace-main">
-                  <div className="mockup-dropzone">
-                    <div className="mockup-dropzone-icon">📥</div>
-                    <div className="mockup-dropzone-text">annual_financial_statement.pdf</div>
-                    <div className="mockup-dropzone-sub">Size: 4.8 MB | Pages: 24 | Type: PDF Document</div>
-                    <div className="mockup-progress-bar">
-                      <div className="mockup-progress-fill"></div>
-                    </div>
-                  </div>
-                  <div className="mockup-options-card">
-                    <div className="mockup-option-row">
-                      <span>Compression Level</span>
-                      <span className="badge-pill">Medium (Recommended)</span>
-                    </div>
-                    <div className="mockup-option-row">
-                      <span>Output File Size</span>
-                      <span className="text-highlight">~1.2 MB (-75%)</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+
         </main>
 
         {/* Dynamic Category Switcher */}
