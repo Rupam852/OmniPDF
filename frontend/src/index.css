@@ -1548,9 +1548,9 @@ h1, h2, h3, h4, h5, h6 {
 
 .tool-workspace-layout {
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   gap: 24px;
-  max-width: 1300px;
+  max-width: 760px;
   margin: 30px auto;
   align-items: stretch;
   font-family: var(--font-body);
@@ -1568,8 +1568,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .changes-sidebar {
-  width: 360px;
-  flex-shrink: 0;
+  width: 100%;
   background: rgba(15, 23, 42, 0.85);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
@@ -1789,7 +1788,7 @@ h1, h2, h3, h4, h5, h6 {
 /* Big Dynamic Preview Box CSS */
 .tool-workspace-layout-vertical {
   width: 100%;
-  max-width: 1200px;
+  max-width: 760px;
   margin: 20px auto;
   display: flex;
   flex-direction: column;
