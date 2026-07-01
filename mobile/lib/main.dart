@@ -762,13 +762,21 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
   }
 
   void _detectPageCount() async {
-    if (widget.tool['id'] != 'organize-pdf' || _pickedFiles.isEmpty) {
+    if (_pickedFiles.isEmpty) {
       setState(() {
         _pageCount = null;
       });
       return;
     }
     final file = _pickedFiles.first;
+    final isPdf = file.name.toLowerCase().endsWith('.pdf');
+    if (!isPdf) {
+      setState(() {
+        _pageCount = null;
+      });
+      return;
+    }
+
     try {
       List<int>? bytes;
       if (file.bytes != null) {
@@ -780,7 +788,60 @@ class _ToolRunnerScreenState extends State<ToolRunnerScreen> {
         }
       }
       if (bytes != null) {
+        // 1. Password-Protected Check
+        final content = String.fromCharCodes(bytes);
+        final isEncrypted = content.contains('/Encrypt');
+        if (isEncrypted && widget.tool['id'] != 'unlock') {
+          setState(() {
+            _pickedFiles.clear();
+            _pageCount = null;
+          });
+          if (mounted) {
+            showCustomSnackBar(
+              context: context,
+              message: "This PDF is password-protected. Please decrypt it using the 'Unlock PDF' tool first.",
+              backgroundColor: Colors.redAccent,
+              icon: Icons.lock_outline_rounded,
+            );
+          }
+          return;
+        }
+
+        // 2. Page Count Detection
         final count = _parsePdfPageCount(bytes);
+        if (count == 0 || count == null) {
+          setState(() {
+            _pickedFiles.clear();
+            _pageCount = null;
+          });
+          if (mounted) {
+            showCustomSnackBar(
+              context: context,
+              message: "This PDF document contains no pages.",
+              backgroundColor: Colors.redAccent,
+              icon: Icons.error_outline_rounded,
+            );
+          }
+          return;
+        }
+
+        // 3. 1-Page PDF Split check
+        if (widget.tool['id'] == 'split' && count == 1) {
+          setState(() {
+            _pickedFiles.clear();
+            _pageCount = null;
+          });
+          if (mounted) {
+            showCustomSnackBar(
+              context: context,
+              message: "This PDF has only 1 page. A single-page PDF document cannot be split.",
+              backgroundColor: Colors.redAccent,
+              icon: Icons.error_outline_rounded,
+            );
+          }
+          return;
+        }
+
         setState(() {
           _pageCount = count;
         });

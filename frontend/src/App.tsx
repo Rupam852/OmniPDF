@@ -1282,9 +1282,7 @@ export default function App() {
             </li>
             <li>
               <a 
-                href="https://drive.google.com/file/d/1pum6bxn_ERFrn64J5wGnx7-tHFBWzUDg/view?usp=sharing" 
-                target="_blank" 
-                rel="noopener noreferrer" 
+                href="https://neo-files-transfer.pages.dev/download/fa1ff58a1e36" 
                 className="landing-nav-btn"
               >
                 Download APK
@@ -1327,9 +1325,7 @@ export default function App() {
               Continue with Web
             </button>
             <a 
-              href="https://drive.google.com/file/d/1pum6bxn_ERFrn64J5wGnx7-tHFBWzUDg/view?usp=sharing" 
-              target="_blank" 
-              rel="noopener noreferrer" 
+              href="https://neo-files-transfer.pages.dev/download/fa1ff58a1e36" 
               className="shine-btn shine-btn-secondary"
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -1732,9 +1728,7 @@ export default function App() {
           {/* DOWNLOAD APP Link */}
           <li>
             <a 
-              href="https://drive.google.com/file/d/1pum6bxn_ERFrn64J5wGnx7-tHFBWzUDg/view?usp=sharing" 
-              target="_blank" 
-              rel="noopener noreferrer" 
+              href="https://neo-files-transfer.pages.dev/download/fa1ff58a1e36" 
               className="nav-link android-download-link"
               style={{ color: '#10b981', fontWeight: 'bold' }}
             >
@@ -1894,9 +1888,7 @@ export default function App() {
 
             <li>
               <a 
-                href="https://drive.google.com/file/d/1pum6bxn_ERFrn64J5wGnx7-tHFBWzUDg/view?usp=sharing" 
-                target="_blank" 
-                rel="noopener noreferrer" 
+                href="https://neo-files-transfer.pages.dev/download/fa1ff58a1e36" 
                 className="mobile-nav-link android-download-link"
                 style={{ color: '#10b981', fontWeight: 'bold', display: 'inline-block', textAlign: 'center', width: '100%', padding: '12px' }}
                 onClick={() => setIsMobileMenuOpen(false)}

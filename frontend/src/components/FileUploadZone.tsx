@@ -22,6 +22,115 @@ const getFileColor = (file: File): string => {
   return '#64748b'; // Slate
 };
 
+const TOOL_GUIDES: Record<string, string[]> = {
+  'merge': [
+    'Upload multiple PDF files by clicking the box or dragging them in.',
+    'Rearrange files in your preferred order by clicking to select and preview.',
+    'Click "Process & Download" to compile them into a single PDF.'
+  ],
+  'split': [
+    'Upload a single PDF document.',
+    'Choose a split mode: either split every page, or specify custom ranges (e.g. 1-3, 4-6).',
+    'Click "Process & Download" to compile. Results will download as a ZIP file.'
+  ],
+  'remove-pages': [
+    'Upload your PDF document.',
+    'Enter comma-separated page numbers you wish to remove (e.g. 1, 3, 5).',
+    'Click "Process & Download" to compile and download your clean PDF.'
+  ],
+  'extract-pages': [
+    'Upload your PDF document.',
+    'Enter comma-separated page ranges or page numbers to extract (e.g. 1-3, 5).',
+    'Click "Process & Download" to generate a new PDF with only those pages.'
+  ],
+  'organize-pdf': [
+    'Upload your PDF document.',
+    'Specify a new order for the pages (e.g. 3, 1, 2) or choose "Reverse Pages".',
+    'Click "Process & Download" to restructure and download the PDF.'
+  ],
+  'scan-to-pdf': [
+    'Allow camera access and scan pages sequentially using your camera.',
+    'Or upload existing scanned page images (JPG, PNG).',
+    'Click "Process & Download" to compile your images into an aligned PDF.'
+  ],
+  'compress': [
+    'Upload one or more PDF files.',
+    'Adjust the slider to choose your target size (compression ratio).',
+    'Click "Process & Download" to download the optimized files.'
+  ],
+  'repair': [
+    'Upload a corrupted, damaged, or unreadable PDF file.',
+    'Our system will automatically attempt to repair malformed headers or corrupt byte streams.',
+    'Click "Process & Download" to recover and download the repaired PDF.'
+  ],
+  'ocr': [
+    'Upload a scanned PDF containing images of text.',
+    'Provide your Google Gemini API Key in the config box.',
+    'Click "Process & Download" to transcribe images into selectable, searchable text.'
+  ],
+  'watermark': [
+    'Upload a PDF document.',
+    'Set your custom watermark text, adjust opacity, choose font size, and set position (e.g. Center, Bottom-Right).',
+    'Click "Process & Download" to apply stamp and download.'
+  ],
+  'rotate': [
+    'Upload your PDF file.',
+    'Rotate specific pages or all pages by clicking on the rotation options.',
+    'Click "Process & Download" to rotate and download your PDF.'
+  ],
+  'page-numbers': [
+    'Upload your PDF file.',
+    'Choose the position for pagination (e.g. Bottom-Right, Top-Center) and start index.',
+    'Click "Process & Download" to add page numbers.'
+  ],
+  'crop': [
+    'Upload your PDF file.',
+    'Set custom trim margins (Left, Top, Right, Bottom margins in %).',
+    'Click "Process & Download" to crop and download.'
+  ],
+  'pdf-forms': [
+    'Upload your PDF document containing interactive form fields.',
+    'The system will flatten all inputs so the document contents are permanently set and uneditable.',
+    'Click "Process & Download" to flatten and download.'
+  ],
+  'sign': [
+    'Upload your PDF document.',
+    'Enter your name signature text to generate digital name stamps.',
+    'Click "Process & Download" to sign and download.'
+  ],
+  'redact': [
+    'Upload your PDF document.',
+    'Enter the text or phrase you wish to permanently redact (e.g. passwords, confidential terms).',
+    'Click "Process & Download" to blackout the occurrences permanently.'
+  ],
+  'protect': [
+    'Upload your PDF document.',
+    'Enter a secure password to encrypt and lock your PDF file.',
+    'Click "Process & Download" to protect and download.'
+  ],
+  'unlock': [
+    'Upload an encrypted/password-locked PDF document.',
+    'Enter the document password to authenticate.',
+    'Click "Process & Download" to strip security and download an unlocked copy.'
+  ],
+  'ai-summarizer': [
+    'Upload your PDF document.',
+    'Enter your Google Gemini API Key and select your preferred summary format.',
+    'Click "Process & Download" to generate AI highlights and summary text.'
+  ],
+  'jpg-to-pdf': [
+    'Upload one or more JPG/PNG images.',
+    'Our system will automatically compile and align them into a single multi-page PDF.',
+    'Click "Process & Download" to convert.'
+  ]
+};
+
+const DEFAULT_GUIDE = [
+  'Upload your files into the workspace.',
+  'Configure any options in the Options Configurator.',
+  'Click "Process & Download" to run and retrieve your output.'
+];
+
 interface FileUploadZoneProps {
   toolName: string;
   toolId?: string;
@@ -174,7 +283,7 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
 
   useEffect(() => {
     const detectPages = async () => {
-      if (files.length > 0 && files[0].type === 'application/pdf') {
+      if (files.length > 0 && (files[0].type === 'application/pdf' || files[0].name.toLowerCase().endsWith('.pdf'))) {
         setIsFileLoading(true);
         setFileLoadingMessage('Reading document structure and counting pages...');
         try {
@@ -182,9 +291,29 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
           const loadingTask = pdfjs.getDocument({ data: new Uint8Array(arrayBuffer) });
           const pdfDoc = await loadingTask.promise;
           setPageCount(pdfDoc.numPages);
-        } catch (error) {
+          
+          if (pdfDoc.numPages === 0) {
+            setErrorMessage("This PDF document contains no pages.");
+            setFiles([]);
+          } else if (toolId === 'split' && pdfDoc.numPages === 1) {
+            setErrorMessage("This PDF has only 1 page. A single-page PDF document cannot be split.");
+            setFiles([]);
+          }
+        } catch (error: any) {
           console.error('Error detecting PDF page count:', error);
           setPageCount(null);
+          if (error.name === 'PasswordException' || error.message?.toLowerCase().includes('password')) {
+            if (toolId !== 'unlock') {
+              setErrorMessage("This PDF is password-protected. Please decrypt it using the 'Unlock PDF' tool first.");
+              setFiles([]);
+            }
+          } else if (error.name === 'InvalidPDFException' || error.message?.toLowerCase().includes('invalid pdf') || error.message?.toLowerCase().includes('pdf header')) {
+            setErrorMessage("The PDF file appears to be corrupted or invalid. Please check the file and try again.");
+            setFiles([]);
+          } else {
+            setErrorMessage(`Failed to read the PDF: ${error.message || 'Invalid format.'}`);
+            setFiles([]);
+          }
         } finally {
           setIsFileLoading(false);
           setFileLoadingMessage('');
@@ -287,6 +416,25 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
     setFiles(updatedFiles);
   };
 
+  const renderGuide = () => {
+    const steps = TOOL_GUIDES[toolId || ''] || DEFAULT_GUIDE;
+    return (
+      <div className="guide-panel">
+        <h4 className="guide-title">
+          <span>📖</span> Quick Guide: How to use {toolName}
+        </h4>
+        <ol className="guide-steps">
+          {steps.map((step, idx) => (
+            <li key={idx} className="guide-step-item">
+              <span className="guide-step-number">{idx + 1}.</span>
+              <span>{step}</span>
+            </li>
+          ))}
+        </ol>
+      </div>
+    );
+  };
+
   const handleDrag = (e: DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -304,17 +452,47 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
 
     try {
       const valid = incoming.filter(f => {
-        // For jpg-to-pdf, accept images too
-        if (toolId === 'jpg-to-pdf') {
-          return ['image/jpeg', 'image/jpg', 'image/png'].includes(f.type);
+        const ext = getFileExtension(f);
+        
+        // Match by extension or MIME type for image tools
+        if (toolId === 'jpg-to-pdf' || toolId === 'scan-to-pdf') {
+          return ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'].includes(f.type) ||
+                 ['jpg', 'jpeg', 'png', 'webp'].includes(ext);
         }
-        return acceptedMimeTypes.includes(f.type);
+        
+        // Define standard MIME-to-extension mappings for validation fallback
+        const acceptedExtensions: Record<string, string[]> = {
+          'application/pdf': ['pdf'],
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['docx', 'doc'],
+          'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['pptx', 'ppt'],
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['xlsx', 'xls'],
+          'text/html': ['html', 'htm']
+        };
+
+        // Standard MIME type check
+        if (acceptedMimeTypes.includes(f.type)) {
+          return true;
+        }
+
+        // Extension fallback check if MIME type is empty or unrecognized
+        return acceptedMimeTypes.some(mime => {
+          const exts = acceptedExtensions[mime] || [];
+          return exts.includes(ext);
+        });
       });
 
       if (valid.length === 0) {
         setErrorMessage(
           toolId === 'jpg-to-pdf'
             ? 'Please upload JPG or PNG image files.'
+            : toolId === 'word-to-pdf'
+            ? 'Please upload a valid Word document (.docx).'
+            : toolId === 'powerpoint-to-pdf'
+            ? 'Please upload a valid PowerPoint presentation (.pptx).'
+            : toolId === 'excel-to-pdf'
+            ? 'Please upload a valid Excel spreadsheet (.xlsx).'
+            : toolId === 'html-to-pdf'
+            ? 'Please upload a valid HTML file (.html).'
             : 'Invalid file type. Please upload a valid PDF document.'
         );
         return;
@@ -393,6 +571,11 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
   const handleTriggerProcess = async () => {
     if (files.length === 0) {
       setErrorMessage('Please select at least one file to process.');
+      return;
+    }
+
+    if (toolId === 'split' && pageCount === 1) {
+      setErrorMessage('This PDF has only 1 page. A single-page PDF document cannot be split.');
       return;
     }
 
@@ -483,7 +666,18 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
       clearInterval(interval);
       setIsProcessing(false);
       setProgress(0);
-      setErrorMessage(err.message || 'Operation failed. Please try again.');
+      
+      let errorMsg = err.message || 'Operation failed. Please try again.';
+      const lowercaseMsg = errorMsg.toLowerCase();
+      if (lowercaseMsg.includes('failed to fetch') || lowercaseMsg.includes('networkerror') || lowercaseMsg.includes('load failed')) {
+        errorMsg = 'Could not connect to the PDF processing server. Please check your network connection or try again later.';
+      } else if (lowercaseMsg.includes('cors') || lowercaseMsg.includes('origin')) {
+        errorMsg = 'Connection refused due to security configuration (CORS). Please ensure you are running in an authorized environment.';
+      } else if (lowercaseMsg.includes('api key') || lowercaseMsg.includes('gemini') || lowercaseMsg.includes('generative')) {
+        errorMsg = 'Gemini AI processing failed. Please verify your Gemini API key and try again.';
+      }
+      
+      setErrorMessage(errorMsg);
     }
   };
 
@@ -498,7 +692,7 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
 
 
   return (
-    <div className="omnipdf-upload-container">
+    <div className={`omnipdf-upload-container ${files.length > 0 ? 'workspace-active' : ''}`}>
       <h2 className="upload-header">{toolName}</h2>
 
       <input
@@ -618,58 +812,61 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
 
       {/* File Drop Area */}
       {files.length === 0 && (!isCameraActive || toolId !== 'scan-to-pdf') ? (
-        <div
-          className="drop-zone"
-          style={{
-            borderColor: dragActive ? '#3b82f6' : 'rgba(255, 255, 255, 0.08)',
-            background: dragActive ? 'rgba(59, 130, 246, 0.05)' : 'rgba(15, 23, 42, 0.6)',
-          }}
-          onDragEnter={handleDrag}
-          onDragOver={handleDrag}
-          onDragLeave={handleDrag}
-          onDrop={handleDrop}
-          onClick={() => fileInputRef.current?.click()}
-        >
-          <div className="upload-icon">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="17 8 12 3 7 8" />
-              <line x1="12" y1="3" x2="12" y2="15" />
-            </svg>
-          </div>
-          <p className="drop-text">
-            Drag &amp; drop files here, or <span className="browse-text">browse</span>
-          </p>
-          <p className="sub-text">{supportText}</p>
-          {allowMultiple && <p className="sub-text">You can select multiple files</p>}
-          {toolId === 'scan-to-pdf' && (
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); setIsCameraActive(true); }}
-              style={{
-                marginTop: '16px',
-                background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
-                color: '#fff',
-                border: 'none',
-                padding: '10px 24px',
-                borderRadius: '24px',
-                fontSize: '14px',
-                fontWeight: 'bold',
-                cursor: 'pointer',
-                boxShadow: '0 4px 14px rgba(59, 130, 246, 0.4)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-              }}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-                <circle cx="12" cy="13" r="4" />
+        <>
+          <div
+            className="drop-zone"
+            style={{
+              borderColor: dragActive ? '#3b82f6' : 'rgba(255, 255, 255, 0.08)',
+              background: dragActive ? 'rgba(59, 130, 246, 0.05)' : 'rgba(15, 23, 42, 0.6)',
+            }}
+            onDragEnter={handleDrag}
+            onDragOver={handleDrag}
+            onDragLeave={handleDrag}
+            onDrop={handleDrop}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <div className="upload-icon">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="17 8 12 3 7 8" />
+                <line x1="12" y1="3" x2="12" y2="15" />
               </svg>
-              Scan with Camera
-            </button>
-          )}
-        </div>
+            </div>
+            <p className="drop-text">
+              Drag &amp; drop files here, or <span className="browse-text">browse</span>
+            </p>
+            <p className="sub-text">{supportText}</p>
+            {allowMultiple && <p className="sub-text">You can select multiple files</p>}
+            {toolId === 'scan-to-pdf' && (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setIsCameraActive(true); }}
+                style={{
+                  marginTop: '16px',
+                  background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+                  color: '#fff',
+                  border: 'none',
+                  padding: '10px 24px',
+                  borderRadius: '24px',
+                  fontSize: '14px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 14px rgba(59, 130, 246, 0.4)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                }}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                  <circle cx="12" cy="13" r="4" />
+                </svg>
+                Scan with Camera
+              </button>
+            )}
+          </div>
+          {renderGuide()}
+        </>
       ) : (
         <div className="tool-workspace-layout-vertical">
           {/* Big Preview Box spanning across the top */}
@@ -693,7 +890,7 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
             <div className="workspace-main-panel">
               <div className="file-list-header">
                 <span>Selected Files ({files.length})</span>
-                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
                   {toolId === 'scan-to-pdf' && (
                     <button
                       type="button"
@@ -1198,6 +1395,8 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
                 <p style={{ color: '#64748b', fontSize: '13px', margin: '0' }}>No additional options required for this tool.</p>
               )}
             </div>
+
+            {renderGuide()}
 
             {/* Process Button */}
             {!isProcessing && (
