@@ -1729,7 +1729,7 @@ export default function App() {
               onClick={() => { setSelectedTool(null); setProcessedResult(null); }} 
               className="header-back-btn"
             >
-              📋 Tools Dashboard
+              Tools Dashboard
             </button>
           </div>
         </header>
