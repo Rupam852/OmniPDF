@@ -1740,7 +1740,7 @@ export default function App() {
             <a 
               href="#" 
               onClick={(e) => { e.preventDefault(); setSelectedTool(tools.find(t => t.id === 'merge') || null); setProcessedResult(null); }} 
-              className="nav-link"
+              className="nav-link nav-tool-link"
             >
               MERGE PDF
             </a>
@@ -1749,7 +1749,7 @@ export default function App() {
             <a 
               href="#" 
               onClick={(e) => { e.preventDefault(); setSelectedTool(tools.find(t => t.id === 'split') || null); setProcessedResult(null); }} 
-              className="nav-link"
+              className="nav-link nav-tool-link"
             >
               SPLIT PDF
             </a>
@@ -1758,7 +1758,7 @@ export default function App() {
             <a 
               href="#" 
               onClick={(e) => { e.preventDefault(); setSelectedTool(tools.find(t => t.id === 'compress') || null); setProcessedResult(null); }} 
-              className="nav-link"
+              className="nav-link nav-tool-link"
             >
               COMPRESS PDF
             </a>

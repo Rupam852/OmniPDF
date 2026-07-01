@@ -2175,6 +2175,13 @@ h1, h2, h3, h4, h5, h6 {
   border-radius: 8px;
   padding: 6px 12px !important;
   transition: all 0.3s ease !important;
+  white-space: nowrap;
+}
+
+@media (max-width: 1180px) {
+  .nav-tool-link {
+    display: none !important;
+  }
 }
 
 .android-download-link:hover {
