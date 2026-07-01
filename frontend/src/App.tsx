@@ -1689,7 +1689,6 @@ export default function App() {
             </a>
             <span className="header-breadcrumb-separator">/</span>
             <span className="header-active-tool">
-              <span className="tool-dot" style={{ backgroundColor: selectedTool.iconColor }}></span>
               {selectedTool.name}
             </span>
           </div>
@@ -1718,7 +1717,6 @@ export default function App() {
                           setIsSwitchDropdownOpen(false);
                         }}
                       >
-                        <span className="tool-dot" style={{ backgroundColor: t.iconColor }}></span>
                         {t.name}
                       </div>
                     ))}
